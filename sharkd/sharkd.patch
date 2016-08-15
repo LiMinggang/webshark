@@ -1,0 +1,53 @@
+diff --git a/Makefile.am b/Makefile.am
+index 67ba8cd..de2b887 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -47,7 +47,7 @@ bin_PROGRAMS = \
+ 	@rawshark_bin@		\
+ 	@echld_test_bin@
+ 
+-EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
++EXTRA_PROGRAMS = wireshark-gtk wireshark tshark sharkd tfshark capinfos captype \
+ 	editcap mergecap dftest randpkt text2pcap dumpcap reordercap \
+ 	rawshark echld_test
+ 
+@@ -531,6 +531,39 @@ tshark_LDADD = \
+ 	@LIBGNUTLS_LIBS@		\
+ 	@LIBSMI_LDFLAGS@
+ 
++sharkd_SOURCES = \
++	$(SHARK_COMMON_SRC)	\
++	capture_opts.c		\
++	filter_files.c		\
++	sharkd.c		\
++	sharkd_daemon.c		\
++	ws_version_info.c
++
++sharkd_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
++
++sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
++
++# Libraries and plugin flags with which to link tshark.
++sharkd_LDADD = \
++	capchild/libcapchild.a		\
++	caputils/libcaputils.a		\
++	ui/cli/libcliui.a		\
++	ui/libui.a			\
++	wiretap/libwiretap.la		\
++	epan/libwireshark.la		\
++	wsutil/libwsutil.la		\
++	@SSL_LIBS@			\
++	$(plugin_ldadd)			\
++	@GLIB_LIBS@			\
++	@PCAP_LIBS@			\
++	@C_ARES_LIBS@			\
++	@KRB5_LIBS@			\
++	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
++	@COREFOUNDATION_FRAMEWORKS@	\
++	@LIBGCRYPT_LIBS@		\
++	@LIBGNUTLS_LIBS@		\
++	@LIBSMI_LDFLAGS@
++
+ tfshark_SOURCES = \
+ 	$(SHARK_COMMON_SRC)	\
+ 	tfshark.c		\
