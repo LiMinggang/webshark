@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <sys/socket.h>
@@ -27,11 +28,9 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-
-#include <wsutil/jsmn.h>
-
 static int _server_fd = -1;
 
+int sharkd_session_main(void);
 
 int
 socket_init(char *path)
@@ -132,14 +131,6 @@ sharkd_init(int argc, char **argv)
 	return 0;
 }
 
-static int
-sharkd_process(void)
-{
-	fprintf(stderr, "Hello in child!\n");
-
-	return 0;
-}
-
 int
 sharkd_loop(void)
 {
@@ -157,7 +148,7 @@ sharkd_loop(void)
 			dup2(fd, 1);
 			close(fd);
 
-			exit(sharkd_process());
+			exit(sharkd_session_main());
 		}
 
 		close(fd);

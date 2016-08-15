@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 67ba8cd..de2b887 100644
+index 67ba8cd..a409f52 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -47,7 +47,7 @@ bin_PROGRAMS = \
@@ -11,7 +11,7 @@ index 67ba8cd..de2b887 100644
  	editcap mergecap dftest randpkt text2pcap dumpcap reordercap \
  	rawshark echld_test
  
-@@ -531,6 +531,39 @@ tshark_LDADD = \
+@@ -531,6 +531,40 @@ tshark_LDADD = \
  	@LIBGNUTLS_LIBS@		\
  	@LIBSMI_LDFLAGS@
  
@@ -21,6 +21,7 @@ index 67ba8cd..de2b887 100644
 +	filter_files.c		\
 +	sharkd.c		\
 +	sharkd_daemon.c		\
++	sharkd_session.c	\
 +	ws_version_info.c
 +
 +sharkd_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
@@ -51,3 +52,16 @@ index 67ba8cd..de2b887 100644
  tfshark_SOURCES = \
  	$(SHARK_COMMON_SRC)	\
  	tfshark.c		\
+diff --git a/wsutil/jsmn.h b/wsutil/jsmn.h
+index 7cf51aa..a0622d8 100644
+--- a/wsutil/jsmn.h
++++ b/wsutil/jsmn.h
+@@ -91,7 +91,7 @@ WS_DLL_PUBLIC void jsmn_init(jsmn_parser *parser);
+  * Run JSON parser. It parses a JSON data string into and array of tokens, each describing
+  * a single JSON object.
+  */
+-int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
++WS_DLL_PUBLIC int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
+ 		jsmntok_t *tokens, unsigned int num_tokens);
+ 
+ /**
