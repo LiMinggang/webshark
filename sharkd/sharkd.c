@@ -131,13 +131,13 @@ extern int sharkd_loop(void);
 #define tshark_debug(...)
 #endif
 
+static guint32 cum_bytes;
 static const frame_data *ref;
+static frame_data ref_frame;
 static frame_data *prev_dis;
 static frame_data *prev_cap;
 
-static gboolean perform_two_pass_analysis;
-
-static gboolean do_dissection;     /* TRUE if we have to dissect each packet */
+static gboolean do_dissection = TRUE; /* TRUE if we have to dissect each packet */
 static gboolean print_packet_info; /* TRUE if we're to print packet information */
 static gboolean really_quiet = FALSE;
 
@@ -933,6 +933,200 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
 
 #endif /* HAVE_LIBPCAP */
 
+static gboolean
+process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
+               gint64 offset, struct wtap_pkthdr *whdr,
+               const guchar *pd)
+{
+  frame_data     fdlocal;
+  guint32        framenum;
+  gboolean       passed;
+
+  /* The frame number of this packet is one more than the count of
+     frames in this packet. */
+  framenum = cf->count + 1;
+
+  /* If we're not running a display filter and we're not printing any
+     packet information, we don't need to do a dissection. This means
+     that all packets can be marked as 'passed'. */
+  passed = TRUE;
+
+  frame_data_init(&fdlocal, framenum, whdr, offset, cum_bytes);
+
+  /* If we're going to print packet information, or we're going to
+     run a read filter, or display filter, or we're going to process taps, set up to
+     do a dissection and do so. */
+  if (edt) {
+    if (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
+        gbl_resolv_flags.transport_name)
+      /* Grab any resolved addresses */
+      host_name_lookup_process();
+
+    /* If we're running a read filter, prime the epan_dissect_t with that
+       filter. */
+    if (cf->rfcode)
+      epan_dissect_prime_dfilter(edt, cf->rfcode);
+
+    if (cf->dfcode)
+      epan_dissect_prime_dfilter(edt, cf->dfcode);
+
+    frame_data_set_before_dissect(&fdlocal, &cf->elapsed_time,
+                                  &ref, prev_dis);
+    if (ref == &fdlocal) {
+      ref_frame = fdlocal;
+      ref = &ref_frame;
+    }
+
+    epan_dissect_run(edt, cf->cd_t, whdr, frame_tvbuff_new(&fdlocal, pd), &fdlocal, NULL);
+
+    /* Run the read filter if we have one. */
+    if (cf->rfcode)
+      passed = dfilter_apply_edt(cf->rfcode, edt);
+  }
+
+  if (passed) {
+    frame_data_set_after_dissect(&fdlocal, &cum_bytes);
+    prev_cap = prev_dis = frame_data_sequence_add(cf->frames, &fdlocal);
+
+    /* If we're not doing dissection then there won't be any dependent frames.
+     * More importantly, edt.pi.dependent_frames won't be initialized because
+     * epan hasn't been initialized.
+     * if we *are* doing dissection, then mark the dependent frames, but only
+     * if a display filter was given and it matches this packet.
+     */
+    if (edt && cf->dfcode) {
+      if (dfilter_apply_edt(cf->dfcode, edt)) {
+        g_slist_foreach(edt->pi.dependent_frames, find_and_mark_frame_depended_upon, cf->frames);
+      }
+    }
+
+    cf->count++;
+  } else {
+    /* if we don't add it to the frame_data_sequence, clean it up right now
+     * to avoid leaks */
+    frame_data_destroy(&fdlocal);
+  }
+
+  if (edt)
+    epan_dissect_reset(edt);
+
+  return passed;
+}
+
+
+static int
+load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
+{
+  int          err;
+  gchar       *err_info = NULL;
+  gint64       data_offset;
+  struct wtap_pkthdr phdr;
+  Buffer       buf;
+  epan_dissect_t *edt = NULL;
+
+  wtap_phdr_init(&phdr);
+
+  {
+    tshark_debug("tshark: perform_two_pass_analysis, do_dissection=%s", do_dissection ? "TRUE" : "FALSE");
+
+    /* Allocate a frame_data_sequence for all the frames. */
+    cf->frames = new_frame_data_sequence();
+
+    if (do_dissection) {
+       gboolean create_proto_tree = FALSE;
+
+      /* If we're going to be applying a filter, we'll need to
+         create a protocol tree against which to apply the filter. */
+      if (cf->rfcode || cf->dfcode)
+        create_proto_tree = TRUE;
+
+      tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
+
+      /* We're not going to display the protocol tree on this pass,
+         so it's not going to be "visible". */
+      edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
+    }
+
+    tshark_debug("tshark: reading records for first pass");
+    while (wtap_read(cf->wth, &err, &err_info, &data_offset)) {
+      if (process_packet_first_pass(cf, edt, data_offset, wtap_phdr(cf->wth),
+                         wtap_buf_ptr(cf->wth))) {
+        /* Stop reading if we have the maximum number of packets;
+         * When the -c option has not been used, max_packet_count
+         * starts at 0, which practically means, never stop reading.
+         * (unless we roll over max_packet_count ?)
+         */
+        if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
+          tshark_debug("tshark: max_packet_count (%d) or max_byte_count (%" G_GINT64_MODIFIER "d/%" G_GINT64_MODIFIER "d) reached",
+                        max_packet_count, data_offset, max_byte_count);
+          err = 0; /* This is not an error */
+          break;
+        }
+      }
+    }
+
+    if (edt) {
+      epan_dissect_free(edt);
+      edt = NULL;
+    }
+
+    /* Close the sequential I/O side, to free up memory it requires. */
+    wtap_sequential_close(cf->wth);
+
+    /* Allow the protocol dissectors to free up memory that they
+     * don't need after the sequential run-through of the packets. */
+    postseq_cleanup_all_protocols();
+
+    prev_dis = NULL;
+    prev_cap = NULL;
+    ws_buffer_init(&buf, 1500);
+
+    tshark_debug("tshark: done with first pass");
+  }
+
+  wtap_phdr_cleanup(&phdr);
+
+  if (err != 0) {
+    tshark_debug("tshark: something failed along the line (%d)", err);
+
+    switch (err) {
+
+    case WTAP_ERR_UNSUPPORTED:
+      cmdarg_err("The file \"%s\" contains record data that TShark doesn't support.\n(%s)",
+                 cf->filename,
+                 err_info != NULL ? err_info : "no information supplied");
+      g_free(err_info);
+      break;
+
+    case WTAP_ERR_SHORT_READ:
+      cmdarg_err("The file \"%s\" appears to have been cut short in the middle of a packet.",
+                 cf->filename);
+      break;
+
+    case WTAP_ERR_BAD_FILE:
+      cmdarg_err("The file \"%s\" appears to be damaged or corrupt.\n(%s)",
+                 cf->filename,
+                 err_info != NULL ? err_info : "no information supplied");
+      g_free(err_info);
+      break;
+
+    case WTAP_ERR_DECOMPRESS:
+      cmdarg_err("The compressed file \"%s\" appears to be damaged or corrupt.\n"
+                 "(%s)", cf->filename,
+                 err_info != NULL ? err_info : "no information supplied");
+      g_free(err_info);
+      break;
+
+    default:
+      cmdarg_err("An error occurred while reading the file \"%s\": %s.",
+                 cf->filename, wtap_strerror(err));
+      break;
+    }
+  }
+
+  return err;
+}
+
 cf_status_t
 cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_tempfile, int *err)
 {
@@ -940,7 +1134,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   gchar *err_info;
   char   err_msg[2048+1];
 
-  wth = wtap_open_offline(fname, type, err, &err_info, perform_two_pass_analysis);
+  wth = wtap_open_offline(fname, type, err, &err_info, TRUE);
   if (wth == NULL)
     goto fail;
 
@@ -1165,6 +1359,74 @@ failure_message_cont(const char *msg_format, va_list ap)
   vfprintf(stderr, msg_format, ap);
   fprintf(stderr, "\n");
 }
+
+cf_status_t
+sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err)
+{
+	return cf_open(&cfile, fname, type, is_tempfile, err);
+}
+
+int
+sharkd_load_cap_file(void)
+{
+	return load_cap_file(&cfile, 0, 0);
+}
+
+#if 0
+  /* Get the union of the flags for all tap listeners. */
+  guint        tap_flags;
+  gboolean     filtering_tap_listeners;
+
+  tap_flags = union_of_tap_listener_flags();
+
+  /* Do we have any tap listeners with filters? */
+  filtering_tap_listeners = have_filtering_tap_listeners();
+
+  guint32      framenum;
+    frame_data *fdata;
+
+    if (do_dissection) {
+      gboolean create_proto_tree;
+
+      if (cf->dfcode || filtering_tap_listeners ||
+         (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo))
+           create_proto_tree = TRUE;
+      else
+           create_proto_tree = FALSE;
+
+      tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
+
+      /* The protocol tree will be "visible", i.e., printed, only if we're
+         printing packet details, which is true if we're printing stuff
+         ("print_packet_info" is true) and we're in verbose mode
+         ("packet_details" is true). */
+      edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
+    }
+
+    if (edt) {
+      epan_dissect_free(edt);
+      edt = NULL;
+    }
+
+    ws_buffer_free(&buf);
+
+    tshark_debug("tshark: done with second pass");
+
+    for (framenum = 1; err == 0 && framenum <= cf->count; framenum++) {
+      fdata = frame_data_sequence_find(cf->frames, framenum);
+      if (wtap_seek_read(cf->wth, fdata->file_off, &phdr, &buf, &err,
+                         &err_info)) {
+        tshark_debug("tshark: invoking process_packet_second_pass() for frame #%d", framenum);
+        if (process_packet_second_pass(cf, edt, fdata, &phdr, &buf,
+                                       tap_flags)) {
+          /* Either there's no read filtering or this packet passed the
+             filter, so, if we're writing to a capture file, write
+             this packet out. */
+        }
+      }
+    }
+#endif
+
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

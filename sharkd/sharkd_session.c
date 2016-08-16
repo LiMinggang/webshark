@@ -19,9 +19,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+
+#include <glib.h>
 
 #include <wsutil/jsmn.h>
+
+#include <file.h>
+#include <epan/exceptions.h>
+#include <wiretap/wtap.h>
+
+cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
+int sharkd_load_cap_file(void);
 
 static const char *
 json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *attr)
@@ -44,14 +55,31 @@ static void
 sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_file = json_find_attr(buf, tokens, count, "file");
+	int err = 0;
+
+	fprintf(stderr, "load: filename=%s\n", tok_file);
 
 	if (!tok_file)
+		return;
+
+	if (sharkd_cf_open(tok_file, WTAP_TYPE_AUTO, FALSE, &err) != CF_OK)
 	{
-		fprintf(stderr, "load: no file attr\n");
+		printf("{\"err\":%d}\n", err);
 		return;
 	}
 
-	fprintf(stderr, "load = %s\n", tok_file);
+	TRY
+	{
+		err = sharkd_load_cap_file();
+	}
+	CATCH(OutOfMemoryError)
+	{
+		fprintf(stderr, "load: OutOfMemoryError\n");
+		err = ENOMEM;
+	}
+	ENDTRY;
+
+	printf("{\"err\":%d}\n", err);
 }
 
 static void
@@ -99,8 +127,12 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 
 		if (!strcmp(tok_req, "load"))
 			sharkd_session_process_load(buf, tokens, count);
+		else if (!strcmp(tok_req, "bye"))
+			_Exit(0);
 		else
 			fprintf(stderr, "::: req = %s\n", tok_req);
+
+		printf("\n");
 	}
 }
 
@@ -112,6 +144,7 @@ sharkd_session_main(void)
 	int tokens_max = -1;
 
 	fprintf(stderr, "Hello in child!\n");
+	setlinebuf(stdout);
 
 	while (fgets(buf, sizeof(buf), stdin))
 	{
@@ -152,7 +185,7 @@ sharkd_session_main(void)
 		sharkd_session_process(buf, tokens, ret);
 	}
 
-	free(tokens);
+	g_free(tokens);
 
 	return 0;
 }
