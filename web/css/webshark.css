@@ -1,0 +1,14 @@
+tr.selected
+{
+	background-color: #0080FF;
+}
+
+#ws_packet_detail_view ul
+{
+	list-style-type: none;
+}
+
+#ws_packet_detail_view span.tree_expander
+{
+	margin-left: -15px;	
+}

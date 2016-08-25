@@ -33,6 +33,8 @@
 
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
+int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
+int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
 
 static const char *
 json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *attr)
@@ -83,6 +85,164 @@ sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 }
 
 static void
+sharkd_session_process_status(void)
+{
+	extern capture_file cfile;
+	int i;
+
+	printf("{\"frames\":%d, \"columns\":[", cfile.count);
+	for (i = 0; i < cfile.cinfo.num_cols; i++)
+	{
+		const col_item_t *col_item = &cfile.cinfo.columns[i];
+
+		printf("%s\"%s\"", (i) ? "," : "", col_item->col_title);
+	}
+	printf("]");
+
+	printf("}\n");
+}
+
+
+static void
+sharkd_session_process_frames(void)
+{
+	extern capture_file cfile;
+
+	const char *frame_sepa = "";
+	unsigned int framenum;
+	int col;
+
+	printf("[");
+	for (framenum = 1; framenum <= cfile.count; framenum++)
+	{
+		sharkd_dissect_columns(framenum, &cfile.cinfo, TRUE);
+
+		printf("%s{\"c\":[", frame_sepa);
+		for (col = 0; col < cfile.cinfo.num_cols; ++col)
+		{
+			const col_item_t *col_item = &cfile.cinfo.columns[col];
+
+			printf("%s\"%s\"", (col) ? "," : "", col_item->col_data);
+		}
+		printf("],\"num\":%u}", framenum);
+
+		frame_sepa = ",";
+	}
+	printf("]\n");
+}
+
+static void
+sharkd_session_process_frame_cb_tree(proto_tree *tree)
+{
+	proto_node *node;
+	const char *sepa = "";
+
+	printf("[");
+	for (node = tree->first_child; node != NULL; node = node->next) {
+		field_info *finfo = PNODE_FINFO(node);
+
+		if (!finfo)
+			continue;
+
+		/* XXX, for now always skip hidden */
+		if (FI_GET_FLAG(finfo, FI_HIDDEN))
+			continue;
+
+		if (!finfo->rep)
+		{
+			char label_str[ITEM_LABEL_LENGTH];
+
+			proto_item_fill_label(finfo, label_str);
+			printf("%s\"%s\"", sepa, label_str);
+		}
+		else
+		{
+			printf("%s\"%s\"", sepa, finfo->rep->representation);
+		}
+
+		sepa = ",";
+
+		if (((proto_tree *) node)->first_child) {
+			printf(",");
+			sharkd_session_process_frame_cb_tree((proto_tree *) node);
+		}
+	}
+	printf("]");
+}
+
+static void
+sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src)
+{
+	printf("{");
+
+	printf("\"err\":0");
+
+	if (tree)
+	{
+		printf(",\"tree\":");
+		sharkd_session_process_frame_cb_tree(tree);
+	}
+
+	if (cinfo)
+	{
+		int col;
+
+		printf(",\"col\":[");
+		for (col = 0; col < cinfo->num_cols; ++col)
+		{
+			const col_item_t *col_item = &cinfo->columns[col];
+
+			printf("%s\"%s\"", (col) ? "," : "", col_item->col_data);
+		}
+		printf("]");
+	}
+
+	if (data_src)
+	{
+		struct data_source *src = (struct data_source *)data_src->data;
+
+		tvbuff_t *tvb;
+		guint length;
+
+		printf(",\"bytes\":[");
+
+		tvb = get_data_source_tvb(src);
+
+		length = tvb_captured_length(tvb);
+		if (length != 0)
+		{
+			const guchar *cp = tvb_get_ptr(tvb, 0, length);
+			size_t i;
+
+			/* XXX pi.fd->flags.encoding */
+			for (i = 0; i < length; i++)
+				printf("%s%d", (i) ? "," : "", cp[i]);
+		}
+		printf("]");
+	}
+
+	printf("}\n");
+}
+
+static void
+sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
+{
+	extern capture_file cfile;
+
+	const char *tok_frame = json_find_attr(buf, tokens, count, "frame");
+	int tok_proto   = (json_find_attr(buf, tokens, count, "proto") != NULL);
+	int tok_bytes   = (json_find_attr(buf, tokens, count, "bytes") != NULL);
+	int tok_columns = (json_find_attr(buf, tokens, count, "columns") != NULL);
+
+	int framenum;
+
+	if (!tok_frame || !(framenum = atoi(tok_frame)))
+		return;
+
+	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto);
+}
+
+static void
 sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 {
 	int i;
@@ -127,6 +287,12 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 
 		if (!strcmp(tok_req, "load"))
 			sharkd_session_process_load(buf, tokens, count);
+		else if (!strcmp(tok_req, "status"))
+			sharkd_session_process_status();
+		else if (!strcmp(tok_req, "frames"))
+			sharkd_session_process_frames();
+		else if (!strcmp(tok_req, "frame"))
+			sharkd_session_process_frame(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))
 			_Exit(0);
 		else

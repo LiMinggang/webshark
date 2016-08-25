@@ -1372,61 +1372,115 @@ sharkd_load_cap_file(void)
 	return load_cap_file(&cfile, 0, 0);
 }
 
-#if 0
-  /* Get the union of the flags for all tap listeners. */
-  guint        tap_flags;
-  gboolean     filtering_tap_listeners;
+int
+sharkd_dissect_request(int framenum, void (*cb)(proto_tree *, struct epan_column_info *, GSList *), int dissect_bytes, int dissect_columns, int dissect_tree)
+{
+	frame_data *fdata;
+	column_info *cinfo = (dissect_columns) ? &cfile.cinfo : NULL;
+	epan_dissect_t edt;
+	gboolean create_proto_tree;
+	struct wtap_pkthdr phdr; /* Packet header */
+	Buffer buf; /* Packet data */
 
-  tap_flags = union_of_tap_listener_flags();
+	int err;
+	char *err_info = NULL;
 
-  /* Do we have any tap listeners with filters? */
-  filtering_tap_listeners = have_filtering_tap_listeners();
+	fdata = frame_data_sequence_find(cfile.frames, framenum);
+	if (fdata == NULL)
+		return -1;
 
-  guint32      framenum;
-    frame_data *fdata;
+	wtap_phdr_init(&phdr);
+	ws_buffer_init(&buf, 1500);
 
-    if (do_dissection) {
-      gboolean create_proto_tree;
+	if (!wtap_seek_read(cfile.wth, fdata->file_off, &phdr, &buf, &err, &err_info)) {
+		ws_buffer_free(&buf);
+		return -1;	/* error reading the record */
+	}
 
-      if (cf->dfcode || filtering_tap_listeners ||
-         (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo))
-           create_proto_tree = TRUE;
-      else
-           create_proto_tree = FALSE;
+	create_proto_tree = (dissect_tree) || (cinfo && have_custom_cols(cinfo));
+	epan_dissect_init(&edt, cfile.epan, create_proto_tree, dissect_tree);
 
-      tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
+	if (cinfo)
+		col_custom_prime_edt(&edt, cinfo);
 
-      /* The protocol tree will be "visible", i.e., printed, only if we're
-         printing packet details, which is true if we're printing stuff
-         ("print_packet_info" is true) and we're in verbose mode
-         ("packet_details" is true). */
-      edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
-    }
+	/*
+	 * XXX - need to catch an OutOfMemoryError exception and
+	 * attempt to recover from it.
+	 */
+	epan_dissect_run(&edt, cfile.cd_t, &phdr, frame_tvbuff_new_buffer(fdata, &buf), fdata, cinfo);
 
-    if (edt) {
-      epan_dissect_free(edt);
-      edt = NULL;
-    }
+	if (cinfo) {
+		/* "Stringify" non frame_data vals */
+		epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
+	}
 
-    ws_buffer_free(&buf);
+	cb(dissect_tree ? edt.tree : NULL, cinfo, dissect_bytes ? edt.pi.data_src : NULL);
 
-    tshark_debug("tshark: done with second pass");
+	epan_dissect_cleanup(&edt);
+	wtap_phdr_cleanup(&phdr);
+	ws_buffer_free(&buf);
+	return 0;
+}
 
-    for (framenum = 1; err == 0 && framenum <= cf->count; framenum++) {
-      fdata = frame_data_sequence_find(cf->frames, framenum);
-      if (wtap_seek_read(cf->wth, fdata->file_off, &phdr, &buf, &err,
-                         &err_info)) {
-        tshark_debug("tshark: invoking process_packet_second_pass() for frame #%d", framenum);
-        if (process_packet_second_pass(cf, edt, fdata, &phdr, &buf,
-                                       tap_flags)) {
-          /* Either there's no read filtering or this packet passed the
-             filter, so, if we're writing to a capture file, write
-             this packet out. */
-        }
-      }
-    }
-#endif
+/* based on packet_list_dissect_and_cache_record */
+int
+sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color)
+{
+	frame_data *fdata;
+	epan_dissect_t edt;
+	gboolean create_proto_tree;
+	struct wtap_pkthdr phdr; /* Packet header */
+	Buffer buf; /* Packet data */
 
+	int err;
+	char *err_info = NULL;
+
+	fdata = frame_data_sequence_find(cfile.frames, framenum);
+	if (fdata == NULL) {
+		col_fill_in_error(cinfo, fdata, FALSE, TRUE/* fill_fd_columns */);
+		return -1;	/* error reading the record */
+	}
+
+	wtap_phdr_init(&phdr);
+	ws_buffer_init(&buf, 1500);
+
+	if (!wtap_seek_read(cfile.wth, fdata->file_off, &phdr, &buf, &err, &err_info)) {
+		col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
+		ws_buffer_free(&buf);
+		return -1;	/* error reading the record */
+	}
+
+	create_proto_tree = (dissect_color && color_filters_used()) ||
+						(cinfo && have_custom_cols(cinfo));
+
+	epan_dissect_init(&edt, cfile.epan,
+					  create_proto_tree,
+					  FALSE /* proto_tree_visible */);
+
+	if (dissect_color) {
+		color_filters_prime_edt(&edt);
+		fdata->flags.need_colorize = 1;
+	}
+
+	if (cinfo)
+		col_custom_prime_edt(&edt, cinfo);
+
+	/*
+	 * XXX - need to catch an OutOfMemoryError exception and
+	 * attempt to recover from it.
+	 */
+	epan_dissect_run(&edt, cfile.cd_t, &phdr, frame_tvbuff_new_buffer(fdata, &buf), fdata, cinfo);
+
+	if (cinfo) {
+		/* "Stringify" non frame_data vals */
+		epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
+	}
+
+	epan_dissect_cleanup(&edt);
+	wtap_phdr_cleanup(&phdr);
+	ws_buffer_free(&buf);
+	return 0;
+}
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
