@@ -54,6 +54,43 @@ json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *
 }
 
 static void
+json_puts_string(const char *str)
+{
+	char buf[1024];
+	int i;
+	int out = 0;
+
+	buf[out++] = '"';
+	for (i = 0; str[i]; i++)
+	{
+		if (out + 5 >= (int) sizeof(buf))
+		{
+			fwrite(buf, 1, out, stdout);
+			out = 0;
+		}
+
+		switch (str[i])
+		{
+			case '\\':
+			case '"':
+				buf[out++] = '\\';
+				buf[out++] = str[i];
+				break;
+
+			default:
+				buf[out++] = str[i];
+				break;
+		}
+
+	}
+
+	if (out)
+		fwrite(buf, 1, out, stdout);
+
+	printf("\"");
+}
+
+static void
 sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_file = json_find_attr(buf, tokens, count, "file");
@@ -122,7 +159,10 @@ sharkd_session_process_frames(void)
 		{
 			const col_item_t *col_item = &cfile.cinfo.columns[col];
 
-			printf("%s\"%s\"", (col) ? "," : "", col_item->col_data);
+			if (col)
+				printf(",");
+
+			json_puts_string(col_item->col_data);
 		}
 		printf("],\"num\":%u}", framenum);
 

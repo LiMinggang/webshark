@@ -33,6 +33,17 @@ function xtoa(hex, pad)
 	return str;
 }
 
+function dom_clear(p)
+{
+	p.innerHTML = "";
+}
+
+function dom_set_child(p, ch)
+{
+	dom_clear(p);
+	p.appendChild(ch);
+}
+
 function webshark_json_get(req)
 {
 	var xmlhttp = new XMLHttpRequest();
@@ -57,8 +68,7 @@ function webshark_render_columns(col)
 		tr.appendChild(th);
 	}
 
-	var h = document.getElementById('packet_list_header');
-	h.innerHTML = tr.outerHTML;
+	dom_set_child(document.getElementById('packet_list_header'), tr);
 }
 
 function webshark_frame_tr_on_click(ev)
@@ -95,7 +105,8 @@ function webshark_tree_on_click(ev)
 function webshark_render_frames(frames)
 {
 	var h = document.getElementById('packet_list_frames');
-	h.innerHTML = '';
+
+	dom_clear(h);
 
 	for (var i = 0; i < frames.length; i++)
 	{
@@ -170,8 +181,7 @@ function webshark_render_proto_tree(tree)
 {
 	var d = webshark_create_proto_tree(tree, 0);
 
-	var h = document.getElementById('ws_packet_detail_view');
-	h.replaceChild(d, h.firstChild);
+	dom_set_child(document.getElementById('ws_packet_detail_view'), d);
 }
 
 function webshark_render_hexdump(pkt)
@@ -211,8 +221,7 @@ function webshark_render_hexdump(pkt)
 	var p = document.createElement("pre");
 	p.innerHTML = s;
 
-	var h = document.getElementById('ws_packet_bytes_view');
-	h.innerHTML = p.outerHTML;
+	dom_set_child(document.getElementById('ws_packet_bytes_view'), p);
 }
 
 function webshark_load_capture()
