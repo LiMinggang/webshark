@@ -170,7 +170,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 				a.appendChild(document.createTextNode(cols[j]))
 
 				a.setAttribute("target", "_blank");
-				a.setAttribute("href", "?frame=" + fnum);
+				a.setAttribute("href", window.location.href + "&frame=" + fnum);
 
 // browse_printf(cli, "<a onclick='return popframe(%u)' target='_blank' href='/frame/%u'>", fdata->num, fdata->num);
 				td.appendChild(a);

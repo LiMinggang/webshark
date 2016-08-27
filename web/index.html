@@ -53,15 +53,31 @@
 			_webshark_url = '/webshark/json?';
 			_webshark_file = opt['file'];
 
-			webshark_load_capture();
-			webshark_load_frame(1);
+			var frame = opt['frame'];
+
+			if (frame) {
+				webshark_load_frame(frame);
+
+				document.getElementById('toolbar_capture').style.display = 'none';
+				document.getElementById('ws_packet_list_view').style.display = 'none';
+
+				document.getElementById('toolbar_frame').style.display = 'block';
+
+			} else {
+				webshark_load_capture();
+				webshark_load_frame(1);
+			}
 		}
 	</script>
 </head>
 
 <body onload="run()">
-	<div id="toolbar">
+	<div id="toolbar_capture">
 		Frame filter: <input type='text' onkeyup='checkfilter(this)' style='width: 600px;' />
+	</div>
+
+	<div id="toolbar_frame" style="display: none;">
+		Placeholder for frame toolbar
 	</div>
 
 	<div id="ws_packet_list_view" style='height: 350px; border: 2px solid grey;'>
