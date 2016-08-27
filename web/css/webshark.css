@@ -8,10 +8,18 @@ li.selected
 	background-color: #0080FF;
 }
 
+#packet_list
+{
+	font-family: monospace;
+	font-size: 14px;
+}
+
 #ws_packet_detail_view ul
 {
 	list-style-type: none;
 	padding-left: 0px;
+	font-family: monospace;
+	font-size: 14px;
 }
 
 #ws_packet_detail_view span.tree_expander
