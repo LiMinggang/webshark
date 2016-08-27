@@ -151,8 +151,10 @@ function webshark_render_frames(frames)
 
 	for (var i = 0; i < frames.length; i++)
 	{
-		var cols = frames[i]['c'];
-		var fnum = frames[i]['num'];
+		var frame = frames[i];
+
+		var cols = frame['c'];
+		var fnum = frame['num'];
 
 		var tr = document.createElement("tr");
 
@@ -182,6 +184,12 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 			tr.appendChild(td);
 		}
+
+		if (frame['bg'])
+			tr.style['background-color'] = '#' + frame['bg'];
+
+		if (frame['fg'])
+			tr.style['color'] = '#' + frame['fg'];
 
 		tr.id = 'packet-list-frame-' + fnum;
 		tr.data_ws_frame = fnum;

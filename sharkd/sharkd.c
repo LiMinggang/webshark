@@ -257,6 +257,7 @@ main(int argc, char *argv[])
   char                *gpf_path, *pf_path;
   char                *gdp_path, *dp_path;
   char                *cf_path;
+  char                *err_msg = NULL;
   int                  gpf_open_errno, gpf_read_errno;
   int                  pf_open_errno, pf_read_errno;
   int                  gdp_open_errno, gdp_read_errno;
@@ -452,6 +453,11 @@ main(int argc, char *argv[])
       cmdarg_err("Could not open your capture filter file\n\"%s\": %s.",
           cf_path, g_strerror(cf_open_errno));
       g_free(cf_path);
+  }
+
+  if (!color_filters_init(&err_msg, NULL)) {
+     fprintf(stderr, "color_filters_init() failed %s\n", err_msg);
+     g_free(err_msg);
   }
 
   /* Read the disabled protocols file. */

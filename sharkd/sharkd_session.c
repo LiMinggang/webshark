@@ -19,7 +19,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
@@ -29,6 +28,7 @@
 
 #include <file.h>
 #include <epan/exceptions.h>
+#include <epan/color_filters.h>
 #include <wiretap/wtap.h>
 
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
@@ -149,6 +149,8 @@ sharkd_session_process_frames(void)
 	printf("[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
+		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+
 		sharkd_dissect_columns(framenum, &cfile.cinfo, TRUE);
 
 		printf("%s{\"c\":[", frame_sepa);
@@ -161,8 +163,21 @@ sharkd_session_process_frames(void)
 
 			json_puts_string(col_item->col_data);
 		}
-		printf("],\"num\":%u}", framenum);
+		printf("],\"num\":%u", framenum);
 
+		if (fdata->flags.ignored)
+			printf(",\"i\":true");
+
+		if (fdata->flags.marked)
+			printf(",\"m\":true");
+
+		if (fdata->color_filter)
+		{
+			printf(",\"bg\":\"%x\"", color_t_to_rgb(&fdata->color_filter->bg_color));
+			printf(",\"fg\":\"%x\"", color_t_to_rgb(&fdata->color_filter->fg_color));
+		}
+
+		printf("}");
 		frame_sepa = ",";
 	}
 	printf("]\n");
