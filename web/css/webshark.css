@@ -20,6 +20,7 @@ li.selected
 
 #packet_list_header tr
 {
+	color: grey;
 	white-space:  nowrap;
 }
 
@@ -31,3 +32,10 @@ li.selected
 .ws_gui_text_valid      { background-color: #b0ffb0; }
 .ws_gui_text_deprecated { background-color: #ffffb0; }
 .ws_gui_text_invalid    { background-color: #ffb0b0; }
+
+.ws_cell_protocol             { background-color: #E5E5E5; }
+.ws_cell_expert_color_comment { background-color: #b7f8f4; }
+.ws_cell_expert_color_chat    { background-color: #80b7f7; }
+.ws_cell_expert_color_note    { background-color: #a0ffff; }
+.ws_cell_expert_color_warn    { background-color: #f7f253; }
+.ws_cell_expert_color_error   { background-color: #ff5c5c; }

@@ -18,6 +18,12 @@
 var _webshark_file = "";
 var _webshark_url = "/webshark/api?";
 
+function debug(level, str)
+{
+	if (console && console.log)
+		console.log("<" + level + "> " + str);
+}
+
 function btoa(ch)
 {
 	return (ch > 0x1f && ch < 0x7f) ? String.fromCharCode(ch) : '.';
@@ -61,11 +67,15 @@ function webshark_json_get(req, cb)
 {
 	var http = new XMLHttpRequest();
 
+	debug(3," webshark_json_get(" + req + ") sending request");
+
 	http.open("GET", _webshark_url + req, true);
 	http.onreadystatechange = function()
 	{
 		if (http.readyState == 4 && http.status == 200)
 		{
+			debug(3," webshark_json_get(" + req + ") got 200 len = " + http.responseText.length);
+
 			var js = JSON.parse(http.responseText);
 			cb(js);
 		}
@@ -182,35 +192,36 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 function webshark_create_proto_tree(tree, level)
 {
 	var ul = document.createElement("ul");
-	var tree_li = null;
 
 	for (var i = 0; i < tree.length; i++)
 	{
-		if (typeof(tree[i]) == 'string')
+		var finfo = tree[i];
+
+		var li = document.createElement("li");
+		li.appendChild(document.createTextNode(finfo['l']));
+		ul.appendChild(li);
+
+		if (finfo['s'])
+			li.className = 'ws_cell_expert_color_' + finfo['s'];
+		else if (finfo['t'] == "proto")
+			li.className = 'ws_cell_protocol';
+
+		li.data_ws_node = 1;
+		li.addEventListener("click", webshark_node_on_click);
+
+		if (finfo['n'])
 		{
-			var li = document.createElement("li");
-
-			li.appendChild(document.createTextNode(tree[i]));
-			ul.appendChild(li);
-
-			li.data_ws_node = 1;
-			li.addEventListener("click", webshark_node_on_click);
-
-			tree_li = li;
-		}
-		else
-		{
-			var subtree = webshark_create_proto_tree(tree[i], level + 1);
-			ul.appendChild(subtree);
-
 			var expander = document.createElement("span");
 			expander.className = "tree_expander";
 
 			expander.appendChild(document.createTextNode("\u21d2"));
 
-			tree_li.insertBefore(expander, tree_li.firstChild);
+			var subtree = webshark_create_proto_tree(finfo['n'], level + 1);
+			ul.appendChild(subtree);
 
-			tree_li.data_ws_subtree = subtree;
+			li.insertBefore(expander, li.firstChild);
+
+			li.data_ws_subtree = subtree;
 			expander.addEventListener("click", webshark_tree_on_click);
 		}
 	}

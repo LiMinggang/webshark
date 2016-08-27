@@ -186,8 +186,9 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 		if (FI_GET_FLAG(finfo, FI_HIDDEN))
 			continue;
 
-		printf("%s", sepa);
+		printf("%s{", sepa);
 
+		printf("\"l\":");
 		if (!finfo->rep)
 		{
 			char label_str[ITEM_LABEL_LENGTH];
@@ -201,12 +202,47 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 			json_puts_string(finfo->rep->representation);
 		}
 
-		sepa = ",";
+		if (finfo->hfinfo && finfo->hfinfo->type == FT_PROTOCOL)
+			printf(",\"t\":\"proto\"");
+
+		if (FI_GET_FLAG(finfo, PI_SEVERITY_MASK))
+		{
+			const char *severity = NULL;
+
+			switch (FI_GET_FLAG(finfo, PI_SEVERITY_MASK))
+			{
+				case PI_COMMENT:
+					severity = "comment";
+					break;
+
+				case PI_CHAT:
+					severity = "chat";
+					break;
+
+				case PI_NOTE:
+					severity = "note";
+					break;
+
+				case PI_WARN:
+					severity = "warn";
+					break;
+
+				case PI_ERROR:
+					severity = "error";
+					break;
+			}
+			g_assert(severity != NULL);
+
+			printf(",\"s\":\"%s\"", severity);
+		}
 
 		if (((proto_tree *) node)->first_child) {
-			printf(",");
+			printf(",\"n\":");
 			sharkd_session_process_frame_cb_tree((proto_tree *) node);
 		}
+
+		printf("}");
+		sepa = ",";
 	}
 	printf("]");
 }
