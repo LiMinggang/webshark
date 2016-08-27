@@ -63,7 +63,7 @@ json_puts_string(const char *str)
 	buf[out++] = '"';
 	for (i = 0; str[i]; i++)
 	{
-		if (out + 5 >= (int) sizeof(buf))
+		if (out + 2 + 2 + 1 >= (int) sizeof(buf))
 		{
 			fwrite(buf, 1, out, stdout);
 			out = 0;
@@ -81,13 +81,10 @@ json_puts_string(const char *str)
 				buf[out++] = str[i];
 				break;
 		}
-
 	}
 
-	if (out)
-		fwrite(buf, 1, out, stdout);
-
-	printf("\"");
+	buf[out++] = '"';
+	fwrite(buf, 1, out, stdout);
 }
 
 static void
@@ -178,7 +175,8 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 	const char *sepa = "";
 
 	printf("[");
-	for (node = tree->first_child; node != NULL; node = node->next) {
+	for (node = tree->first_child; node; node = node->next)
+	{
 		field_info *finfo = PNODE_FINFO(node);
 
 		if (!finfo)
@@ -188,16 +186,19 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 		if (FI_GET_FLAG(finfo, FI_HIDDEN))
 			continue;
 
+		printf("%s", sepa);
+
 		if (!finfo->rep)
 		{
 			char label_str[ITEM_LABEL_LENGTH];
 
+			label_str[0] = '\0';
 			proto_item_fill_label(finfo, label_str);
-			printf("%s\"%s\"", sepa, label_str);
+			json_puts_string(label_str);
 		}
 		else
 		{
-			printf("%s\"%s\"", sepa, finfo->rep->representation);
+			json_puts_string(finfo->rep->representation);
 		}
 
 		sepa = ",";
