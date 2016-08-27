@@ -17,9 +17,11 @@
 import sys
 import socket
 import json
+import threading
 
 class SharkdClient:
 	def __init__(self, host, port):
+		self.mutex = threading.Lock()
 		self.fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.fd.connect((host, port))
 
@@ -56,12 +58,16 @@ class SharkdClient:
 
 	# send request, return every line
 	def send_req_gen(self, d):
-		self.send(d)
-		while True:
-			s = self.recv()
-			if len(s) == 0:
-				break
-			yield s
+		try:
+			self.mutex.acquire()
+			self.send(d)
+			while True:
+				s = self.recv()
+				if len(s) == 0:
+					break
+				yield s
+		finally:
+			self.mutex.release()
 
 	# send request, return last line
 	def send_req(self, d):
