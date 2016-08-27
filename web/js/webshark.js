@@ -18,6 +18,8 @@
 var _webshark_file = "";
 var _webshark_url = "/webshark/api?";
 
+var PROTO_TREE_PADDING_PER_LEVEL = 20;
+
 function debug(level, str)
 {
 	if (console && console.log)
@@ -209,6 +211,8 @@ function webshark_create_proto_tree(tree, level)
 		li.data_ws_node = 1;
 		li.addEventListener("click", webshark_node_on_click);
 
+		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
+
 		if (finfo['n'])
 		{
 			var expander = document.createElement("span");
@@ -227,7 +231,7 @@ function webshark_create_proto_tree(tree, level)
 	}
 
 	/* TODO: it could be set to expand by user */
-	if (level > 0)
+	if (level > 1)
 		ul.style.display = 'none';
 
 	return ul;
@@ -236,7 +240,7 @@ function webshark_create_proto_tree(tree, level)
 
 function webshark_render_proto_tree(tree)
 {
-	var d = webshark_create_proto_tree(tree, 0);
+	var d = webshark_create_proto_tree(tree, 1);
 
 	dom_set_child(document.getElementById('ws_packet_detail_view'), d);
 }
