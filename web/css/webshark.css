@@ -27,3 +27,7 @@ li.selected
 {
 	white-space:  nowrap;
 }
+
+.ws_gui_text_valid      { background-color: #b0ffb0; }
+.ws_gui_text_deprecated { background-color: #ffffb0; }
+.ws_gui_text_invalid    { background-color: #ffb0b0; }

@@ -26,6 +26,26 @@
 			return result;
 		}
 
+		function checkfilter(el)
+		{
+			if (el.value == '')
+			{
+				el.className = '';
+				return;
+			}
+
+			webshark_json_get('req=check&filter=' + encodeURIComponent(el.value),
+				function(data)
+				{
+					if (data['filter'] == 'ok')
+						el.className = 'ws_gui_text_valid';
+					else if (data['filter'] == 'deprecated')
+						el.className = 'ws_gui_text_deprecated';
+					else
+						el.className = 'ws_gui_text_invalid';
+				});
+		}
+
 		function run()
 		{
 			var opt = parse_query(window.location.href.split("?")[1]);
@@ -40,6 +60,10 @@
 </head>
 
 <body onload="run()">
+	<div id="toolbar">
+		Frame filter: <input type='text' onkeyup='checkfilter(this)' style='width: 600px;' />
+	</div>
+
 	<div id="ws_packet_list_view" style='height: 350px; border: 2px solid grey;'>
 		<table id="packet_list" style="width: 100%;">
 			<thead id="packet_list_header" style="display:block;">

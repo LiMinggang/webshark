@@ -283,6 +283,39 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto);
 }
 
+static int
+sharkd_session_check(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+
+	printf("{\"err\":0");
+	if (tok_filter != NULL)
+	{
+		char *err_msg = NULL;
+		dfilter_t *dfp;
+
+		if (dfilter_compile(tok_filter, &dfp, &err_msg))
+		{
+			const char *s = "ok";
+
+			if (dfilter_deprecated_tokens(dfp))
+				s = "warn";
+
+			printf(",\"filter\":\"%s\"", s);
+			dfilter_free(dfp);
+		}
+		else
+		{
+			printf(",\"filter\":");
+			json_puts_string(err_msg);
+			g_free(err_msg);
+		}
+	}
+
+	printf("}\n");
+	return 0;
+}
+
 static void
 sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -330,6 +363,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_load(buf, tokens, count);
 		else if (!strcmp(tok_req, "status"))
 			sharkd_session_process_status();
+		else if (!strcmp(tok_req, "check"))
+			sharkd_session_check(buf, tokens, count);
 		else if (!strcmp(tok_req, "frames"))
 			sharkd_session_process_frames();
 		else if (!strcmp(tok_req, "frame"))
