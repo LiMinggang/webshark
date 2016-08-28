@@ -10,8 +10,14 @@ li.selected
 
 #packet_list
 {
+	border-collapse: collapse;
 	font-family: monospace;
 	font-size: 14px;
+}
+
+#packet_list th, #packet_list td
+{
+	border-right: 1px solid grey;
 }
 
 #ws_packet_detail_view ul
