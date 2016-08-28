@@ -49,6 +49,55 @@ function xtoa(hex, pad)
 	return str;
 }
 
+function d3_make_chart(svg, title, data, getX, getY, getRawY)
+{
+	var margin = {top: 30, right: 20, bottom: 30, left: 50},
+	    width = svg.attr("width") - margin.left - margin.right,
+	    height = svg.attr("height") - margin.top - margin.bottom;
+
+	var g = svg.append("g")
+         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	var x = d3.scaleBand().range([0, width]).padding(1),
+	    y = d3.scaleLinear().range([height, 0]);
+
+	x.domain(data.map(getX));
+
+	g.append("g")
+	  .attr("class", "axis axis--x")
+	  .attr("transform", "translate(0," + height + ")")
+	  .call(d3.axisBottom(x));
+
+	g.append("g")
+	  .attr("class", "axis axis--y")
+	  .call(d3.axisLeft(y).ticks(10, "%"));
+
+	g.selectAll(".layer")
+	  .data(data)
+	 .enter().append("rect")
+	  .attr("class", "layer")
+	  .attr("x", function(d) { return x(getX(d)) - (x.step() / 4); })
+	  .attr("width", x.step() / 2)
+	  .attr("y", function(d) { return y(getY(d)); })
+	  .attr("height", function(d) { return height - y(getY(d)); })
+	  .attr("fill", 'steelblue');
+
+	g.selectAll(".legend")
+	  .data(data)
+	 .enter().append("text")
+	  .attr("x", function(d) { return x(getX(d)); })
+	  .attr("y", function(d) { return y(0.05) })
+	  .attr("text-anchor", "middle")
+	  .text(function(d) { return Math.floor(getRawY(d)); });
+
+	g.append("text")
+	  .attr("x", width / 2)
+	  .attr("y", -(margin.top / 2))
+	  .attr("text-anchor", "middle")
+	  .text(title);
+
+}
+
 function dom_clear(p)
 {
 	p.innerHTML = "";
@@ -368,8 +417,6 @@ function webshark_render_tap(tap)
 {
 	if (tap['type'] == 'stats')
 	{
-		var cols = tap['columns'];
-
 		var label = document.createElement("p");
 		label.appendChild(document.createTextNode("---" + tap['name']));
 
@@ -390,6 +437,21 @@ function webshark_render_tap(tap)
 
 		document.getElementById('toolbar_tap').appendChild(label);
 		document.getElementById('toolbar_tap').appendChild(table);
+
+		var svg = d3.select("body").append("svg")
+				.remove()
+				.attr("width", 800)
+				.attr("height", 400)
+				.attr("style", 'border: 1px solid black;');
+
+		var total_count = tap['stats'][0].count;
+
+		d3_make_chart(svg, tap['stats'][0]['name'], tap['stats'][0]['sub'],
+			function(d) { return d.name; },
+			function(d) { return d.count / total_count; },
+			function(d) { return d.count; });
+
+		document.getElementById('toolbar_tap').appendChild(svg.node());
 	}
 }
 
