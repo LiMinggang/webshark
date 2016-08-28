@@ -26,6 +26,14 @@ function debug(level, str)
 		console.log("<" + level + "> " + str);
 }
 
+function popup(url)
+{
+	var newwindow = window.open(url, url, 'height=500,width=1000');
+
+	if (window.focus)
+		newwindow.focus();
+}
+
 function btoa(ch)
 {
 	return (ch > 0x1f && ch < 0x7f) ? String.fromCharCode(ch) : '.';
@@ -143,6 +151,17 @@ function webshark_node_on_click(ev)
 	}
 }
 
+function webshark_frame_on_click(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_frame');
+	if (node != null)
+		popup(window.location.href + "&frame=" + node.data_ws_frame);
+
+	ev.preventDefault();
+}
+
 function webshark_render_frames(frames)
 {
 	var h = document.getElementById('packet_list_frames');
@@ -173,8 +192,8 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 				a.setAttribute("target", "_blank");
 				a.setAttribute("href", window.location.href + "&frame=" + fnum);
+				a.addEventListener("click", webshark_frame_on_click);
 
-// browse_printf(cli, "<a onclick='return popframe(%u)' target='_blank' href='/frame/%u'>", fdata->num, fdata->num);
 				td.appendChild(a);
 			}
 			else
