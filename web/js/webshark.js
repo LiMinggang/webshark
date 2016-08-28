@@ -313,6 +313,64 @@ function webshark_render_hexdump(pkt)
 	dom_set_child(document.getElementById('ws_packet_bytes_view'), p);
 }
 
+function webshark_create_tap_stat(table, stats, level)
+{
+	for (var i = 0; i < stats.length; i++)
+	{
+		var stat = stats[i];
+		var val = stat['vals'];
+
+		var tr = document.createElement('tr');
+
+		for (var j = 0; j < val.length; j++)
+		{
+			var td = document.createElement('td');
+			td.appendChild(document.createTextNode(val[j]));
+			tr.appendChild(td);
+		}
+
+		{
+			var td = document.createElement('td');
+			td.appendChild(document.createTextNode(level));
+			tr.appendChild(td);
+		}
+
+		table.appendChild(tr);
+
+		if (stat['sub'])
+			webshark_create_tap_stat(table, stat['sub'], level + 1);
+	}
+}
+
+function webshark_render_tap(tap)
+{
+	if (tap['type'] == 'stats')
+	{
+		var cols = tap['columns'];
+
+		var label = document.createElement("p");
+		label.appendChild(document.createTextNode("---" + tap['name']));
+
+		var table = document.createElement('table');
+		var tr;
+
+		tr = document.createElement('tr');
+		for (var i = 0; i < cols.length; i++)
+		{
+			var td = document.createElement('td');
+
+			td.appendChild(document.createTextNode(cols[i]));
+			tr.appendChild(td);
+		}
+		table.appendChild(tr);
+
+		webshark_create_tap_stat(table, tap['stats'], 0);
+
+		document.getElementById('toolbar_tap').appendChild(label);
+		document.getElementById('toolbar_tap').appendChild(table);
+	}
+}
+
 function webshark_load_capture()
 {
 	webshark_json_get('req=status&capture=' + _webshark_file,
@@ -371,5 +429,20 @@ function webshark_load_frame(framenum)
 			var obj = document.getElementById('packet-list-frame-' + framenum);
 			if (obj)
 				obj.className = 'selected';
+		});
+}
+
+function webshark_load_tap(taps)
+{
+	var tap_req = "";
+
+	for (var i = 0; i < taps.length; i++)
+		tap_req = tap_req + "&tap" + i + "=" + taps[i];
+
+	webshark_json_get('req=tap&capture=' + _webshark_file + tap_req,
+		function(data)
+		{
+			for (var i = 0; i < data['taps'].length - 1; i++)
+				webshark_render_tap(data['taps'][i]);
 		});
 }

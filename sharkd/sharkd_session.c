@@ -31,8 +31,12 @@
 #include <epan/color_filters.h>
 #include <wiretap/wtap.h>
 
+#include <epan/stats_tree_priv.h>
+#include <epan/stat_tap_ui.h>
+
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
+int sharkd_dissect_retap(void);
 int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
 int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
 
@@ -88,6 +92,56 @@ json_puts_string(const char *str)
 }
 
 /**
+ * sharkd_session_process_info()
+ *
+ * Process info request
+ *
+ * Output object with attributes:
+ *   (m) columns - column titles
+ *   (m) stats   - available statistics, array of object with attributes:
+ *                  'name' - statistic name
+ *                  'abbr' - statistic abbr
+ */
+static void
+sharkd_session_process_info(void)
+{
+	extern capture_file cfile;
+	int i;
+
+	printf("{\"columns\":[");
+	for (i = 0; i < cfile.cinfo.num_cols; i++)
+	{
+		const col_item_t *col_item = &cfile.cinfo.columns[i];
+
+		printf("%s\"%s\"", (i) ? "," : "", col_item->col_title);
+	}
+	printf("]");
+
+	printf(",\"stats\":[");
+	{
+		GList *cfg_list = stats_tree_get_cfg_list();
+		GList *l;
+		const char *sepa = "";
+
+		for (l = cfg_list; l; l = l->next)
+		{
+			stats_tree_cfg *cfg = (stats_tree_cfg *) l->data;
+
+			printf("%s{", sepa);
+				printf("\"name\":\"%s\"", cfg->name);
+				printf(",\"abbr\":\"%s\"", cfg->abbr);
+			printf("}");
+			sepa = ",";
+		}
+
+		g_list_free(cfg_list);
+	}
+	printf("]");
+
+	printf("}\n");
+}
+
+/**
  * sharkd_session_process_load()
  *
  * Process load request
@@ -135,23 +189,14 @@ sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
  * Process status request
  *
  * Output object with attributes:
- *   (m) frames - count of currently loaded frames
- *   (m) columns - column titles
+ *   (m) frames  - count of currently loaded frames
  */
 static void
 sharkd_session_process_status(void)
 {
 	extern capture_file cfile;
-	int i;
 
-	printf("{\"frames\":%d, \"columns\":[", cfile.count);
-	for (i = 0; i < cfile.cinfo.num_cols; i++)
-	{
-		const col_item_t *col_item = &cfile.cinfo.columns[i];
-
-		printf("%s\"%s\"", (i) ? "," : "", col_item->col_title);
-	}
-	printf("]");
+	printf("{\"frames\":%d", cfile.count);
 
 	printf("}\n");
 }
@@ -216,6 +261,160 @@ sharkd_session_process_frames(void)
 		frame_sepa = ",";
 	}
 	printf("]\n");
+}
+
+static void
+sharkd_session_process_tap_stats_node_cb(const stat_node *n)
+{
+	stat_node *node;
+	const char *sepa = "";
+
+	printf("[");
+	for (node = n->children; node; node = node->next)
+	{
+		int num_columns = node->st->num_columns;
+		gchar **values  = stats_tree_get_values_from_node(node);
+		int i;
+
+		printf("%s{\"vals\":[", sepa);
+		for (i = 0; i < num_columns; i++)
+			printf("%s\"%s\"", (i) ? "," : "", values[i]);
+		printf("]");
+
+		for (i = 0; i < num_columns; i++)
+			g_free(values[i]);
+		g_free(values);
+
+		if (node->children)
+		{
+			printf(",\"sub\":");
+			sharkd_session_process_tap_stats_node_cb(node);
+		}
+		printf("}");
+		sepa = ",";
+	}
+	printf("]");
+}
+
+/**
+ * sharkd_session_process_tap_stats_cb()
+ *
+ * Output stats tap:
+ *
+ *   (m) tap        - tap name
+ *   (m) type:stats - tap output type
+ *   (m) name       - stat name
+ *   (m) columns    - stat columns
+ *   (m) stats      - array of object with attributes:
+ *                  (m) vals - node values
+ *                  (o) sub  - array of object with attributes like in stats node.
+ */
+static void
+sharkd_session_process_tap_stats_cb(void *psp)
+{
+	stats_tree *st = (stats_tree *)psp;
+	int i;
+
+	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\",\"name\":\"%s\",\"columns\":[", st->cfg->abbr, st->cfg->name);
+	for (i = 0; i < st->num_columns; i++)
+		printf("%s\"%s\"", (i) ? "," : "", stats_tree_get_column_name(i));
+
+	printf("],\"stats\":");
+	sharkd_session_process_tap_stats_node_cb(&st->root);
+	printf("},");
+}
+
+/**
+ * sharkd_session_process_tap()
+ *
+ * Process tap request
+ *
+ * Input:
+ *   (m) tap0         - First tap request
+ *   (o) tap1...tap15 - Other tap requests
+ *
+ * Output object with attributes:
+ *   (m) taps  - array of object with attributes:
+ *                  (m) tap  - tap name
+ *                  (m) type - tap output type
+ *                  ...
+ *                  for type:stats see sharkd_session_process_tap_stats_cb()
+ *
+ *   (m) err   - error code
+ */
+static void
+sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
+{
+	void *taps_data[16];
+	int taps_count = 0;
+	int i;
+
+	for (i = 0; i < 16; i++)
+	{
+		char tapbuf[32];
+		const char *tok_tap;
+
+		GString *tap_error = NULL;
+		void *tap_data = NULL;
+
+		taps_data[i] = NULL;
+
+		snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
+		tok_tap = json_find_attr(buf, tokens, count, tapbuf);
+		if (!tok_tap)
+			break;
+
+		if (!strncmp(tok_tap, "stat:", 5))
+		{
+			stats_tree_cfg *cfg;
+			stats_tree *st;
+
+			cfg = stats_tree_get_cfg_by_abbr(tok_tap + 5);
+			if (!cfg)
+			{
+				fprintf(stderr, "sharkd_session_process_tap() stat %s not found\n", tok_tap + 5);
+				continue;
+			}
+
+			st = stats_tree_new(cfg, NULL, "");
+
+			tap_error = register_tap_listener(st->cfg->tapname, st, st->filter, st->cfg->flags, stats_tree_reset, stats_tree_packet, sharkd_session_process_tap_stats_cb);
+
+			tap_data = st;
+
+			if (!tap_error && cfg->init)
+				cfg->init(st);
+		}
+		else
+		{
+			fprintf(stderr, "sharkd_session_process_tap() %s not recognized\n", tok_tap);
+			continue;
+		}
+
+		if (tap_error)
+		{
+			fprintf(stderr, "sharkd_session_process_tap() name=%s error=%s", tok_tap, tap_error->str);
+			g_string_free(tap_error, TRUE);
+			continue;
+		}
+
+		taps_data[i] = tap_data;
+		taps_count++;
+	}
+
+	fprintf(stderr, "sharkd_session_process_tap() count=%d\n", taps_count);
+	if (taps_count == 0)
+		return;
+
+	printf("{\"taps\":[");
+	sharkd_dissect_retap();
+	printf("null],\"err\":0}\n");
+
+	for (i = 0; i < 16; i++)
+	{
+		if (taps_data[i])
+			remove_tap_listener(taps_data[i]);
+	}
 }
 
 static void
@@ -483,10 +682,14 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_load(buf, tokens, count);
 		else if (!strcmp(tok_req, "status"))
 			sharkd_session_process_status();
+		else if (!strcmp(tok_req, "info"))
+			sharkd_session_process_info();
 		else if (!strcmp(tok_req, "check"))
 			sharkd_session_process_check(buf, tokens, count);
 		else if (!strcmp(tok_req, "frames"))
 			sharkd_session_process_frames();
+		else if (!strcmp(tok_req, "tap"))
+			sharkd_session_process_tap(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))

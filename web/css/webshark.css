@@ -48,3 +48,15 @@ li.selected
 .ws_cell_expert_color_note    { background-color: #a0ffff; }
 .ws_cell_expert_color_warn    { background-color: #f7f253; }
 .ws_cell_expert_color_error   { background-color: #ff5c5c; }
+
+ul.menu
+{
+	list-style-type: none;
+	padding-left: 0px;
+}
+
+ul.menu li
+{
+	float: left;
+	padding-right: 15px;
+}

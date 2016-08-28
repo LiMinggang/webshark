@@ -1488,6 +1488,53 @@ sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color)
 	return 0;
 }
 
+int
+sharkd_dissect_retap(void)
+{
+  guint32          framenum;
+  frame_data      *fdata;
+  Buffer           buf;
+  struct wtap_pkthdr phdr;
+  int err;
+  char *err_info = NULL;
+
+  gboolean      filtering_tap_listeners;
+  guint         tap_flags;
+  gboolean      construct_protocol_tree;
+  epan_dissect_t edt;
+  column_info   *cinfo;
+
+  filtering_tap_listeners = have_filtering_tap_listeners();
+  tap_flags = union_of_tap_listener_flags();
+
+  construct_protocol_tree = filtering_tap_listeners || (tap_flags & TL_REQUIRES_PROTO_TREE);
+  cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cfile.cinfo : NULL;
+
+  wtap_phdr_init(&phdr);
+  ws_buffer_init(&buf, 1500);
+  epan_dissect_init(&edt, cfile.epan, construct_protocol_tree, FALSE);
+
+  reset_tap_listeners();
+
+  for (framenum = 1; framenum <= cfile.count; framenum++) {
+    fdata = frame_data_sequence_find(cfile.frames, framenum);
+
+    if (!wtap_seek_read(cfile.wth, fdata->file_off, &phdr, &buf, &err, &err_info))
+      break;
+
+    epan_dissect_run_with_taps(&edt, cfile.cd_t, &phdr, frame_tvbuff_new(fdata, ws_buffer_start_ptr(&buf)), fdata, cinfo);
+    epan_dissect_reset(&edt);
+  }
+
+  wtap_phdr_cleanup(&phdr);
+  ws_buffer_free(&buf);
+  epan_dissect_cleanup(&edt);
+
+  draw_tap_listeners(TRUE);
+
+  return 0;
+}
+
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
