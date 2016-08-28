@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <locale.h>
 
 #include <glib.h>
 
@@ -29,6 +30,7 @@
 #include <file.h>
 #include <epan/exceptions.h>
 #include <epan/color_filters.h>
+#include <epan/prefs.h>
 #include <wiretap/wtap.h>
 
 #include <epan/stats_tree_priv.h>
@@ -272,18 +274,33 @@ sharkd_session_process_tap_stats_node_cb(const stat_node *n)
 	printf("[");
 	for (node = n->children; node; node = node->next)
 	{
-		int num_columns = node->st->num_columns;
-		gchar **values  = stats_tree_get_values_from_node(node);
-		int i;
+		/* code based on stats_tree_get_values_from_node() */
+		printf("%s{\"name\":\"%s\"", sepa, node->name);
+		printf(",\"count\":%u", node->counter);
+		if (node->counter && ((node->st_flags & ST_FLG_AVERAGE) || node->rng))
+		{
+			printf(",\"avg\":%.2f", ((float)node->total) / node->counter);
+			printf(",\"min\":%u", node->minvalue);
+			printf(",\"max\":%u", node->maxvalue);
+		}
 
-		printf("%s{\"vals\":[", sepa);
-		for (i = 0; i < num_columns; i++)
-			printf("%s\"%s\"", (i) ? "," : "", values[i]);
-		printf("]");
+		if (node->st->elapsed)
+			printf(",\"rate\":%.4f",((float)node->counter) / node->st->elapsed);
 
-		for (i = 0; i < num_columns; i++)
-			g_free(values[i]);
-		g_free(values);
+		if (node->parent && node->parent->counter)
+			printf(",\"perc\":%.2f", (node->counter * 100.0) / node->parent->counter);
+		else if (node->parent == &(node->st->root))
+			printf(",\"perc\":100");
+
+		if (prefs.st_enable_burstinfo && node->max_burst)
+		{
+			if (prefs.st_burst_showcount)
+				printf(",\"burstcount\":%d", node->max_burst);
+			else
+				printf(",\"burstrate\":%.4f", ((double)node->max_burst) / prefs.st_burst_windowlen);
+
+			printf(",\"bursttime\":%.3f", ((double)node->burst_time / 1000.0));
+		}
 
 		if (node->children)
 		{
@@ -304,22 +321,26 @@ sharkd_session_process_tap_stats_node_cb(const stat_node *n)
  *   (m) tap        - tap name
  *   (m) type:stats - tap output type
  *   (m) name       - stat name
- *   (m) columns    - stat columns
  *   (m) stats      - array of object with attributes:
- *                  (m) vals - node values
- *                  (o) sub  - array of object with attributes like in stats node.
+ *                  (m) name       - stat item name
+ *                  (m) count      - stat item counter
+ *                  (o) avg        - stat item averange value
+ *                  (o) min        - stat item min value
+ *                  (o) max        - stat item max value
+ *                  (o) rate       - stat item rate value (ms)
+ *                  (o) perc       - stat item percentage
+ *                  (o) burstrate  - stat item burst rate
+ *                  (o) burstcount - stat item burst count
+ *                  (o) burstttme  - stat item burst start
+ *                  (o) sub        - array of object with attributes like in stats node.
  */
 static void
 sharkd_session_process_tap_stats_cb(void *psp)
 {
 	stats_tree *st = (stats_tree *)psp;
-	int i;
 
-	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\",\"name\":\"%s\",\"columns\":[", st->cfg->abbr, st->cfg->name);
-	for (i = 0; i < st->num_columns; i++)
-		printf("%s\"%s\"", (i) ? "," : "", stats_tree_get_column_name(i));
-
-	printf("],\"stats\":");
+	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\",\"name\":\"%s\"", st->cfg->abbr, st->cfg->name);
+	printf(",\"stats\":");
 	sharkd_session_process_tap_stats_node_cb(&st->root);
 	printf("},");
 }
@@ -710,6 +731,7 @@ sharkd_session_main(void)
 
 	fprintf(stderr, "Hello in child!\n");
 	setlinebuf(stdout);
+	setlocale(LC_ALL, "C");
 
 	while (fgets(buf, sizeof(buf), stdin))
 	{

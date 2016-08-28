@@ -313,6 +313,20 @@ function webshark_render_hexdump(pkt)
 	dom_set_child(document.getElementById('ws_packet_bytes_view'), p);
 }
 
+var webshark_stat_fields =
+{
+	'name': 'Topic / Item',
+	'count': 'Count',
+	'avg': 'Average',
+	'min': 'Min val',
+	'max': 'Max val',
+	'rate': 'Rate (ms)',
+	'perc': 'Percent',
+	'burstcount': 'Burst count',
+	'burstrate': 'Burst rate',
+	'bursttime': 'Burst start'
+};
+
 function webshark_create_tap_stat(table, stats, level)
 {
 	for (var i = 0; i < stats.length; i++)
@@ -322,10 +336,18 @@ function webshark_create_tap_stat(table, stats, level)
 
 		var tr = document.createElement('tr');
 
-		for (var j = 0; j < val.length; j++)
+		for (var col in webshark_stat_fields)
 		{
+			var value = stat[col];
+
+			/* TODO, hide fields which are undefined for whole table */
+			if (value == undefined)
+				value = '-';
+			else if (col == 'perc')
+				value = value + '%';
+
 			var td = document.createElement('td');
-			td.appendChild(document.createTextNode(val[j]));
+			td.appendChild(document.createTextNode(value));
 			tr.appendChild(td);
 		}
 
@@ -355,11 +377,11 @@ function webshark_render_tap(tap)
 		var tr;
 
 		tr = document.createElement('tr');
-		for (var i = 0; i < cols.length; i++)
+		for (var col in webshark_stat_fields)
 		{
 			var td = document.createElement('td');
 
-			td.appendChild(document.createTextNode(cols[i]));
+			td.appendChild(document.createTextNode(webshark_stat_fields[col]));
 			tr.appendChild(td);
 		}
 		table.appendChild(tr);
