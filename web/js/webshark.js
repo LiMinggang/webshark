@@ -77,19 +77,20 @@ function webshark_json_get(req, cb)
 {
 	var http = new XMLHttpRequest();
 
-	debug(3," webshark_json_get(" + req + ") sending request");
+	debug(3, " webshark_json_get(" + req + ") sending request");
 
 	http.open("GET", _webshark_url + req, true);
-	http.onreadystatechange = function()
-	{
-		if (http.readyState == 4 && http.status == 200)
+	http.onreadystatechange =
+		function()
 		{
-			debug(3," webshark_json_get(" + req + ") got 200 len = " + http.responseText.length);
+			if (http.readyState == 4 && http.status == 200)
+			{
+				debug(3, " webshark_json_get(" + req + ") got 200 len = " + http.responseText.length);
 
-			var js = JSON.parse(http.responseText);
-			cb(js);
-		}
-	};
+				var js = JSON.parse(http.responseText);
+				cb(js);
+			}
+		};
 
 	http.send(null);
 }
