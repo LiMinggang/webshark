@@ -87,6 +87,17 @@ json_puts_string(const char *str)
 	fwrite(buf, 1, out, stdout);
 }
 
+/**
+ * sharkd_session_process_load()
+ *
+ * Process load request
+ *
+ * Input:
+ *   (m) file - file to be loaded
+ *
+ * Output object with attributes:
+ *   (m) err - error code
+ */
 static void
 sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 {
@@ -118,6 +129,15 @@ sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 	printf("{\"err\":%d}\n", err);
 }
 
+/**
+ * sharkd_session_process_status()
+ *
+ * Process status request
+ *
+ * Output object with attributes:
+ *   (m) frames - count of currently loaded frames
+ *   (m) columns - column titles
+ */
 static void
 sharkd_session_process_status(void)
 {
@@ -136,7 +156,22 @@ sharkd_session_process_status(void)
 	printf("}\n");
 }
 
-
+/**
+ * sharkd_session_process_frames()
+ *
+ * Process frames request
+ *
+ * Input:
+ *   - TODO frame range
+ *
+ * Output array of frames with attributes:
+ *   (m) c   - array of column data
+ *   (m) num - frame number
+ *   (m) i   - if frame is ignored
+ *   (m) m   - if frame is marked
+ *   (m) bg  - color filter - background color in hex
+ *   (m) fg  - color filter - foreground color in hex
+ */
 static void
 sharkd_session_process_frames(void)
 {
@@ -316,6 +351,28 @@ sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo
 	printf("}\n");
 }
 
+/**
+ * sharkd_session_process_frame()
+ *
+ * Process frame request
+ *
+ * Input:
+ *   (m) frame - requested frame number
+ *   (o) proto - set if output frame tree
+ *   (o) columns - set if output frame columns
+ *   (o) bytes - set if output frame bytes
+ *
+ * Output object with attributes:
+ *   (m) err   - 0 if succeed
+ *   (o) tree  - array of frame nodes with attributes:
+ *                  l - label
+ *                  t: 'proto'
+ *                  s - severity
+ *                  n - array of subtree nodes
+ *
+ *   (o) col   - array of column data
+ *   (o) bytes - array of frame bytes [XXX, will be changed to support multiple bytes pane]
+ */
 static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -334,8 +391,20 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto);
 }
 
+/**
+ * sharkd_session_process_check()
+ *
+ * Process check request.
+ *
+ * Input:
+ *   (o) filter - filter to be checked
+ *
+ * Output object with attributes:
+ *   (m) err - always 0
+ *   (o) filter - 'ok', 'warn' or error message
+ */
 static int
-sharkd_session_check(char *buf, const jsmntok_t *tokens, int count)
+sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
 
@@ -415,7 +484,7 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 		else if (!strcmp(tok_req, "status"))
 			sharkd_session_process_status();
 		else if (!strcmp(tok_req, "check"))
-			sharkd_session_check(buf, tokens, count);
+			sharkd_session_process_check(buf, tokens, count);
 		else if (!strcmp(tok_req, "frames"))
 			sharkd_session_process_frames();
 		else if (!strcmp(tok_req, "frame"))
