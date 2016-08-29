@@ -394,6 +394,18 @@ var webshark_conv_fields =
 	'_rate_rx': 'bps A<-B'
 };
 
+var webshark_host_fields =
+{
+	'host': 'Address',
+	'port': 'Port',
+	'_packets' : 'Packets',
+	'_bytes': 'Bytes',
+	'txf': 'TX Packets',
+	'txb': 'TX Bytes',
+	'rxf': 'RX Packets',
+	'rxb': 'RX Bytes'
+};
+
 function webshark_create_tap_table_common(fields)
 {
 	var table = document.createElement('table');
@@ -506,7 +518,6 @@ function webshark_render_tap(tap)
 	else if (tap['type'] == 'conv')
 	{
 		var table = webshark_create_tap_table_common(webshark_conv_fields);
-
 		var convs = tap['convs'];
 
 		for (var i = 0; i < convs.length; i++)
@@ -521,6 +532,23 @@ function webshark_render_tap(tap)
 		}
 
 		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
+
+		document.getElementById('toolbar_tap').appendChild(table);
+	}
+	else if (tap['type'] == 'host')
+	{
+		var table = webshark_create_tap_table_common(webshark_host_fields);
+		var hosts = tap['hosts'];
+
+		for (var i = 0; i < hosts.length; i++)
+		{
+			var host = hosts[i];
+
+			host['_packets']  = host['rxf'] + host['txf'];
+			host['_bytes']    = host['rxb'] + host['txb'];
+		}
+
+		webshark_create_tap_table_data_common(webshark_host_fields, table, hosts);
 
 		document.getElementById('toolbar_tap').appendChild(table);
 	}

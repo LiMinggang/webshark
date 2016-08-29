@@ -121,12 +121,25 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
 
 	const char *label = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(table)));
 
-	printf("%s{", (*pi) ? "," : "");
-		printf("\"name\":\"Conversation List/%s\"", label);
-		printf(",\"tap\":\"conv:%s\"", label);
-	printf("}");
+	if (get_conversation_packet_func(table))
+	{
+		printf("%s{", (*pi) ? "," : "");
+			printf("\"name\":\"Conversation List/%s\"", label);
+			printf(",\"tap\":\"conv:%s\"", label);
+		printf("}");
 
-	*pi = *pi + 1;
+		*pi = *pi + 1;
+	}
+
+	if (get_hostlist_packet_func(table))
+	{
+		printf("%s{", (*pi) ? "," : "");
+			printf("\"name\":\"Endpoint/%s\"", label);
+			printf(",\"tap\":\"endpt:%s\"", label);
+		printf("}");
+
+		*pi = *pi + 1;
+	}
 }
 
 /**
@@ -140,7 +153,7 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
  *                  'name' - statistic name
  *                  'tap'  - sharkd tap-name for statistic
  *
- *   (m) conv    - available conversation list, array of object with attributes:
+ *   (m) convs   - available conversation list, array of object with attributes:
  *                  'name' - conversation name
  *                  'tap'  - sharkd tap-name for conversation
  */
@@ -395,15 +408,18 @@ struct sharkd_conv_tap_data
 {
 	const char *type;
 	conv_hash_t hash;
+	gboolean resolve_name;
+	gboolean resolve_port;
 };
 
 /**
- * sharkd_session_process_tap_stats_cb()
+ * sharkd_session_process_tap_conv_cb()
  *
  * Output conv tap:
  *   (m) tap        - tap name
- *   (m) type:conv  - tap output type
- *   (m) convs      - array of object with attributes:
+ *   (m) type       - tap output type
+ *
+ *   (o) convs      - array of object with attributes:
  *                  (m) saddr - source address
  *                  (m) daddr - destination address
  *                  (o) sport - source port
@@ -414,23 +430,46 @@ struct sharkd_conv_tap_data
  *                  (m) rxb   - RX bytes
  *                  (m) start - (relative) first packet time
  *                  (m) stop  - (relative) last packet time
+ *
+ *   (o) hosts      - array of object with attributes:
+ *                  (m) host - host address
+ *                  (o) port - host port
+ *                  (m) txf  - TX frame count
+ *                  (m) txb  - TX bytes
+ *                  (m) rxf  - RX frame count
+ *                  (m) rxb  - RX bytes
  */
 static void
 sharkd_session_process_tap_conv_cb(void *arg)
 {
 	conv_hash_t *hash = (conv_hash_t *) arg;
-	struct sharkd_conv_tap_data *iu = (struct sharkd_conv_tap_data *) hash->user_data;
+	const struct sharkd_conv_tap_data *iu = (struct sharkd_conv_tap_data *) hash->user_data;
+	const char *proto;
+	int proto_with_port;
+	guint i;
 
-	printf("{\"tap\":\"conv:%s\",\"type\":\"conv\"", iu->type);
-
-	printf(",\"convs\":[");
-	if (iu->hash.conv_array != NULL)
+	if (!strncmp(iu->type, "conv:", 5))
 	{
-		int proto_with_port;
-		guint i;
+		printf("{\"tap\":\"%s\",\"type\":\"conv\"", iu->type);
+		printf(",\"convs\":[");
+		proto = iu->type + 5;
+	}
+	else if (!strncmp(iu->type, "endpt:", 6))
+	{
+		printf("{\"tap\":\"%s\",\"type\":\"host\"", iu->type);
+		printf(",\"hosts\":[");
+		proto = iu->type + 6;
+	}
+	else
+	{
+		printf("{\"tap\":\"%s\",\"type\":\"err\"", iu->type);
+		proto = "";
+	}
 
-		proto_with_port = (!strcmp(iu->type, "TCP") || !strcmp(iu->type, "UDP") || !strcmp(iu->type, "SCTP"));
+	proto_with_port = (!strcmp(proto, "TCP") || !strcmp(proto, "UDP") || !strcmp(proto, "SCTP"));
 
+	if (iu->hash.conv_array != NULL && !strncmp(iu->type, "conv:", 5))
+	{
 		for (i = 0; i < iu->hash.conv_array->len; i++)
 		{
 			conv_item_t *iui = &g_array_index(iu->hash.conv_array, conv_item_t, i);
@@ -439,13 +478,13 @@ sharkd_session_process_tap_conv_cb(void *arg)
 
 			printf("%s{", i ? "," : "");
 
-			printf("\"saddr\":\"%s\"",  (src_addr = get_conversation_address(NULL, &iui->src_address, TRUE)));
-			printf(",\"daddr\":\"%s\"", (dst_addr = get_conversation_address(NULL, &iui->dst_address, TRUE)));
+			printf("\"saddr\":\"%s\"",  (src_addr = get_conversation_address(NULL, &iui->src_address, iu->resolve_name)));
+			printf(",\"daddr\":\"%s\"", (dst_addr = get_conversation_address(NULL, &iui->dst_address, iu->resolve_name)));
 
 			if (proto_with_port)
 			{
-				printf(",\"sport\":\"%s\"", (src_port = get_conversation_port(NULL, iui->src_port, iui->ptype, TRUE)));
-				printf(",\"dport\":\"%s\"", (dst_port = get_conversation_port(NULL, iui->dst_port, iui->ptype, TRUE)));
+				printf(",\"sport\":\"%s\"", (src_port = get_conversation_port(NULL, iui->src_port, iui->ptype, iu->resolve_port)));
+				printf(",\"dport\":\"%s\"", (dst_port = get_conversation_port(NULL, iui->dst_port, iui->ptype, iu->resolve_port)));
 
 				wmem_free(NULL, src_port);
 				wmem_free(NULL, dst_port);
@@ -466,9 +505,37 @@ sharkd_session_process_tap_conv_cb(void *arg)
 			printf("}");
 		}
 	}
-	printf("]");
+	else if (iu->hash.conv_array != NULL && !strncmp(iu->type, "endpt:", 6))
+	{
+		for (i = 0; i < iu->hash.conv_array->len; i++)
+		{
+			hostlist_talker_t *host = &g_array_index(iu->hash.conv_array, hostlist_talker_t, i);
+			char *host_str, *port_str;
 
-	printf("},");
+			printf("%s{", i ? "," : "");
+
+			printf("\"host\":\"%s\"", (host_str = get_conversation_address(NULL, &host->myaddress, iu->resolve_name)));
+
+			if (proto_with_port)
+			{
+				printf(",\"port\":\"%s\"", (port_str = get_conversation_port(NULL, host->port, host->ptype, iu->resolve_port)));
+
+				wmem_free(NULL, port_str);
+			}
+
+			printf(",\"rxf\":%llu", (long long unsigned) host->rx_frames);
+			printf(",\"rxb\":%llu", (long long unsigned) host->rx_bytes);
+
+			printf(",\"txf\":%llu", (long long unsigned) host->tx_frames);
+			printf(",\"txb\":%llu", (long long unsigned) host->tx_bytes);
+
+			wmem_free(NULL, host_str);
+
+			printf("}");
+		}
+	}
+
+	printf("]},");
 }
 
 /**
@@ -487,6 +554,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
  *                  ...
  *                  for type:stats see sharkd_session_process_tap_stats_cb()
  *                  for type:conv see sharkd_session_process_tap_conv_cb()
+ *                  for type:host see sharkd_session_process_tap_conv_cb()
  *
  *   (m) err   - error code
  */
@@ -502,9 +570,10 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		char tapbuf[32];
 		const char *tok_tap;
 
-		GString *tap_error = NULL;
+		tap_packet_cb tap_func = NULL;
 		void *tap_data = NULL;
 		const char *tap_filter = "";
+		GString *tap_error = NULL;
 
 		taps_data[i] = NULL;
 
@@ -533,25 +602,49 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			if (!tap_error && cfg->init)
 				cfg->init(st);
 		}
-		else if (!strncmp(tok_tap, "conv:", 5))
+		else if (!strncmp(tok_tap, "conv:", 5) || !strncmp(tok_tap, "endpt:", 6))
 		{
-			struct register_ct *ct = _get_conversation_table_by_name(tok_tap + 5);
+			struct register_ct *ct = NULL;
 			const char *ct_tapname;
 			struct sharkd_conv_tap_data *ct_data;
 
-			if (!ct)
+			if (!strncmp(tok_tap, "conv:", 5))
 			{
-				fprintf(stderr, "sharkd_session_process_tap() conv %s not found\n", tok_tap + 5);
+				ct = _get_conversation_table_by_name(tok_tap + 5);
+
+				if (!ct || !(tap_func = get_conversation_packet_func(ct)))
+				{
+					fprintf(stderr, "sharkd_session_process_tap() conv %s not found\n", tok_tap + 5);
+					continue;
+				}
+			}
+			else if (!strncmp(tok_tap, "endpt:", 6))
+			{
+				ct = _get_conversation_table_by_name(tok_tap + 6);
+
+				if (!ct || !(tap_func = get_hostlist_packet_func(ct)))
+				{
+					fprintf(stderr, "sharkd_session_process_tap() endpt %s not found\n", tok_tap + 5);
+					continue;
+				}
+			}
+			else
+			{
+				fprintf(stderr, "sharkd_session_process_tap() conv/endpt(?): %s not found\n", tok_tap);
 				continue;
 			}
 
 			ct_tapname = proto_get_protocol_filter_name(get_conversation_proto_id(ct));
 
 			ct_data = (struct sharkd_conv_tap_data *) g_malloc0(sizeof(struct sharkd_conv_tap_data));
-			ct_data->type = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(ct)));
+			ct_data->type = tok_tap;
 			ct_data->hash.user_data = ct_data;
 
-			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, get_conversation_packet_func(ct), sharkd_session_process_tap_conv_cb);
+			/* XXX: make configurable */
+			ct_data->resolve_name = TRUE;
+			ct_data->resolve_port = TRUE;
+
+			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, tap_func, sharkd_session_process_tap_conv_cb);
 
 			tap_data = &ct_data->hash;
 		}
