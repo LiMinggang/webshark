@@ -13,18 +13,19 @@
 
 	<script type="text/javascript">
 		var ws_stats = [ ];
+		var ws_convs = [ ];
 
-		function create_stats_menu(id)
+		function create_tap_menu(id, taps)
 		{
 			var node = document.getElementById(id);
 
-			for (var i = 0; i < ws_stats.length; i++)
+			for (var i = 0; i < taps.length; i++)
 			{
 				var li = document.createElement("li");
 				var a = document.createElement("a");
 
-				var title = ws_stats[i].name;
-				var tap = 'stat:' + ws_stats[i].abbr;
+				var title = taps[i].name;
+				var tap = taps[i].tap;
 
 				a.appendChild(document.createTextNode(title));
 				a.setAttribute("target", "_blank");
@@ -101,7 +102,8 @@
 				document.getElementById('toolbar_frame').style.display = 'block';
 
 			} else {
-				create_stats_menu('cap_menu');
+				create_tap_menu('cap_menu', ws_stats);
+				create_tap_menu('cap_menu', ws_convs);
 
 				webshark_load_capture();
 				webshark_load_frame(1);
@@ -117,6 +119,7 @@
 				{
 					webshark_render_columns(data['columns']);
 					ws_stats = data['stats'];
+					ws_convs = data['convs'];
 					run();
 				});
 		}

@@ -376,6 +376,67 @@ var webshark_stat_fields =
 	'bursttime': 'Burst start'
 };
 
+var webshark_conv_fields =
+{
+	'saddr': 'Address A',
+	'sport': 'Port A',
+	'daddr': 'Address B',
+	'dport': 'Port B',
+	'_packets': 'Packets',
+	'_bytes': 'Bytes',
+	'txf': 'Packets A -> B',
+	'txb': 'Bytes A -> B',
+	'rxf': 'Packets A <- B',
+	'rxb': 'Bytes A <- B',
+	'start': 'Rel start',
+	'_duration': 'Duration',
+	'_rate_tx': 'bps A->B',
+	'_rate_rx': 'bps A<-B'
+};
+
+function webshark_create_tap_table_common(fields)
+{
+	var table = document.createElement('table');
+	var tr;
+
+	tr = document.createElement('tr');
+	for (var col in fields)
+	{
+		var td = document.createElement('td');
+
+		td.appendChild(document.createTextNode(fields[col]));
+		tr.appendChild(td);
+	}
+	table.appendChild(tr);
+
+	return table;
+}
+
+function webshark_create_tap_table_data_common(fields, table, data)
+{
+	for (var i = 0; i < data.length; i++)
+	{
+		var val = data[i];
+
+		var tr = document.createElement('tr');
+
+		for (var col in fields)
+		{
+			var value = val[col];
+
+			/* TODO, hide fields which are undefined for whole table */
+			if (value == undefined)
+				value = '-';
+
+			var td = document.createElement('td');
+			td.appendChild(document.createTextNode(value));
+			tr.appendChild(td);
+		}
+
+		table.appendChild(tr);
+	}
+}
+
 function webshark_create_tap_stat(table, stats, level)
 {
 	for (var i = 0; i < stats.length; i++)
@@ -420,18 +481,7 @@ function webshark_render_tap(tap)
 		var label = document.createElement("p");
 		label.appendChild(document.createTextNode("---" + tap['name']));
 
-		var table = document.createElement('table');
-		var tr;
-
-		tr = document.createElement('tr');
-		for (var col in webshark_stat_fields)
-		{
-			var td = document.createElement('td');
-
-			td.appendChild(document.createTextNode(webshark_stat_fields[col]));
-			tr.appendChild(td);
-		}
-		table.appendChild(tr);
+		var table = webshark_create_tap_table_common(webshark_stat_fields);
 
 		webshark_create_tap_stat(table, tap['stats'], 0);
 
@@ -452,6 +502,27 @@ function webshark_render_tap(tap)
 			function(d) { return d.count; });
 
 		document.getElementById('toolbar_tap').appendChild(svg.node());
+	}
+	else if (tap['type'] == 'conv')
+	{
+		var table = webshark_create_tap_table_common(webshark_conv_fields);
+
+		var convs = tap['convs'];
+
+		for (var i = 0; i < convs.length; i++)
+		{
+			var conv = convs[i];
+
+			conv['_packets']  = conv['rxf'] + conv['txf'];
+			conv['_bytes']    = conv['rxb'] + conv['txb'];
+			conv['_duration'] = conv['stop'] - conv['start'];
+			conv['_rate_tx'] = (8 * conv['txb']) / conv['_duration'];
+			conv['_rate_rx'] = (8 * conv['rxb']) / conv['_duration'];
+		}
+
+		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
+
+		document.getElementById('toolbar_tap').appendChild(table);
 	}
 }
 

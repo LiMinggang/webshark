@@ -35,12 +35,32 @@
 
 #include <epan/stats_tree_priv.h>
 #include <epan/stat_tap_ui.h>
+#include <epan/conversation_table.h>
 
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
 int sharkd_dissect_retap(void);
 int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
 int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
+
+static struct register_ct *
+_get_conversation_table_by_name(const char *name)
+{
+	guint count = conversation_table_get_num();
+	guint i;
+
+	/* XXX, wow O(n^2), move to libwireshark */
+	for (i = 0; i < count; i++)
+	{
+		struct register_ct *table = get_conversation_table_by_num(i);
+		const char *label = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(table)));
+
+		if (!strcmp(label, name))
+			return table;
+	}
+
+	return NULL;
+}
 
 static const char *
 json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *attr)
@@ -93,6 +113,22 @@ json_puts_string(const char *str)
 	fwrite(buf, 1, out, stdout);
 }
 
+static void
+sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
+{
+	struct register_ct *table = (struct register_ct *) data;
+	int *pi = (int *) user_data;
+
+	const char *label = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(table)));
+
+	printf("%s{", (*pi) ? "," : "");
+		printf("\"name\":\"Conversation List/%s\"", label);
+		printf(",\"tap\":\"conv:%s\"", label);
+	printf("}");
+
+	*pi = *pi + 1;
+}
+
 /**
  * sharkd_session_process_info()
  *
@@ -102,7 +138,11 @@ json_puts_string(const char *str)
  *   (m) columns - column titles
  *   (m) stats   - available statistics, array of object with attributes:
  *                  'name' - statistic name
- *                  'abbr' - statistic abbr
+ *                  'tap'  - sharkd tap-name for statistic
+ *
+ *   (m) conv    - available conversation list, array of object with attributes:
+ *                  'name' - conversation name
+ *                  'tap'  - sharkd tap-name for conversation
  */
 static void
 sharkd_session_process_info(void)
@@ -131,13 +171,18 @@ sharkd_session_process_info(void)
 
 			printf("%s{", sepa);
 				printf("\"name\":\"%s\"", cfg->name);
-				printf(",\"abbr\":\"%s\"", cfg->abbr);
+				printf(",\"tap\":\"stat:%s\"", cfg->abbr);
 			printf("}");
 			sepa = ",";
 		}
 
 		g_list_free(cfg_list);
 	}
+	printf("]");
+
+	printf(",\"convs\":[");
+	i = 0;
+	conversation_table_iterate_tables(sharkd_session_process_info_conv_cb, &i);
 	printf("]");
 
 	printf("}\n");
@@ -339,9 +384,90 @@ sharkd_session_process_tap_stats_cb(void *psp)
 {
 	stats_tree *st = (stats_tree *)psp;
 
-	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\",\"name\":\"%s\"", st->cfg->abbr, st->cfg->name);
-	printf(",\"stats\":");
+	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\"", st->cfg->abbr);
+
+	printf(",\"name\":\"%s\",\"stats\":", st->cfg->name);
 	sharkd_session_process_tap_stats_node_cb(&st->root);
+	printf("},");
+}
+
+struct sharkd_conv_tap_data
+{
+	const char *type;
+	conv_hash_t hash;
+};
+
+/**
+ * sharkd_session_process_tap_stats_cb()
+ *
+ * Output conv tap:
+ *   (m) tap        - tap name
+ *   (m) type:conv  - tap output type
+ *   (m) convs      - array of object with attributes:
+ *                  (m) saddr - source address
+ *                  (m) daddr - destination address
+ *                  (o) sport - source port
+ *                  (o) dport - destination port
+ *                  (m) txf   - TX frame count
+ *                  (m) txb   - TX bytes
+ *                  (m) rxf   - RX frame count
+ *                  (m) rxb   - RX bytes
+ *                  (m) start - (relative) first packet time
+ *                  (m) stop  - (relative) last packet time
+ */
+static void
+sharkd_session_process_tap_conv_cb(void *arg)
+{
+	conv_hash_t *hash = (conv_hash_t *) arg;
+	struct sharkd_conv_tap_data *iu = (struct sharkd_conv_tap_data *) hash->user_data;
+
+	printf("{\"tap\":\"conv:%s\",\"type\":\"conv\"", iu->type);
+
+	printf(",\"convs\":[");
+	if (iu->hash.conv_array != NULL)
+	{
+		int proto_with_port;
+		guint i;
+
+		proto_with_port = (!strcmp(iu->type, "TCP") || !strcmp(iu->type, "UDP") || !strcmp(iu->type, "SCTP"));
+
+		for (i = 0; i < iu->hash.conv_array->len; i++)
+		{
+			conv_item_t *iui = &g_array_index(iu->hash.conv_array, conv_item_t, i);
+			char *src_addr, *dst_addr;
+			char *src_port, *dst_port;
+
+			printf("%s{", i ? "," : "");
+
+			printf("\"saddr\":\"%s\"",  (src_addr = get_conversation_address(NULL, &iui->src_address, TRUE)));
+			printf(",\"daddr\":\"%s\"", (dst_addr = get_conversation_address(NULL, &iui->dst_address, TRUE)));
+
+			if (proto_with_port)
+			{
+				printf(",\"sport\":\"%s\"", (src_port = get_conversation_port(NULL, iui->src_port, iui->ptype, TRUE)));
+				printf(",\"dport\":\"%s\"", (dst_port = get_conversation_port(NULL, iui->dst_port, iui->ptype, TRUE)));
+
+				wmem_free(NULL, src_port);
+				wmem_free(NULL, dst_port);
+			}
+
+			printf(",\"rxf\":%llu", (long long unsigned) iui->rx_frames);
+			printf(",\"rxb\":%llu", (long long unsigned) iui->rx_bytes);
+
+			printf(",\"txf\":%llu", (long long unsigned) iui->tx_frames);
+			printf(",\"txb\":%llu", (long long unsigned) iui->tx_bytes);
+
+			printf(",\"start\":%.9f", nstime_to_sec(&iui->start_time));
+			printf(",\"stop\":%.9f", nstime_to_sec(&iui->stop_time));
+
+			wmem_free(NULL, src_addr);
+			wmem_free(NULL, dst_addr);
+
+			printf("}");
+		}
+	}
+	printf("]");
+
 	printf("},");
 }
 
@@ -360,6 +486,7 @@ sharkd_session_process_tap_stats_cb(void *psp)
  *                  (m) type - tap output type
  *                  ...
  *                  for type:stats see sharkd_session_process_tap_stats_cb()
+ *                  for type:conv see sharkd_session_process_tap_conv_cb()
  *
  *   (m) err   - error code
  */
@@ -377,6 +504,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 		GString *tap_error = NULL;
 		void *tap_data = NULL;
+		const char *tap_filter = "";
 
 		taps_data[i] = NULL;
 
@@ -387,17 +515,16 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 		if (!strncmp(tok_tap, "stat:", 5))
 		{
-			stats_tree_cfg *cfg;
+			stats_tree_cfg *cfg = stats_tree_get_cfg_by_abbr(tok_tap + 5);
 			stats_tree *st;
 
-			cfg = stats_tree_get_cfg_by_abbr(tok_tap + 5);
 			if (!cfg)
 			{
 				fprintf(stderr, "sharkd_session_process_tap() stat %s not found\n", tok_tap + 5);
 				continue;
 			}
 
-			st = stats_tree_new(cfg, NULL, "");
+			st = stats_tree_new(cfg, NULL, tap_filter);
 
 			tap_error = register_tap_listener(st->cfg->tapname, st, st->filter, st->cfg->flags, stats_tree_reset, stats_tree_packet, sharkd_session_process_tap_stats_cb);
 
@@ -405,6 +532,28 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			if (!tap_error && cfg->init)
 				cfg->init(st);
+		}
+		else if (!strncmp(tok_tap, "conv:", 5))
+		{
+			struct register_ct *ct = _get_conversation_table_by_name(tok_tap + 5);
+			const char *ct_tapname;
+			struct sharkd_conv_tap_data *ct_data;
+
+			if (!ct)
+			{
+				fprintf(stderr, "sharkd_session_process_tap() conv %s not found\n", tok_tap + 5);
+				continue;
+			}
+
+			ct_tapname = proto_get_protocol_filter_name(get_conversation_proto_id(ct));
+
+			ct_data = (struct sharkd_conv_tap_data *) g_malloc0(sizeof(struct sharkd_conv_tap_data));
+			ct_data->type = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(ct)));
+			ct_data->hash.user_data = ct_data;
+
+			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, get_conversation_packet_func(ct), sharkd_session_process_tap_conv_cb);
+
+			tap_data = &ct_data->hash;
 		}
 		else
 		{
@@ -414,6 +563,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 		if (tap_error)
 		{
+			/* XXX, tap data memleaks */
 			fprintf(stderr, "sharkd_session_process_tap() name=%s error=%s", tok_tap, tap_error->str);
 			g_string_free(tap_error, TRUE);
 			continue;
@@ -435,6 +585,8 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	{
 		if (taps_data[i])
 			remove_tap_listener(taps_data[i]);
+
+		/* XXX, taps data memleaks */
 	}
 }
 
