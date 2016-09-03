@@ -104,8 +104,19 @@
 			} else {
 				var filter = opt['filter'];
 
-				create_tap_menu('cap_menu', ws_stats);
-				create_tap_menu('cap_menu', ws_convs);
+				if (filter)
+				{
+					var el_filter = document.getElementById('filter');
+
+					el_filter.value = filter;
+					checkfilter(el_filter);
+				}
+
+				if (opt['hide_menu'] == undefined)
+				{
+					create_tap_menu('cap_menu', ws_stats);
+					create_tap_menu('cap_menu', ws_convs);
+				}
 
 				webshark_load_capture(filter);
 			}

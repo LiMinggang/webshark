@@ -34,6 +34,17 @@ function popup(url)
 		newwindow.focus();
 }
 
+function popup_on_click_a(ev)
+{
+	var url;
+
+	url = ev.target['href'];
+	if (url != null)
+		popup(url);
+
+	ev.preventDefault();
+}
+
 function btoa(ch)
 {
 	return (ch > 0x1f && ch < 0x7f) ? String.fromCharCode(ch) : '.';
@@ -47,6 +58,15 @@ function xtoa(hex, pad)
 		str = "0" + str;
 
 	return str;
+}
+
+function webshark_get_url()
+{
+	var base_url = window.location.href.split("?")[0];
+
+	var extra = '?file=' + _webshark_file;
+
+	return base_url + extra;
 }
 
 function webshark_d3_chart(svg, data, opts)
@@ -342,7 +362,7 @@ function webshark_frame_on_click(ev)
 
 	node = dom_find_node_attr(ev.target, 'data_ws_frame');
 	if (node != null)
-		popup(window.location.href + "&frame=" + node.data_ws_frame);
+		popup(webshark_get_url() + "&frame=" + node.data_ws_frame);
 
 	ev.preventDefault();
 }
@@ -376,7 +396,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 				a.appendChild(document.createTextNode(cols[j]))
 
 				a.setAttribute("target", "_blank");
-				a.setAttribute("href", window.location.href + "&frame=" + fnum);
+				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
 				a.addEventListener("click", webshark_frame_on_click);
 
 				td.appendChild(a);
@@ -547,15 +567,28 @@ function webshark_create_tap_table_common(fields)
 	var tr;
 
 	tr = document.createElement('tr');
+
+	{
+		var td = document.createElement('td');
+
+		td.appendChild(document.createTextNode('Actions'));
+		td.className = "ws_border";
+		tr.appendChild(td);
+	}
+
 	for (var col in fields)
 	{
 		var td = document.createElement('td');
 
 		td.appendChild(document.createTextNode(fields[col]));
+		td.className = "ws_border";
 		tr.appendChild(td);
 	}
-	table.appendChild(tr);
+	tr.className = "header";
 
+	table.className = "ws_border";
+
+	table.appendChild(tr);
 	return table;
 }
 
@@ -567,6 +600,8 @@ function webshark_create_tap_table_data_common(fields, table, data)
 
 		var tr = document.createElement('tr');
 
+		tr.appendChild(webshark_create_tap_action_common(val));
+
 		for (var col in fields)
 		{
 			var value = val[col];
@@ -577,11 +612,33 @@ function webshark_create_tap_table_data_common(fields, table, data)
 
 			var td = document.createElement('td');
 			td.appendChild(document.createTextNode(value));
+			td.className = "ws_border";
 			tr.appendChild(td);
 		}
 
 		table.appendChild(tr);
 	}
+}
+
+function webshark_create_tap_action_common(data)
+{
+	var td = document.createElement('td');
+
+	if (data['_filter'])
+	{
+		var filter_a = document.createElement('a');
+
+		filter_a.setAttribute("target", "_blank");
+		filter_a.setAttribute("href", webshark_get_url()+ "&filter=" + encodeURIComponent(data['_filter']));
+		filter_a.addEventListener("click", popup_on_click_a);
+
+		filter_a.appendChild(document.createTextNode('F'));
+		td.appendChild(filter_a);
+	}
+
+	td.className = "ws_border";
+
+	return td;
 }
 
 function webshark_create_tap_stat(table, stats, level)
@@ -592,6 +649,8 @@ function webshark_create_tap_stat(table, stats, level)
 		var val = stat['vals'];
 
 		var tr = document.createElement('tr');
+
+		tr.appendChild(webshark_create_tap_action_common(stat));
 
 		for (var col in webshark_stat_fields)
 		{
@@ -606,6 +665,7 @@ function webshark_create_tap_stat(table, stats, level)
 			var td = document.createElement('td');
 			td.appendChild(document.createTextNode(value));
 			tr.appendChild(td);
+			td.className = "ws_border";
 		}
 
 		{
@@ -676,6 +736,8 @@ function webshark_render_tap(tap)
 			conv['_duration'] = conv['stop'] - conv['start'];
 			conv['_rate_tx'] = (8 * conv['txb']) / conv['_duration'];
 			conv['_rate_rx'] = (8 * conv['rxb']) / conv['_duration'];
+
+			conv['_filter'] = conv['filter'];
 		}
 
 		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
@@ -741,6 +803,7 @@ function webshark_render_tap(tap)
 
 			host['_packets']  = host['rxf'] + host['txf'];
 			host['_bytes']    = host['rxb'] + host['txb'];
+			host['_filter']   = host['filter'];
 		}
 
 		webshark_create_tap_table_data_common(webshark_host_fields, table, hosts);
@@ -804,8 +867,11 @@ function webshark_load_capture(filter)
 		{
 			webshark_render_frames(data);
 
-			var framenum = data[0].num;
-			webshark_load_frame(framenum);
+			if (data && data[0])
+			{
+				var framenum = data[0].num;
+				webshark_load_frame(framenum);
+			}
 		});
 }
 

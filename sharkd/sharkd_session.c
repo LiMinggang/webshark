@@ -524,6 +524,7 @@ struct sharkd_conv_tap_data
  *   (m) tap        - tap name
  *   (m) type       - tap output type
  *   (m) proto      - protocol short name
+ *   (o) filter     - filter string
  *
  *   (o) convs      - array of object with attributes:
  *                  (m) saddr - source address
@@ -581,6 +582,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
 			conv_item_t *iui = &g_array_index(iu->hash.conv_array, conv_item_t, i);
 			char *src_addr, *dst_addr;
 			char *src_port, *dst_port;
+			char *filter_str;
 
 			printf("%s{", i ? "," : "");
 
@@ -605,6 +607,13 @@ sharkd_session_process_tap_conv_cb(void *arg)
 			printf(",\"start\":%.9f", nstime_to_sec(&iui->start_time));
 			printf(",\"stop\":%.9f", nstime_to_sec(&iui->stop_time));
 
+			filter_str = get_conversation_filter(iui, CONV_DIR_A_TO_B);
+			if (filter_str)
+			{
+				printf(",\"filter\":\"%s\"", filter_str);
+				g_free(filter_str);
+			}
+
 			wmem_free(NULL, src_addr);
 			wmem_free(NULL, dst_addr);
 
@@ -617,6 +626,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
 		{
 			hostlist_talker_t *host = &g_array_index(iu->hash.conv_array, hostlist_talker_t, i);
 			char *host_str, *port_str;
+			char *filter_str;
 
 			printf("%s{", i ? "," : "");
 
@@ -634,6 +644,13 @@ sharkd_session_process_tap_conv_cb(void *arg)
 
 			printf(",\"txf\":%llu", (long long unsigned) host->tx_frames);
 			printf(",\"txb\":%llu", (long long unsigned) host->tx_bytes);
+
+			filter_str = get_hostlist_filter(host);
+			if (filter_str)
+			{
+				printf(",\"filter\":\"%s\"", filter_str);
+				g_free(filter_str);
+			}
 
 			wmem_free(NULL, host_str);
 
