@@ -114,6 +114,55 @@ json_puts_string(const char *str)
 	fwrite(buf, 1, out, stdout);
 }
 
+static void
+json_print_base64(const guint8 *data, int len)
+{
+	static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+	char buf[1024];
+	int out = 0;
+	int i;
+
+	int pad = len % 3;
+
+	buf[out++] = '"';
+
+	for (i = 0; i < len; i += 3)
+	{
+		guint32 n = ((guint32)data[i]) << 16;
+
+		if ((i + 1) < len)
+			n |= ((guint32)data[i + 1]) << 8;
+
+		if ((i + 2) < len)
+			n |= data[i + 2];
+
+		if (out + 4 + 3 + 1 >= (int) sizeof(buf))
+		{
+			fwrite(buf, 1, out, stdout);
+			out = 0;
+		}
+
+		buf[out++] = base64_str[(n >> 18) & 63];
+		buf[out++] = base64_str[(n >> 12) & 63];
+
+		if ((i + 1) < len)
+			buf[out++] = base64_str[(n >> 6) & 63];
+
+		if ((i + 2) < len)
+			buf[out++] = base64_str[n & 63];
+	}
+
+	if (pad > 0)
+	{
+		for (; pad < 3; pad++)
+			buf[out++] = '=';
+	}
+
+	buf[out++] = '"';
+	fwrite(buf, 1, out, stdout);
+}
+
 struct filter_item
 {
 	struct filter_item *next;
@@ -853,7 +902,7 @@ sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo
 		tvbuff_t *tvb;
 		guint length;
 
-		printf(",\"bytes\":[");
+		printf(",\"bytes\":");
 
 		tvb = get_data_source_tvb(src);
 
@@ -861,13 +910,11 @@ sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo
 		if (length != 0)
 		{
 			const guchar *cp = tvb_get_ptr(tvb, 0, length);
-			size_t i;
 
 			/* XXX pi.fd->flags.encoding */
-			for (i = 0; i < length; i++)
-				printf("%s%d", (i) ? "," : "", cp[i]);
+
+			json_print_base64(cp, length);
 		}
-		printf("]");
 	}
 
 	printf("}\n");

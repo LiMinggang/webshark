@@ -475,7 +475,7 @@ function webshark_render_hexdump(pkt)
 
 		for (var j = 0; j < limit; j++)
 		{
-			var ch = pkt[i + j];
+			var ch = pkt.charCodeAt(i + j);
 
 			str_hex += xtoa(ch, 2) + " ";
 			str_ascii += btoa(ch);
@@ -844,7 +844,7 @@ function webshark_load_frame(framenum)
 		function(data)
 		{
 			webshark_render_proto_tree(data['tree']);
-			webshark_render_hexdump(data['bytes']);
+			webshark_render_hexdump(window.atob(data['bytes']));
 
 			_webshark_current_frame = framenum;
 
