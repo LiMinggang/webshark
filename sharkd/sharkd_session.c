@@ -418,6 +418,7 @@ struct sharkd_conv_tap_data
  * Output conv tap:
  *   (m) tap        - tap name
  *   (m) type       - tap output type
+ *   (m) proto      - protocol short name
  *
  *   (o) convs      - array of object with attributes:
  *                  (m) saddr - source address
@@ -535,7 +536,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
 		}
 	}
 
-	printf("]},");
+	printf("],\"proto\":\"%s\"},", proto);
 }
 
 /**
