@@ -102,11 +102,12 @@
 				document.getElementById('toolbar_frame').style.display = 'block';
 
 			} else {
+				var filter = opt['filter'];
+
 				create_tap_menu('cap_menu', ws_stats);
 				create_tap_menu('cap_menu', ws_convs);
 
-				webshark_load_capture();
-				webshark_load_frame(1);
+				webshark_load_capture(filter);
 			}
 		}
 
@@ -131,7 +132,7 @@
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
-		Frame filter: <input type='text' onkeyup='checkfilter(this)' style='width: 600px;' />
+		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value);' onkeyup='checkfilter(this)' style='width: 600px;' />
 	</div>
 
 	<div id="toolbar_frame" style="display: none;">

@@ -792,18 +792,20 @@ function webshark_render_tap(tap)
 	}
 }
 
-function webshark_load_capture()
+function webshark_load_capture(filter)
 {
-	webshark_json_get('req=status&capture=' + _webshark_file,
-		function(data)
-		{
-			webshark_render_columns(data['columns']);
-		});
+	var extra = "";
 
-	webshark_json_get('req=frames&capture=' + _webshark_file,
+	if (filter)
+		extra += "&filter=" + encodeURIComponent(filter);
+
+	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
 		function(data)
 		{
 			webshark_render_frames(data);
+
+			var framenum = data[0].num;
+			webshark_load_frame(framenum);
 		});
 }
 

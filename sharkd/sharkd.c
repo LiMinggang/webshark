@@ -1489,7 +1489,7 @@ sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color)
 }
 
 int
-sharkd_dissect_retap(void)
+sharkd_retap(void)
 {
   guint32          framenum;
   frame_data      *fdata;
@@ -1533,6 +1533,74 @@ sharkd_dissect_retap(void)
   draw_tap_listeners(TRUE);
 
   return 0;
+}
+
+int
+sharkd_filter(const char *dftext, guint8 **result)
+{
+  dfilter_t  *dfcode = NULL;
+
+  guint32 framenum;
+  guint32 frames_count;
+  Buffer buf;
+  struct wtap_pkthdr phdr;
+  int err;
+  char *err_info = NULL;
+
+  guint8 *result_bits;
+  guint8  passed_bits;
+
+  epan_dissect_t edt;
+
+  if (!dfilter_compile(dftext, &dfcode, &err_info)) {
+    g_free(err_info);
+    return -1;
+  }
+
+  frames_count = cfile.count;
+
+  wtap_phdr_init(&phdr);
+  ws_buffer_init(&buf, 1500);
+  epan_dissect_init(&edt, cfile.epan, TRUE, FALSE);
+
+  passed_bits = 0;
+  result_bits = (guint8 *) g_malloc(2 + (frames_count / 8));
+
+  for (framenum = 1; framenum <= frames_count; framenum++) {
+    frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+
+    if ((framenum & 7) == 0) {
+      result_bits[(framenum / 8) - 1] = passed_bits;
+      passed_bits = 0;
+    }
+
+    if (!wtap_seek_read(cfile.wth, fdata->file_off, &phdr, &buf, &err, &err_info))
+      break;
+
+    /* frame_data_set_before_dissect */
+    epan_dissect_prime_dfilter(&edt, dfcode);
+
+    epan_dissect_run(&edt, cfile.cd_t, &phdr, frame_tvbuff_new_buffer(fdata, &buf), fdata, NULL);
+
+    if (dfilter_apply_edt(dfcode, &edt))
+      passed_bits |= (1 << (framenum % 8));
+
+    /* if passed or ref -> frame_data_set_after_dissect */
+
+    epan_dissect_reset(&edt);
+  }
+
+  result_bits[framenum / 8] = passed_bits;
+
+  wtap_phdr_cleanup(&phdr);
+  ws_buffer_free(&buf);
+  epan_dissect_cleanup(&edt);
+
+  dfilter_free(dfcode);
+
+  *result = result_bits;
+
+  return framenum;
 }
 
 /*

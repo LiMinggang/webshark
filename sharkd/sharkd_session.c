@@ -39,7 +39,8 @@
 
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
-int sharkd_dissect_retap(void);
+int sharkd_retap(void);
+int sharkd_filter(const char *dftext, guint8 **result);
 int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
 int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
 
@@ -111,6 +112,46 @@ json_puts_string(const char *str)
 
 	buf[out++] = '"';
 	fwrite(buf, 1, out, stdout);
+}
+
+struct filter_item
+{
+	struct filter_item *next;
+
+	char *filter;
+	guint8 *filtered;
+};
+
+static struct filter_item *filter_list = NULL;
+
+static const guint8 *
+sharkd_session_filter_data(const char *filter)
+{
+	struct filter_item *l;
+
+	for (l = filter_list; l; l = l->next)
+	{
+		if (!strcmp(l->filter, filter))
+			return l->filtered;
+	}
+
+	{
+		guint8 *filtered = NULL;
+
+		int ret = sharkd_filter(filter, &filtered);
+
+		if (ret == -1)
+			return NULL;
+
+		l = (struct filter_item *) g_malloc(sizeof(struct filter_item));
+		l->filter = g_strdup(filter);
+		l->filtered = filtered;
+
+		l->next = filter_list;
+		filter_list = l;
+
+		return filtered;
+	}
 }
 
 static void
@@ -267,7 +308,8 @@ sharkd_session_process_status(void)
  * Process frames request
  *
  * Input:
- *   - TODO frame range
+ *   (o) filter - filter to be used
+ *   (o) range  - packet range to be used [TODO]
  *
  * Output array of frames with attributes:
  *   (m) c   - array of column data
@@ -278,18 +320,32 @@ sharkd_session_process_status(void)
  *   (m) fg  - color filter - foreground color in hex
  */
 static void
-sharkd_session_process_frames(void)
+sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int count)
 {
 	extern capture_file cfile;
+
+	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+
+	const guint8 *filter_data = NULL;
 
 	const char *frame_sepa = "";
 	unsigned int framenum;
 	int col;
 
+	if (tok_filter)
+	{
+		filter_data = sharkd_session_filter_data(tok_filter);
+		if (!filter_data)
+			return;
+	}
+
 	printf("[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
 		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+
+		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
+			continue;
 
 		sharkd_dissect_columns(framenum, &cfile.cinfo, TRUE);
 
@@ -672,7 +728,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		return;
 
 	printf("{\"taps\":[");
-	sharkd_dissect_retap();
+	sharkd_retap();
 	printf("null],\"err\":0}\n");
 
 	for (i = 0; i < 16; i++)
@@ -954,7 +1010,7 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 		else if (!strcmp(tok_req, "check"))
 			sharkd_session_process_check(buf, tokens, count);
 		else if (!strcmp(tok_req, "frames"))
-			sharkd_session_process_frames();
+			sharkd_session_process_frames(buf, tokens, count);
 		else if (!strcmp(tok_req, "tap"))
 			sharkd_session_process_tap(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
