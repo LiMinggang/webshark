@@ -15,7 +15,12 @@ li.selected
 	font-size: 14px;
 }
 
-#packet_list th, #packet_list td
+table.ws_border
+{
+	border: 2px solid grey;
+}
+
+#packet_list th, #packet_list td, td.ws_border
 {
 	border-right: 1px solid grey;
 }
@@ -33,7 +38,7 @@ li.selected
 	margin-left: -6px;
 }
 
-#packet_list_header tr
+#packet_list_header tr, tr.header
 {
 	color: grey;
 	white-space:  nowrap;
