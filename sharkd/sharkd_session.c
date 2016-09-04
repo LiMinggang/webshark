@@ -607,7 +607,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
 			printf(",\"start\":%.9f", nstime_to_sec(&iui->start_time));
 			printf(",\"stop\":%.9f", nstime_to_sec(&iui->stop_time));
 
-			filter_str = get_conversation_filter(iui, CONV_DIR_A_TO_B);
+			filter_str = get_conversation_filter(iui, CONV_DIR_A_TO_FROM_B);
 			if (filter_str)
 			{
 				printf(",\"filter\":\"%s\"", filter_str);

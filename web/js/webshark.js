@@ -342,6 +342,27 @@ function webshark_tree_on_click(ev)
 	}
 }
 
+var _prev_filter_on_click = null;
+
+function webshark_filter_on_click(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_filter');
+	if (node != null)
+	{
+		if (_prev_filter_on_click)
+			_prev_filter_on_click.className = "";
+
+		node.className = "selected";
+		_prev_filter_on_click = node;
+
+		var filter = node['data_ws_filter'];
+		document.getElementById('ws_packet_list_view').style.display = 'block';
+		webshark_load_capture(filter);
+	}
+}
+
 function webshark_node_on_click(ev)
 {
 	var node;
@@ -614,6 +635,12 @@ function webshark_create_tap_table_data_common(fields, table, data)
 			td.appendChild(document.createTextNode(value));
 			td.className = "ws_border";
 			tr.appendChild(td);
+		}
+
+		if (val['_filter'])
+		{
+			tr.data_ws_filter = val['_filter'];
+			tr.addEventListener("click", webshark_filter_on_click);
 		}
 
 		table.appendChild(tr);
