@@ -1,6 +1,6 @@
 tr.selected
 {
-	background-color: #0080FF;
+	background-color: #0080FF !important;
 }
 
 li.selected

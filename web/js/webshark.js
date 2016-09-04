@@ -253,6 +253,23 @@ function webshark_d3_chart(svg, data, opts)
 	}
 }
 
+function dom_add_class(node, name)
+{
+	node.className += " " + name;
+}
+
+function dom_remove_class(node, name)
+{
+	var classes = node.className.split(" ");
+
+	node.className = "";
+	for (var i = 0; i < classes.length; i++)
+	{
+		if (classes[i] != name)
+			node.className = node.className + " " + classes[i];
+	}
+}
+
 function dom_clear(p)
 {
 	p.innerHTML = "";
@@ -352,9 +369,9 @@ function webshark_filter_on_click(ev)
 	if (node != null)
 	{
 		if (_prev_filter_on_click)
-			_prev_filter_on_click.className = "";
+			dom_remove_class(_prev_filter_on_click, "selected");
 
-		node.className = "selected";
+		dom_add_class(node, "selected");
 		_prev_filter_on_click = node;
 
 		var filter = node['data_ws_filter'];
@@ -908,13 +925,11 @@ function webshark_node_highlight_bytes(obj, node)
 {
 	/* unselect previous */
 	if (_webshark_current_node != null)
-	{
-		_webshark_current_node.className = '';
-	}
+		dom_remove_class(_webshark_current_node, "selected");
 
 	/* select new */
 	_webshark_current_node = obj;
-	obj.className = 'selected';
+	dom_add_class(obj, 'selected');
 }
 
 var _webshark_current_frame = null;
@@ -930,7 +945,7 @@ function webshark_load_frame(framenum)
 	{
 		var obj = document.getElementById('packet-list-frame-' + _webshark_current_frame);
 		if (obj)
-			obj.className = '';
+			dom_remove_class(obj, "selected");
 	}
 
 	webshark_json_get('req=frame&bytes=yes&proto=yes&capture=' + _webshark_file + '&frame=' + framenum,
@@ -944,7 +959,7 @@ function webshark_load_frame(framenum)
 			/* select new */
 			var obj = document.getElementById('packet-list-frame-' + framenum);
 			if (obj)
-				obj.className = 'selected';
+				dom_add_class(obj, 'selected');
 		});
 }
 
