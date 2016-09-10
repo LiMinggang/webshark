@@ -22,11 +22,13 @@ import threading
 class SharkdClient:
 	def __init__(self, host, port):
 		self.mutex = threading.Lock()
+		self.buf = None
 		self.fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.fd.connect((host, port))
 
 	def __init__(self, path):
 		self.mutex = threading.Lock()
+		self.buf = None
 		self.fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 		self.fd.connect(path)
 
@@ -41,17 +43,55 @@ class SharkdClient:
 	def _send_str(self, s):
 		self._send_raw(s.encode())
 
+	def _recv_bytes(self, dest):
+		if self.buf == None:
+			self.buf = self.fd.recv(4096)
+			self.bufpos = 0
+			if len(self.buf) == 0:
+				self.buf = None
+				return None
+
+		start = self.bufpos
+
+		if isinstance(self.buf[0], int):   # python3
+			pos = self.buf.find(10, start)
+		else:                              # python2
+			pos = self.buf.find('\n', start)
+
+		if pos != -1:
+			nl = True
+			pos = pos + 1
+		else:
+			nl = False
+			pos = len(self.buf)
+
+		if nl:
+			chunk = self.buf[start:pos-1]
+		else:
+			chunk = self.buf[start:]
+
+		dest.extend(chunk)
+
+		self.bufpos = pos
+
+		if len(self.buf) == self.bufpos:
+			self.buf = None
+
+		return nl
+
 	def _recv_line(self):
 		chunks = []
 		while True:
-			chunk = self.fd.recv(1)
-			if len(chunk) == 0:
+			nl = self._recv_bytes(chunks)
+			if nl == None:
 				break
-			if isinstance(chunk[0], int) and chunk[0] == 10:   # python3
+
+			if nl == True:
 				break
-			if isinstance(chunk[0], str) and chunk[0] == '\n': # python2
-				break
-			chunks.append(chunk)
+
+		if len(chunks) and isinstance(chunks[0], int):   # python3
+			return bytes(chunks)
+
 		return b''.join(chunks)
 
 	def send(self, d):
