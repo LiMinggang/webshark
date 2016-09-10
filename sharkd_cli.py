@@ -25,6 +25,11 @@ class SharkdClient:
 		self.fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.fd.connect((host, port))
 
+	def __init__(self, path):
+		self.mutex = threading.Lock()
+		self.fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		self.fd.connect(path)
+
 	def _send_raw(self, data):
 		total = 0
 		while total < len(data):
@@ -80,7 +85,7 @@ class SharkdClient:
 if __name__ == '__main__':
 	filename = sys.argv[1]
 
-	cli = SharkdClient('127.0.0.1', 4446)
+	cli = SharkdClient('/tmp/sharkd.sock')
 
 	for l in cli.send_req_gen(dict(req='load', file=filename)):
 		print("Loading: " + l)
