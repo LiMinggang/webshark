@@ -18,6 +18,8 @@
 var _webshark_file = "";
 var _webshark_url = "/webshark/api?";
 
+var _webshark_frames_html = null;
+
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
 function debug(level, str)
@@ -405,60 +407,67 @@ function webshark_frame_on_click(ev)
 	ev.preventDefault();
 }
 
-function webshark_render_frames(frames)
+var _webshark_capture_frames = null;
+
+function webshark_create_frame_html(frame)
 {
-	var h = document.getElementById('packet_list_frames');
+	var frame = _webshark_capture_frames[frame];
 
-	dom_clear(h);
+	var cols = frame['c'];
+	var fnum = frame['num'];
 
-	for (var i = 0; i < frames.length; i++)
+	var tr = document.createElement("tr");
+
+	for (var j = 0; j < cols.length; j++)
 	{
-		var frame = frames[i];
-
-		var cols = frame['c'];
-		var fnum = frame['num'];
-
-		var tr = document.createElement("tr");
-
-		for (var j = 0; j < cols.length; j++)
-		{
-			var td = document.createElement("td");
+		var td = document.createElement("td");
 
 td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
-			/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
-			if (j == 0 && cols[j] == fnum)
-			{
-				var a = document.createElement('a');
+		/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
+		if (j == 0 && cols[j] == fnum)
+		{
+			var a = document.createElement('a');
 
-				a.appendChild(document.createTextNode(cols[j]))
+			a.appendChild(document.createTextNode(cols[j]))
 
-				a.setAttribute("target", "_blank");
-				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
-				a.addEventListener("click", webshark_frame_on_click);
+			a.setAttribute("target", "_blank");
+			a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
+			a.addEventListener("click", webshark_frame_on_click);
 
-				td.appendChild(a);
-			}
-			else
-			{
-				td.appendChild(document.createTextNode(cols[j]));
-			}
-
-			tr.appendChild(td);
+			td.appendChild(a);
+		}
+		else
+		{
+			td.appendChild(document.createTextNode(cols[j]));
 		}
 
-		if (frame['bg'])
-			tr.style['background-color'] = '#' + frame['bg'];
-
-		if (frame['fg'])
-			tr.style['color'] = '#' + frame['fg'];
-
-		tr.id = 'packet-list-frame-' + fnum;
-		tr.data_ws_frame = fnum;
-		tr.addEventListener("click", webshark_frame_tr_on_click);
-
-		h.appendChild(tr);
+		tr.appendChild(td);
 	}
+
+	if (frame['bg'])
+		tr.style['background-color'] = '#' + frame['bg'];
+
+	if (frame['fg'])
+		tr.style['color'] = '#' + frame['fg'];
+
+	tr.id = 'packet-list-frame-' + fnum;
+	tr.data_ws_frame = fnum;
+	tr.addEventListener("click", webshark_frame_tr_on_click);
+
+	return tr;
+}
+
+function webshark_lazy_frames(frames)
+{
+	_webshark_capture_frames = frames;
+
+	var data = Array();
+	data.length = frames.length;
+	_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_html;
+
+	// don't work _webshark_frames_html.scroll_elem.scrollTop = 0;
+	_webshark_frames_html.update(data);
 }
 
 function webshark_create_proto_tree(tree, level)
@@ -909,7 +918,7 @@ function webshark_load_capture(filter)
 	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
 		function(data)
 		{
-			webshark_render_frames(data);
+			webshark_lazy_frames(data);
 
 			if (data && data[0])
 			{
