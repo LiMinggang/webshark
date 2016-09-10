@@ -32,7 +32,7 @@ static int _server_fd = -1;
 
 int sharkd_session_main(void);
 
-int
+static int
 socket_init(char *path)
 {
 	int fd = -1;
@@ -105,17 +105,19 @@ int
 sharkd_init(int argc, char **argv)
 {
 	// char server_sock[] = "unix:/tmp/sharkd.sock";
-	char server_sock[] = "tcp:127.0.0.1:4446";
+	// char server_sock[] = "tcp:127.0.0.1:4446";
 
 	int fd;
 
-	/* TODO */
-	(void) argc;
-	(void) argv;
+	if (argc != 2)
+	{
+		fprintf(stderr, "usage: %s <socket>\n", argv[0]);
+		return -1;
+	}
 
 	signal(SIGCHLD, SIG_IGN);
 
-	fd = socket_init(server_sock);
+	fd = socket_init(argv[1]);
 
 	if (fd == -1)
 		return -1;

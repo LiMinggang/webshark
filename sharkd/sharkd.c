@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <locale.h>
 #include <limits.h>
 
 #include <errno.h>
@@ -269,9 +268,6 @@ main(int argc, char *argv[])
 
   tshark_debug("tshark started with %d args", argc);
 
-  /* Set the C-language locale to the native environment. */
-  setlocale(LC_ALL, "");
-
   cmdarg_err_init(failure_message, failure_message_cont);
 
 #ifdef _WIN32
@@ -392,6 +388,8 @@ main(int argc, char *argv[])
 
   /* Register all libwiretap plugin modules. */
   register_all_wiretap_modules();
+#else
+  wtap_opttypes_initialize();
 #endif
 
   /* Register all dissectors; we must do this before checking for the
@@ -1602,6 +1600,10 @@ sharkd_filter(const char *dftext, guint8 **result)
 
   return framenum;
 }
+
+#ifdef COMPILE_FOR_OPENSHIFT /* newer glibc have memcpy@@GLIBC_2.14, and openshift don't have it */
+void *memcpy(void *dst, const void *src, size_t len) { return memmove(dst, src, len); }
+#endif
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

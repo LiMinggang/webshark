@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <locale.h>
 
 #include <glib.h>
 
@@ -396,7 +395,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
 
-		sharkd_dissect_columns(framenum, &cfile.cinfo, TRUE);
+		sharkd_dissect_columns(framenum, &cfile.cinfo, (fdata->color_filter == NULL));
 
 		printf("%s{\"c\":[", frame_sepa);
 		for (col = 0; col < cfile.cinfo.num_cols; ++col)
@@ -1097,7 +1096,6 @@ sharkd_session_main(void)
 
 	fprintf(stderr, "Hello in child!\n");
 	setlinebuf(stdout);
-	setlocale(LC_ALL, "C");
 
 	while (fgets(buf, sizeof(buf), stdin))
 	{
