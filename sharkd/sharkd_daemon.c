@@ -18,6 +18,7 @@
 #include <config.h>
 
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
@@ -40,6 +41,7 @@ socket_init(char *path)
 	if (!strncmp(path, "unix:", 5))
 	{
 		struct sockaddr_un s_un;
+		size_t s_un_len;
 
 		path += 5;
 
@@ -47,10 +49,16 @@ socket_init(char *path)
 		if (fd == -1)
 			return -1;
 
+		memset(&s_un, 0, sizeof(s_un));
 		s_un.sun_family = AF_UNIX;
 		strcpy(s_un.sun_path, path);
 
-		if (bind(fd, (struct sockaddr *) &s_un, sizeof(struct sockaddr_un)))
+		s_un_len = offsetof(struct sockaddr_un, sun_path) + strlen(s_un.sun_path);
+
+		if (s_un.sun_path[0] == '@')
+			s_un.sun_path[0] = '\0';
+
+		if (bind(fd, (struct sockaddr *) &s_un, s_un_len))
 		{
 			close(fd);
 			return -1;
