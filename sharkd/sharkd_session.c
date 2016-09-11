@@ -32,6 +32,8 @@
 #include <epan/prefs.h>
 #include <wiretap/wtap.h>
 
+#include <epan/column.h>
+
 #include <epan/stats_tree_priv.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
@@ -237,7 +239,10 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
  * Process info request
  *
  * Output object with attributes:
- *   (m) columns - column titles
+ *   (m) columns - available column formats, array of object with attributes:
+ *                  'name'   - column name
+ *                  'format' - column format-name
+ *
  *   (m) stats   - available statistics, array of object with attributes:
  *                  'name' - statistic name
  *                  'tap'  - sharkd tap-name for statistic
@@ -249,15 +254,18 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
 static void
 sharkd_session_process_info(void)
 {
-	extern capture_file cfile;
 	int i;
 
 	printf("{\"columns\":[");
-	for (i = 0; i < cfile.cinfo.num_cols; i++)
+	for (i = 0; i < NUM_COL_FMTS; i++)
 	{
-		const col_item_t *col_item = &cfile.cinfo.columns[i];
+		const char *col_format = col_format_to_string(i);
+		const char *col_descr  = col_format_desc(i);
 
-		printf("%s\"%s\"", (i) ? "," : "", col_item->col_title);
+		printf("%s{", (i) ? "," : "");
+			printf("\"name\":\"%s\"", col_descr);
+			printf(",\"format\":\"%s\"", col_format);
+		printf("}");
 	}
 	printf("]");
 
@@ -350,12 +358,85 @@ sharkd_session_process_status(void)
 	printf("}\n");
 }
 
+extern void col_finalize(column_info *cinfo);
+
+static column_info *
+sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok_t *tokens, int count)
+{
+	int columns_fmt[32];
+	const char *custom_field[32];
+
+	int i, cols;
+
+	for (i = 0; i < 32; i++)
+	{
+		const char *tok_column;
+		char tok_column_name[64];
+		const char *custom_sepa;
+
+		snprintf(tok_column_name, sizeof(tok_column_name), "column%d", i);
+		tok_column = json_find_attr(buf, tokens, count, tok_column_name);
+
+		if (tok_column == NULL)
+			break;
+
+		if ((custom_sepa = strchr(tok_column, ':')))
+		{
+			columns_fmt[i] = COL_CUSTOM;
+			custom_field[i] = tok_column;
+
+			/* TODO, verify */
+		}
+		else
+		{
+			columns_fmt[i] = atoi(tok_column);
+			if (columns_fmt[i] < 0 || columns_fmt[i] >= NUM_COL_FMTS)
+				return NULL;
+
+			/* if custom, that it shouldn't be just custom number -> error */
+			if (columns_fmt[i] == COL_CUSTOM)
+				return NULL;
+		}
+	}
+
+	cols = i;
+
+	col_setup(cinfo, cols);
+
+	for (i = 0; i < cols; i++)
+	{
+		col_item_t *col_item = &cinfo->columns[i];
+
+		col_item->col_fmt = columns_fmt[i];
+		col_item->col_title = NULL; /* no need for title */
+
+		if (col_item->col_fmt == COL_CUSTOM)
+		{
+			char *tmp = g_strdup(custom_field[i]);
+			char *sepa = strchr(tmp, ':');
+
+			col_item->col_custom_fields = tmp;
+			col_item->col_custom_occurrence = atoi(sepa + 1);
+
+			*sepa = '\0';
+		}
+
+		col_item->col_fence = 0;
+	}
+
+	col_finalize(cinfo);
+
+	return cinfo;
+}
+
 /**
  * sharkd_session_process_frames()
  *
  * Process frames request
  *
  * Input:
+ *   (o) column0...columnXX - requested columns either number in range [0..NUM_COL_FMTS), or custom.
+ *                            If column0 not specified default columns will be used.
  *   (o) filter - filter to be used
  *   (o) range  - packet range to be used [TODO]
  *
@@ -373,12 +454,24 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 	extern capture_file cfile;
 
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+	const char *tok_column = json_find_attr(buf, tokens, count, "column0");
 
 	const guint8 *filter_data = NULL;
 
 	const char *frame_sepa = "";
 	unsigned int framenum;
 	int col;
+
+	column_info *cinfo = &cfile.cinfo;
+	column_info user_cinfo;
+
+	if (tok_column)
+	{
+		memset(&user_cinfo, 0, sizeof(user_cinfo));
+		cinfo = sharkd_session_create_columns(&user_cinfo, buf, tokens, count);
+		if (!cinfo)
+			return;
+	}
 
 	if (tok_filter)
 	{
@@ -395,12 +488,12 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
 
-		sharkd_dissect_columns(framenum, &cfile.cinfo, (fdata->color_filter == NULL));
+		sharkd_dissect_columns(framenum, cinfo, (fdata->color_filter == NULL));
 
 		printf("%s{\"c\":[", frame_sepa);
-		for (col = 0; col < cfile.cinfo.num_cols; ++col)
+		for (col = 0; col < cinfo->num_cols; ++col)
 		{
-			const col_item_t *col_item = &cfile.cinfo.columns[col];
+			const col_item_t *col_item = &cinfo->columns[col];
 
 			if (col)
 				printf(",");
@@ -425,6 +518,9 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 		frame_sepa = ",";
 	}
 	printf("]\n");
+
+	if (cinfo != &cfile.cinfo)
+		col_cleanup(cinfo);
 }
 
 static void

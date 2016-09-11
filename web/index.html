@@ -13,8 +13,27 @@
 	<script src="js/webshark.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
+		var ws_columns = null;
+
 		var ws_stats = [ ];
 		var ws_convs = [ ];
+
+		var ws_pref = { };
+
+		var ws_default_pref =
+		{
+			columns:
+			[
+				{ "No.":          "%m" },
+				{ "Time":         "%t" },
+				{ "Source":       "%s" },
+				{ "Destination":  "%d" },
+				{ "Protocol":     "%p" },
+				{ "Length":       "%L" },
+				{ "Info":         "%i" },
+//				{ "tcp.stream": "tcp.stream:0" },
+			],
+		};
 
 		function create_tap_menu(id, taps)
 		{
@@ -119,7 +138,16 @@
 					create_tap_menu('cap_menu', ws_convs);
 				}
 
-				webshark_load_capture(filter);
+				webshark_load_capture(filter, ws_columns);
+			}
+		}
+
+		function load_preferences()
+		{
+			for (var key in ws_default_pref)
+			{
+				if (ws_pref[key] == undefined)
+					ws_pref[key] = ws_default_pref[key];
 			}
 		}
 
@@ -135,12 +163,49 @@
 				contentId: 'packet_list_frames'
 			});
 
+			load_preferences();
+
 			webshark_json_get('req=info',
 				function(data)
 				{
-					webshark_render_columns(data['columns']);
 					ws_stats = data['stats'];
 					ws_convs = data['convs'];
+
+					var columns_default = [ "%m", "%t", "%s", "%d", "%p", "%L", "%i" ];
+					var columns_title   = [ ];
+					var columns_pref    = [ ];
+
+					for (var col = 0; col < ws_pref.columns.length; col++)
+					{
+						var col_title = "";
+						var col_format = "";
+						var col_format_idx = -1;
+
+						for (col_title in ws_pref.columns[col]) { col_format = ws_pref.columns[col][col_title]; }
+						columns_title.push(col_title);
+
+						if (col >= columns_default.length || columns_default[col] != col_format)
+						{
+							ws_columns = columns_pref;
+						}
+
+						/* map from column format to integer */
+						var ws_d_columns = data['columns'];
+						for (var col_map = 0; col_map < ws_d_columns.length; col_map++)
+						{
+							if (ws_d_columns[col_map].format == col_format)
+							{
+								col_format_idx = col_map;
+							}
+						}
+
+						if (col_format_idx != -1)
+							columns_pref.push(col_format_idx);
+						else
+							columns_pref.push(col_format);
+					}
+
+					webshark_render_columns(columns_title);
 					run();
 				});
 		}
@@ -152,7 +217,7 @@
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
-		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value);' onkeyup='checkfilter(this)' style='width: 600px;' />
+		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
 	</div>
 
 	<div id="toolbar_frame" style="display: none;">

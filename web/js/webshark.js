@@ -908,12 +908,18 @@ function webshark_render_tap(tap)
 	}
 }
 
-function webshark_load_capture(filter)
+function webshark_load_capture(filter, cols)
 {
 	var extra = "";
 
 	if (filter)
 		extra += "&filter=" + encodeURIComponent(filter);
+
+	if (cols)
+	{
+		for (var i = 0; i < cols.length; i++)
+			extra += "&column" + i + "=" + encodeURIComponent(cols[i]);
+	}
 
 	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
 		function(data)
@@ -943,7 +949,7 @@ function webshark_node_highlight_bytes(obj, node)
 
 var _webshark_current_frame = null;
 
-function webshark_load_frame(framenum)
+function webshark_load_frame(framenum, cols)
 {
 	/* frame content should not change -> skip requests for frame like current one */
 	if (framenum == _webshark_current_frame)
