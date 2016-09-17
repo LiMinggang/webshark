@@ -994,8 +994,7 @@ function webshark_render_interval()
 		intervals_full[idx][1] += intervals_data[i][count_idx];
 	}
 
-	var svg = d3.select("body").append("svg").remove()
-			.attr("style", 'border: 1px solid black;');
+	var svg = d3.select("body").append("svg").remove();
 
 	webshark_d3_chart(svg, intervals_full,
 	{

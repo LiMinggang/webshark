@@ -141,6 +141,8 @@
 
 				webshark_load_capture(filter, ws_columns);
 			}
+
+			document.getElementById("ws_div").style.display = "block";
 		}
 
 		function load_preferences()
@@ -223,13 +225,14 @@
 	</script>
 </head>
 
-<body onload="load()">
+<body onload="load()"><div id="ws_div" style="display: none;">
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
 		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
-		<div style="float: right;">
+		<div style="float: right; border: 1px solid grey;">
 			<div id="capture_interval">
+				<svg width="620" height="100"></svg>
 			</div>
 			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
 			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
@@ -264,5 +267,5 @@ Select frame
 Select frame
 	</div>
 
-</body>
+</div></body>
 </html>
