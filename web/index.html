@@ -74,8 +74,94 @@
 			return result;
 		}
 
+		var field_complete_cache = { };
+
+		function sharkd_complete_field_cache(field, fun)
+		{
+			var field_with_dot = (field.indexOf('.') != -1);
+
+			var str = field;
+
+			if (field_with_dot)
+			{
+				while (str.indexOf('.') != -1)
+				{
+					var data = field_complete_cache[str];
+					if (data)
+						return fun(data);
+
+					str = str.slice(0, str.length - 1);
+				}
+			}
+			else
+			{
+				while (str.length > 0)
+				{
+					var data = field_complete_cache[str];
+					if (data)
+						return fun(data);
+
+					str = str.slice(0, str.length - 1);
+				}
+			}
+
+			webshark_json_get('req=complete&field=' + encodeURIComponent(field),
+				function(data)
+				{
+					data = data['field'];
+					if (data == undefined)
+						return;
+
+					data.sort();
+
+					field_complete_cache[field] = data;
+
+					fun(data);
+				});
+		}
+
 		function checkfilter(el)
 		{
+			if (el.value.length >= 2)
+			{
+				var field = el.value;
+
+				var pos_end = el.selectionStart;
+				var pos_start = pos_end;
+
+				while (pos_start > 0)
+				{
+					var ch = field.charAt(--pos_start);
+
+					var ch_field = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || (ch == '.') || (ch == '_') || (ch == '-'));
+
+					if (!ch_field)
+					{
+						pos_start++;
+						break;
+					}
+				}
+
+				var field1 = field.slice(0, pos_start);
+				var field2 = field.slice(pos_end);
+
+				field = field.slice(pos_start, pos_end);
+
+				sharkd_complete_field_cache(field,
+					function(data)
+					{
+						var complete = document.getElementById('capture_filter_complete');
+						complete.innerHTML = "";
+
+						for (var i = 0; i < data.length; i++)
+						{
+							var opt = document.createElement("option");
+							opt.value = field1 + data[i] + field2;
+							complete.appendChild(opt);
+						}
+					});
+			}
+
 			if (el.value == '')
 			{
 				el.className = '';
@@ -127,7 +213,7 @@
 
 				if (filter)
 				{
-					var el_filter = document.getElementById('filter');
+					var el_filter = document.getElementById('capture_filter');
 
 					el_filter.value = filter;
 					checkfilter(el_filter);
@@ -229,7 +315,8 @@
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
-		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
+		<datalist id="capture_filter_complete"></datalist>
+		Frame filter: <input id="capture_filter" type='text' list="capture_filter_complete" onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
 		<div style="float: right; border: 1px solid grey;">
 			<div id="capture_interval">
 				<svg width="620" height="100"></svg>

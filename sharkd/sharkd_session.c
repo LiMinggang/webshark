@@ -1225,6 +1225,78 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 	return 0;
 }
 
+/**
+ * sharkd_session_process_complete()
+ *
+ * Process complete request
+ *
+ * Input:
+ *   (o) field - field to be completed
+ *
+ * Output object with attributes:
+ *   (m) err - always 0
+ *   (o) field - array of fields matched
+ */
+static int
+sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_field = json_find_attr(buf, tokens, count, "field");
+
+	printf("{\"err\":0");
+	if (tok_field != NULL && tok_field[0])
+	{
+		const size_t filter_length = strlen(tok_field);
+		const int filter_with_dot = !!strchr(tok_field, '.');
+
+		void *proto_cookie;
+		void *field_cookie;
+		int proto_id;
+		const char *sepa = "";
+
+		printf(",\"field\":[");
+
+		for (proto_id = proto_get_first_protocol(&proto_cookie); proto_id != -1; proto_id = proto_get_next_protocol(&proto_cookie))
+		{
+			protocol_t *protocol = find_protocol_by_id(proto_id);
+			const char *protocol_name;
+			header_field_info *hfinfo;
+
+			if (!proto_is_protocol_enabled(protocol))
+				continue;
+
+			protocol_name = proto_get_protocol_filter_name(proto_id);
+
+			if (strlen(protocol_name) >= filter_length && !g_ascii_strncasecmp(tok_field, protocol_name, filter_length))
+			{
+				printf("%s", sepa);
+				json_puts_string(protocol_name);
+				sepa = ",";
+			}
+
+			if (!filter_with_dot)
+				continue;
+
+			for (hfinfo = proto_get_first_protocol_field(proto_id, &field_cookie); hfinfo != NULL; hfinfo = proto_get_next_protocol_field(proto_id, &field_cookie))
+			{
+				if (hfinfo->same_name_prev_id != -1) /* ignore duplicate names */
+					continue;
+
+				if (strlen(hfinfo->abbrev) >= filter_length && !g_ascii_strncasecmp(tok_field, hfinfo->abbrev, filter_length))
+				{
+					printf("%s", sepa);
+					json_puts_string(hfinfo->abbrev);
+					sepa = ",";
+				}
+			}
+		}
+
+		printf("]");
+	}
+
+	printf("}\n");
+	return 0;
+}
+
 static void
 sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -1276,6 +1348,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_info();
 		else if (!strcmp(tok_req, "check"))
 			sharkd_session_process_check(buf, tokens, count);
+		else if (!strcmp(tok_req, "complete"))
+			sharkd_session_process_complete(buf, tokens, count);
 		else if (!strcmp(tok_req, "frames"))
 			sharkd_session_process_frames(buf, tokens, count);
 		else if (!strcmp(tok_req, "tap"))
