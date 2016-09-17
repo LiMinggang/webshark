@@ -44,6 +44,7 @@ int sharkd_retap(void);
 int sharkd_filter(const char *dftext, guint8 **result);
 int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
 int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
+const char *sharkd_version(void);
 
 static struct register_ct *
 _get_conversation_table_by_name(const char *name)
@@ -87,6 +88,9 @@ json_puts_string(const char *str)
 	char buf[1024];
 	int i;
 	int out = 0;
+
+	if (str == NULL)
+		str = "";
 
 	buf[out++] = '"';
 	for (i = 0; str[i]; i++)
@@ -289,6 +293,9 @@ sharkd_session_process_info(void)
 		g_list_free(cfg_list);
 	}
 	printf("]");
+
+	printf(",\"version\":");
+	json_puts_string(sharkd_version());
 
 	printf(",\"convs\":[");
 	i = 0;

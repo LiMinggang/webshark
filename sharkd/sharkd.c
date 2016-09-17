@@ -1601,6 +1601,17 @@ sharkd_filter(const char *dftext, guint8 **result)
   return framenum;
 }
 
+#include "version.h"
+const char *sharkd_version(void)
+{
+	/* based on get_ws_vcs_version_info(), but shorter */
+#ifdef VCSVERSION
+	return VCSVERSION;
+#else
+	return VERSION;
+#endif
+}
+
 #ifdef COMPILE_FOR_OPENSHIFT /* newer glibc have memcpy@@GLIBC_2.14, and openshift don't have it */
 void *memcpy(void *dst, const void *src, size_t len) { return memmove(dst, src, len); }
 #endif

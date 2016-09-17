@@ -99,6 +99,7 @@
 			var opt = parse_query(window.location.href.split("?")[1]);
 
 			_webshark_file = opt['file'];
+			document.title = document.title.replace("${CAPTURE_FILE}", _webshark_file);
 
 			var frame = opt['frame'];
 			var tap = opt['tap'];
@@ -181,6 +182,8 @@
 					var columns_default = [ "%m", "%t", "%s", "%d", "%p", "%L", "%i" ];
 					var columns_title   = [ ];
 					var columns_pref    = [ ];
+
+					document.title = document.title.replace("${WEBSHARK_VER}", data['version']);
 
 					for (var col = 0; col < ws_pref.columns.length; col++)
 					{
