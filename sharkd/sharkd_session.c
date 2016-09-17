@@ -1033,6 +1033,107 @@ sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo
 }
 
 /**
+ * sharkd_session_process_intervals()
+ *
+ * Process intervals request - generate basic capture file statistics per requested interval.
+ *
+ * Input:
+ *   (o) interval - interval time in ms, if not specified: 1000ms
+ *   (o) filter   - TODO, filter for generating interval request
+ *
+ * Output object with attributes:
+ *   (m) intervals - array of intervals, with indexes:
+ *             [0] - index of interval,
+ *             [1] - number of frames during interval,
+ *             [2] - number of bytes during interval.
+ *
+ *   (m) last   - last interval number.
+ *   (m) frames - total number of frames
+ *   (m) bytes  - total number of bytes
+ *
+ * NOTE: If frames are not in order, there might be items with same interval index, or even negative one.
+ */
+static void
+sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
+{
+	extern capture_file cfile;
+
+	const char *tok_interval = json_find_attr(buf, tokens, count, "interval");
+
+	struct
+	{
+		unsigned int frames;
+		unsigned long long bytes;
+	} stat, stat_total;
+
+	nstime_t *start_ts = NULL;
+
+	unsigned int interval_ms = 1000; /* default: one per second */
+
+	const char *sepa = "";
+	unsigned int framenum;
+	int idx;
+	int max_idx = 0;
+
+	if (tok_interval)
+		interval_ms = atoi(tok_interval);
+
+	stat_total.frames = 0;
+	stat_total.bytes  = 0;
+
+	stat.frames = 0;
+	stat.bytes  = 0;
+
+	idx = 0;
+
+	printf("{\"intervals\":[");
+
+	for (framenum = 1; framenum <= cfile.count; framenum++)
+	{
+		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+		int msec_rel;
+		int new_idx;
+
+		if (start_ts == NULL)
+			start_ts = &fdata->abs_ts;
+
+		/* TODO, make it 64-bit, to avoid msec overflow after 24days */
+		msec_rel = ((fdata->abs_ts.secs - start_ts->secs) * 1000 + (fdata->abs_ts.nsecs - start_ts->nsecs) / 1000000);
+		new_idx  = msec_rel / interval_ms;
+
+		if (idx != new_idx)
+		{
+			if (stat.frames != 0)
+			{
+				printf("%s[%d,%u,%llu]", sepa, idx, stat.frames, stat.bytes);
+				sepa = ",";
+			}
+
+			idx = new_idx;
+			if (idx > max_idx)
+				max_idx = idx;
+
+			stat.frames = 0;
+			stat.bytes  = 0;
+		}
+
+		stat.frames += 1;
+		stat.bytes  += fdata->pkt_len;
+
+		stat_total.frames += 1;
+		stat_total.bytes  += fdata->pkt_len;
+	}
+
+	if (stat.frames != 0)
+	{
+		printf("%s[%d,%u,%llu]", sepa, idx, stat.frames, stat.bytes);
+		/* sepa = ","; */
+	}
+
+	printf("],\"last\":%d,\"frames\":%u,\"bytes\":%llu}\n", max_idx, stat_total.frames, stat_total.bytes);
+}
+
+/**
  * sharkd_session_process_frame()
  *
  * Process frame request
@@ -1172,6 +1273,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_frames(buf, tokens, count);
 		else if (!strcmp(tok_req, "tap"))
 			sharkd_session_process_tap(buf, tokens, count);
+		else if (!strcmp(tok_req, "intervals"))
+			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))

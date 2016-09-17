@@ -151,9 +151,16 @@
 			}
 		}
 
+		function render_interval(mode)
+		{
+			_webshark_interval_mode = mode;
+			webshark_render_interval();
+		}
+
 		function load()
 		{
 			_webshark_url = '/webshark/json?';
+			_webshark_interval_mode = "bps";
 
 			_webshark_frames_html = new Clusterize({
 				rows: [],
@@ -218,6 +225,13 @@
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
 		Frame filter: <input id="filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
+		<div style="float: right;">
+			<div id="capture_interval">
+			</div>
+			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
+			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
+		</div>
+		<div style="clear: both;"></div>
 	</div>
 
 	<div id="toolbar_frame" style="display: none;">

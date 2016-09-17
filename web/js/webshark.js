@@ -82,22 +82,39 @@ function webshark_d3_chart(svg, data, opts)
 
 	var s2    = opts['series2'];
 
+	var s3    = opts['series3'];
+
 	var color = opts['color'];
+
+	var xrange = opts['xrange'];
+
+	var margin = opts['margin'];
+
+	if (margin == undefined)
+		margin = {top: 30, right: 50, bottom: 30, left: 60};
 
 	svg.attr("width", opts['width'])
 		.attr("height", opts['height']);
 
-	var margin = {top: 30, right: 50, bottom: 30, left: 60},
-	    width = opts['width'] - margin.left - margin.right,
+	var width = opts['width'] - margin.left - margin.right,
 	    height = opts['height']  - margin.top - margin.bottom;
 
 	var g = svg.append("g")
          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-	var x = d3.scaleBand().range([0, width]).padding(0.1),
-	    y = null, y1 = null;
+	var x = null, y = null, y1 = null;
 
-	x.domain(data.map(getX));
+	if (xrange)
+	{
+		x = d3.scaleLinear().range([0, width]);
+	}
+	else
+	{
+		xrange = data.map(getX);
+		x = d3.scaleBand().range([0, width]).padding(0.1);
+	}
+
+	x.domain(xrange);
 
 	var series_count = 0;
 
@@ -105,7 +122,7 @@ function webshark_d3_chart(svg, data, opts)
 	{
 		var max_value = 0;
 
-	    y = d3.scaleLinear().range([height, 0]);
+		y = d3.scaleLinear().range([height, 0]);
 
 		if (u1 == '%')
 		{
@@ -147,6 +164,25 @@ function webshark_d3_chart(svg, data, opts)
 		series_count += s2.length;
 	}
 
+	if (s3 != undefined)
+	{
+		var max_value = 0;
+
+		y = d3.scaleLinear().range([height, 0]);
+
+		for (var i = 0; i < s3.length; i++)
+		{
+			var maxx = d3.max(data.map(s3[i]));
+			if (max_value < maxx) max_value = maxx;
+		}
+
+		if (max_value < 10 && u1 == 'k') max_value = 10; /* XXX, workaround, to not display mili's */
+
+		y.domain([0, max_value]);
+
+		series_count += s3.length;
+	}
+
 	if (color == undefined)
 	{
 		if (series_count < 10)
@@ -169,6 +205,12 @@ function webshark_d3_chart(svg, data, opts)
 			  .call(d3.axisLeft(y).ticks(10, '%'));
 
 		}
+		else if (u1 == 'k')
+		{
+			g.append("g")
+			  .attr("class", "axis axis--y")
+			  .call(d3.axisLeft(y).ticks().tickFormat(d3.format(".0s")));
+		}
 		else
 		{
 			g.append("g")
@@ -186,7 +228,7 @@ function webshark_d3_chart(svg, data, opts)
 	}
 
 	var series_current = 0;
-	var x_step = (x.step() - 3) / series_count;
+	var x_step = x.step ? (x.step() - 3) / series_count : 0;
 
 	if (s1 != undefined)
 	{
@@ -242,6 +284,24 @@ function webshark_d3_chart(svg, data, opts)
 			  .attr("fill", color[series_current])
 			  .append("svg:title")
 			    .text(function(d) { return getY(d); });
+		}
+	}
+
+	if (s3 != undefined)
+	{
+		for (var i = 0; i < s3.length; i++, series_current++)
+		{
+			var getY = s3[i];
+
+			var area = d3.area()
+				.x(function(d) { return x(getX(d)); })
+				.y0(height)
+				.y1(function(d) { return y(getY(d)); });
+
+			g.append("path")
+				.data([data])
+				.attr("d", area)
+				.attr("fill", color[series_current])
 		}
 	}
 
@@ -908,6 +968,56 @@ function webshark_render_tap(tap)
 	}
 }
 
+var _webshark_interval = null;
+var _webshark_interval_mode = "";
+
+function webshark_render_interval()
+{
+	var intervals_data = _webshark_interval['intervals'];
+	var intervals_full = [ ];
+
+	var count_idx =
+		(_webshark_interval_mode == "bps") ? 2 :
+		(_webshark_interval_mode == "fps") ? 1 :
+		-1;
+
+	if (count_idx == -1)
+		return;
+
+	for (var i = 0; i <= _webshark_interval['last']; i++)
+		intervals_full[i] = [ i, 0 ];
+
+	for (var i = 0; i < intervals_data.length; i++)
+	{
+		var idx = intervals_data[i][0];
+
+		intervals_full[idx][1] += intervals_data[i][count_idx];
+	}
+
+	var svg = d3.select("body").append("svg").remove()
+			.attr("style", 'border: 1px solid black;');
+
+	webshark_d3_chart(svg, intervals_full,
+	{
+		width: 620, height: 100,
+		margin: {top: 0, right: 10, bottom: 20, left: 40},
+
+		xrange: [ 0, _webshark_interval['last'] ],
+
+		getX: function(d) { return d[0]; },
+
+		unit1: 'k',
+		series3:
+		[
+			function(d) { return d[1]; }
+		],
+
+		color: [ 'steelblue' ]
+	});
+
+	dom_set_child(document.getElementById('capture_interval'), svg.node());
+}
+
 function webshark_load_capture(filter, cols)
 {
 	var extra = "";
@@ -931,6 +1041,13 @@ function webshark_load_capture(filter, cols)
 				var framenum = data[0].num;
 				webshark_load_frame(framenum);
 			}
+		});
+
+	webshark_json_get('req=intervals&capture=' + _webshark_file,
+		function(data)
+		{
+			_webshark_interval = data;
+			webshark_render_interval();
 		});
 }
 
