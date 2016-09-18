@@ -69,6 +69,28 @@ _get_conversation_table_by_name(const char *name)
 	return NULL;
 }
 
+static void
+json_unescape_str(char *input)
+{
+	char *output = input;
+
+	while (*input)
+	{
+		char ch = *input++;
+
+		if (ch == '\\')
+		{
+			/* TODO, add more escaping rules */
+			ch = *input++;
+		}
+
+		*output = ch;
+		output++;
+	}
+
+	*output = '\0';
+}
+
 static const char *
 json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *attr)
 {
@@ -1540,6 +1562,9 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 
 		buf[tokens[i + 0].end] = '\0';
 		buf[tokens[i + 1].end] = '\0';
+
+		json_unescape_str(&buf[tokens[i + 0].start]);
+		json_unescape_str(&buf[tokens[i + 1].start]);
 	}
 
 	{
