@@ -668,6 +668,22 @@ var webshark_host_fields =
 	'rxb': 'RX Bytes'
 };
 
+var webshark_rtp_streams_fields =
+{
+	'saddr': 'Src addr',
+	'sport': 'Src port',
+	'daddr': 'Dst addr',
+	'dport': 'Dst port',
+	'_ssrc': 'SSRC',
+	'payload': 'Payload',
+	'pkts':    'Packets',
+	'_lost': 'Lost',
+	'max_delta': 'Max Delta (ms)',
+	'max_jitter': 'Max Jitter (ms)',
+	'mean_jitter': 'Mean Jitter (ms)',
+	'_pb': 'Pb?'
+};
+
 var webshark_voip_calls_fields =
 {
 	'start':   'Start Time',
@@ -994,6 +1010,35 @@ function webshark_render_tap(tap)
 		}
 
 		webshark_create_tap_table_data_common(webshark_voip_calls_fields, table, calls);
+
+		document.getElementById('toolbar_tap').appendChild(table);
+	}
+	else if (tap['type'] == 'rtp-streams')
+	{
+		var table = webshark_create_tap_table_common(webshark_rtp_streams_fields);
+		var streams = tap['streams'];
+
+		for (var i = 0; i < streams.length; i++)
+		{
+			var stream = streams[i];
+
+			stream['_ssrc'] = "0x" + xtoa(stream['ssrc'], 0);
+			stream['_pb'] = stream['problem'] ? "X" : "";
+
+			var lost = stream['expectednr'] - stream['totalnr'];
+
+			stream['_lost'] = "" + lost + "(" + 100 * (lost / stream['expectednr']) + " %)";
+
+			var ipstr = "ip";
+			if (stream['ipver'] == 6) ipstr = "ipv6";
+
+			stream['_filter'] = "(" + ipstr + ".src == " + stream['saddr'] + " && udp.srcport == " + stream['sport'] + " && " +
+			                          ipstr + ".dst == " + stream['daddr'] + " && udp.dstport == " + stream['dport'] + " && " +
+			                          "rtp.ssrc == " + stream['_ssrc'] +
+			                    ")";
+		}
+
+		webshark_create_tap_table_data_common(webshark_rtp_streams_fields, table, streams);
 
 		document.getElementById('toolbar_tap').appendChild(table);
 	}

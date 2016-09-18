@@ -39,7 +39,10 @@
 #include <epan/conversation_table.h>
 
 #include <epan/dissectors/packet-h225.h>
+#include <epan/rtp_pt.h>
 #include <ui/voip_calls.h>
+#include <ui/rtp_stream.h>
+#include <ui/tap-rtp-common.h>
 #include <epan/to_str.h>
 
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
@@ -346,6 +349,7 @@ sharkd_session_process_info(void)
 	printf(",\"taps\":[");
 	{
 		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
+		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "RTP streams", "rtp-streams");
 	}
 	printf("]");
 
@@ -811,9 +815,92 @@ sharkd_session_process_tap_conv_cb(void *arg)
 }
 
 /**
+ * sharkd_session_process_tap_rtp_cb()
+ *
+ * Output RTP streams tap:
+ *   (m) tap        - tap name
+ *   (m) type       - tap output type
+ *   (m) streams    - array of object with attributes:
+ *                  (m) ssrc        - RTP synchronization source identifier
+ *                  (m) payload     - stream payload
+ *                  (m) saddr       - source address
+ *                  (m) sport       - source port
+ *                  (m) daddr       - destination address
+ *                  (m) dport       - destination port
+ *                  (m) pkts        - packets count
+ *                  (m) max_delta   - max delta (ms)
+ *                  (m) max_jitter  - max jitter (ms)
+ *                  (m) mean_jitter - mean jitter (ms)
+ *                  (m) expectednr  -
+ *                  (m) totalnr     -
+ *                  (m) problem     - if analyser found the problem
+ *                  (m) ipver       - address IP version (4 or 6)
+ */
+static void
+sharkd_session_process_tap_rtp_cb(void *arg)
+{
+	rtpstream_tapinfo_t *rtp_tapinfo = (rtpstream_tapinfo_t *) arg;
+
+	GList *listx;
+	const char *sepa = "";
+
+	printf("{\"tap\":\"%s\",\"type\":\"%s\"", "rtp-streams", "rtp-streams");
+
+	printf(",\"streams\":[");
+	for (listx = g_list_first(rtp_tapinfo->strinfo_list); listx; listx = listx->next)
+	{
+		rtp_stream_info_t *streaminfo = (rtp_stream_info_t *) listx->data;
+
+		char *src_addr, *dst_addr;
+		char *payload;
+		guint32 expected;
+
+		src_addr = address_to_display(NULL, &(streaminfo->src_addr));
+		dst_addr = address_to_display(NULL, &(streaminfo->dest_addr));
+
+		if (streaminfo->payload_type_name != NULL)
+			payload = wmem_strdup(NULL, streaminfo->payload_type_name);
+		else
+			payload = val_to_str_ext_wmem(NULL, streaminfo->payload_type, &rtp_payload_type_short_vals_ext, "Unknown (%u)");
+
+		printf("%s{\"ssrc\":%u", sepa, streaminfo->ssrc);
+		printf(",\"payload\":\"%s\"", payload);
+
+		printf(",\"saddr\":\"%s\"", src_addr);
+		printf(",\"sport\":%u", streaminfo->src_port);
+
+		printf(",\"daddr\":\"%s\"", dst_addr);
+		printf(",\"dport\":%u", streaminfo->dest_port);
+
+		printf(",\"pkts\":%u", streaminfo->packet_count);
+
+		printf(",\"max_delta\":%f", streaminfo->rtp_stats.max_delta);
+		printf(",\"max_jitter\":%f", streaminfo->rtp_stats.max_jitter);
+		printf(",\"mean_jitter\":%f", streaminfo->rtp_stats.mean_jitter);
+
+		expected = (streaminfo->rtp_stats.stop_seq_nr + streaminfo->rtp_stats.cycles * 65536) - streaminfo->rtp_stats.start_seq_nr + 1;
+		printf(",\"expectednr\":%u", expected);
+		printf(",\"totalnr\":%u", streaminfo->rtp_stats.total_nr);
+
+		printf(",\"problem\":%s", streaminfo->problem ? "true" : "false");
+
+		/* for filter */
+		printf(",\"ipver\":%d", (streaminfo->src_addr.type == AT_IPv6) ? 6 : 4);
+
+		wmem_free(NULL, src_addr);
+		wmem_free(NULL, dst_addr);
+		wmem_free(NULL, payload);
+
+		printf("}");
+		sepa = ",";
+	}
+	printf("]},");
+}
+
+/**
  * sharkd_session_process_tap_voip_calls_cb()
  *
- * Output conv tap:
+ * Output VoIP tap:
  *   (m) tap        - tap name
  *   (m) type       - tap output type
  *   (m) completed  - number of completed calls
@@ -956,6 +1043,7 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
  *                  for type:conv see sharkd_session_process_tap_conv_cb()
  *                  for type:host see sharkd_session_process_tap_conv_cb()
  *                  for type:voip-calls see sharkd_session_process_tap_voip_calls_cb()
+ *                  for type:rtp-streams see sharkd_session_process_tap_rtp_cb()
  *
  *   (m) err   - error code
  */
@@ -967,6 +1055,9 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	int i;
 
 	voip_calls_tapinfo_t voip_tapinfo;
+	rtpstream_tapinfo_t rtp_tapinfo =
+		{NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE};
+
 	int voip_tapinfo_used = 0;
 
 	for (i = 0; i < 16; i++)
@@ -1052,7 +1143,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			tap_data = &ct_data->hash;
 		}
-		else if (!strncmp(tok_tap, "voip-calls", 10))
+		else if (!strcmp(tok_tap, "voip-calls"))
 		{
 			/* based on Qt code */
 			extern capture_file cfile;
@@ -1072,6 +1163,12 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			voip_tapinfo_used = 1;
 			voip_calls_init_all_taps(&voip_tapinfo);
+		}
+		else if (!strcmp(tok_tap, "rtp-streams"))
+		{
+			tap_error = register_tap_listener("rtp", &rtp_tapinfo, tap_filter, 0, rtpstream_reset_cb, rtpstream_packet, sharkd_session_process_tap_rtp_cb);
+
+			tap_data = &rtp_tapinfo;
 		}
 		else
 		{
