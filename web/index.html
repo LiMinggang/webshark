@@ -168,8 +168,12 @@
 
 						for (var i = 0; i < data.length; i++)
 						{
-							list[i] = { label: data[i], value: fields[1] + data[i] + fields[2] };
-							// list[i] = fields[1] + data[i] + fields[2];
+							list[i] =
+								{
+									label: data[i]['f'],
+									descr: data[i]['n'] + ' (' + data[i]['t'] + ')',
+									value: fields[1] + data[i]['f'] + fields[2]
+								};
 						}
 
 						capture_filter_complete.list = list;
@@ -208,7 +212,23 @@
 			capture_filter_complete = new Awesomplete(document.getElementById("capture_filter"),
 				{
 					filter: Awesomplete.FILTER_STARTSWITH,
-					getvalue: function(f) { return filter_input_extractor(f)[0]; }
+					getvalue: function(f) { return filter_input_extractor(f)[0]; },
+					maxItems: 16,
+					item: function (text, input)
+						{
+							var html = input === '' ?
+								text :
+								text.replace(RegExp("^" + Awesomplete.$.regExpEscape(input.trim()), "gi"), "<mark>$&</mark>");
+
+							if (text['descr'])
+								html += "<span style='float: right; font-size: 10px;'>" + text['descr'] + "</span>";
+
+							return Awesomplete.$.create("li",
+							{
+								innerHTML: html,
+								"aria-selected": "false"
+							});
+						}
 				});
 
 			if (tap) {

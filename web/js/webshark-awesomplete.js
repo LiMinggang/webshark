@@ -296,12 +296,9 @@ _.DATA = function (item/*, input*/) { return item; };
 // Private functions
 
 function Suggestion(data) {
-	var o = Array.isArray(data)
-	  ? { label: data[0], value: data[1] }
-	  : typeof data === "object" && "label" in data && "value" in data ? data : { label: data, value: data };
-
-	this.label = o.label || o.value;
-	this.value = o.value;
+	this.label = data.label || data.value;
+	this.value = data.value;
+	this.descr = data.descr;
 }
 Object.defineProperty(Suggestion.prototype = Object.create(String.prototype), "length", {
 	get: function() { return this.label.length; }

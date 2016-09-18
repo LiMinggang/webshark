@@ -1235,7 +1235,10 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
  *
  * Output object with attributes:
  *   (m) err - always 0
- *   (o) field - array of fields matched
+ *   (o) field - array of object with attributes:
+ *                  (m) f - field text
+ *                  (m) t - field type
+ *                  (m) n - field name
  */
 static int
 sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
@@ -1258,18 +1261,28 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 		for (proto_id = proto_get_first_protocol(&proto_cookie); proto_id != -1; proto_id = proto_get_next_protocol(&proto_cookie))
 		{
 			protocol_t *protocol = find_protocol_by_id(proto_id);
+			const char *protocol_filter;
 			const char *protocol_name;
 			header_field_info *hfinfo;
 
 			if (!proto_is_protocol_enabled(protocol))
 				continue;
 
-			protocol_name = proto_get_protocol_filter_name(proto_id);
+			protocol_name   = proto_get_protocol_long_name(protocol);
+			protocol_filter = proto_get_protocol_filter_name(proto_id);
 
-			if (strlen(protocol_name) >= filter_length && !g_ascii_strncasecmp(tok_field, protocol_name, filter_length))
+			if (strlen(protocol_filter) >= filter_length && !g_ascii_strncasecmp(tok_field, protocol_filter, filter_length))
 			{
-				printf("%s", sepa);
-				json_puts_string(protocol_name);
+				printf("%s{", sepa);
+				{
+					printf("\"f\":");
+					json_puts_string(protocol_filter);
+					printf(",\"t\":");
+					json_puts_string("FT_PROTOCOL");
+					printf(",\"n\":");
+					json_puts_string(protocol_name);
+				}
+				printf("}");
 				sepa = ",";
 			}
 
@@ -1283,8 +1296,16 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 
 				if (strlen(hfinfo->abbrev) >= filter_length && !g_ascii_strncasecmp(tok_field, hfinfo->abbrev, filter_length))
 				{
-					printf("%s", sepa);
-					json_puts_string(hfinfo->abbrev);
+					printf("%s{", sepa);
+					{
+						printf("\"f\":");
+						json_puts_string(hfinfo->abbrev);
+						printf(",\"t\":");
+						json_puts_string(ftype_name(hfinfo->type));
+						printf(",\"n\":");
+						json_puts_string(hfinfo->name);
+					}
+					printf("}");
 					sepa = ",";
 				}
 			}
