@@ -38,6 +38,10 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
 
+#include <epan/dissectors/packet-h225.h>
+#include <ui/voip_calls.h>
+#include <epan/to_str.h>
+
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
 int sharkd_retap(void);
@@ -254,7 +258,11 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
  *   (m) convs   - available conversation list, array of object with attributes:
  *                  'name' - conversation name
  *                  'tap'  - sharkd tap-name for conversation
-
+ *
+ *   (m) taps - available taps, array of object with attributes:
+ *                  'name' - tap name
+ *                  'tap'  - sharkd tap-name
+ *
  *   (m) ftypes   - conversation table for FT_ number to string
  */
 static void
@@ -311,6 +319,12 @@ sharkd_session_process_info(void)
 	printf(",\"convs\":[");
 	i = 0;
 	conversation_table_iterate_tables(sharkd_session_process_info_conv_cb, &i);
+	printf("]");
+
+	printf(",\"taps\":[");
+	{
+		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
+	}
 	printf("]");
 
 	printf("}\n");
@@ -775,6 +789,134 @@ sharkd_session_process_tap_conv_cb(void *arg)
 }
 
 /**
+ * sharkd_session_process_tap_voip_calls_cb()
+ *
+ * Output conv tap:
+ *   (m) tap        - tap name
+ *   (m) type       - tap output type
+ *   (m) completed  - number of completed calls
+ *   (m) rejected   - number of rejected calls
+ *   (m) startpkts  - number of start packets
+ *   (m) calls      - array of object with attributes:
+ *                  (m) start   - start relative time
+ *                  (m) stop    - stop relative time
+ *                  (m) pkts    - number of packets
+ *                  (m) initial - inital speaker address
+ *                  (m) from    - from identity
+ *                  (m) to      - to identity
+ *                  (m) proto   - voip protocol
+ *                  (o) comment - dissector comment (?)
+ *                  (o) filter  - filter for filtering this call
+ */
+static void
+sharkd_session_process_tap_voip_calls_cb(void *arg)
+{
+	voip_calls_tapinfo_t *voip_tapinfo = (voip_calls_tapinfo_t *) arg;
+	GList *listx;
+	const char *sepa = "";
+
+	if (!voip_tapinfo->redraw)
+		return;
+
+	printf("{\"tap\":\"%s\",\"type\":\"%s\"", "voip-calls", "voip-calls");
+	printf(",\"completed\":%u", voip_tapinfo->completed_calls);
+	printf(",\"rejected\":%u", voip_tapinfo->rejected_calls);
+	printf(",\"startpkts\":%u", voip_tapinfo->start_packets);
+
+	printf(",\"calls\":[");
+	for (listx = g_queue_peek_nth_link(voip_tapinfo->callsinfos, 0); listx; listx = listx->next)
+	{
+		voip_calls_info_t *callinfo = (voip_calls_info_t *) listx->data;
+		char *addr_str;
+
+		addr_str = address_to_display(NULL, &(callinfo->initial_speaker));
+
+		printf("%s{\"initial\":", sepa);
+		json_puts_string(addr_str);
+
+		printf(",\"start\":%.9f", nstime_to_sec(&callinfo->start_rel_ts));
+		printf(",\"stop\":%.9f", nstime_to_sec(&callinfo->stop_rel_ts));
+		printf(",\"pkts\":%u", callinfo->npackets);
+
+		printf(",\"state\":");
+		json_puts_string(voip_call_state_name[callinfo->call_state]);
+
+		printf(",\"from\":");
+		json_puts_string(callinfo->from_identity);
+
+		printf(",\"to\":");
+		json_puts_string(callinfo->to_identity);
+
+		printf(",\"proto\":");
+		if (callinfo->protocol == VOIP_COMMON && callinfo->protocol_name)
+			json_puts_string(callinfo->protocol_name);
+		else
+			json_puts_string(voip_protocol_name[callinfo->protocol]);
+
+		switch (callinfo->protocol)
+		{
+			case VOIP_ISUP:
+			{
+				isup_calls_info_t *isupinfo = (isup_calls_info_t *) callinfo->prot_info;
+
+				printf(",\"isup_ni\":%d", isupinfo->ni);
+				printf(",\"isup_opc\":%d", isupinfo->opc);
+				printf(",\"isup_dpc\":%d", isupinfo->dpc);
+				break;
+			}
+
+			case VOIP_H323:
+			{
+				h323_calls_info_t *h323info = (h323_calls_info_t *) callinfo->prot_info;
+				int fast_start = FALSE;
+
+				if (callinfo->call_state == VOIP_CALL_SETUP)
+					fast_start = h323info->is_faststart_Setup;
+				else if (h323info->is_faststart_Setup == TRUE && h323info->is_faststart_Proc == TRUE)
+					fast_start = TRUE;
+
+				printf(",\"h323_tunneling\":%s", (h323info->is_h245Tunneling == TRUE) ? "true" : "false");
+				printf(",\"h323_fast_start\":%s", (fast_start == TRUE) ? "true" : "false");
+				break;
+			}
+
+			case VOIP_COMMON:
+			default:
+				if (callinfo->call_comment)
+				{
+					printf(",\"comment\":");
+					json_puts_string(callinfo->call_comment);
+				}
+				break;
+		}
+
+		/* based on GTK voip_calls_on_filter() */
+		switch (callinfo->protocol)
+		{
+			case VOIP_SIP:
+			{
+				sip_calls_info_t *sipinfo = (sip_calls_info_t *) callinfo->prot_info;
+				printf(",\"filter\":\"sip.Call-ID == \\\"%s\\\"\"", sipinfo->call_identifier);
+				break;
+			}
+
+			default:
+				break;
+		}
+
+		printf("}");
+		sepa = ",";
+
+		wmem_free(NULL, addr_str);
+	}
+	printf("]");
+
+	printf("},");
+
+	voip_tapinfo->redraw = 0; /* redrawn, XXX is it correct? it seems to, otherwise we will get this f. called multiple times (for example sccp, sua), but callsinfo didn't change  */
+}
+
+/**
  * sharkd_session_process_tap()
  *
  * Process tap request
@@ -791,6 +933,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
  *                  for type:stats see sharkd_session_process_tap_stats_cb()
  *                  for type:conv see sharkd_session_process_tap_conv_cb()
  *                  for type:host see sharkd_session_process_tap_conv_cb()
+ *                  for type:voip-calls see sharkd_session_process_tap_voip_calls_cb()
  *
  *   (m) err   - error code
  */
@@ -800,6 +943,9 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	void *taps_data[16];
 	int taps_count = 0;
 	int i;
+
+	voip_calls_tapinfo_t voip_tapinfo;
+	int voip_tapinfo_used = 0;
 
 	for (i = 0; i < 16; i++)
 	{
@@ -884,6 +1030,27 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			tap_data = &ct_data->hash;
 		}
+		else if (!strncmp(tok_tap, "voip-calls", 10))
+		{
+			/* based on Qt code */
+			extern capture_file cfile;
+
+			memset(&voip_tapinfo, 0, sizeof(voip_tapinfo));
+
+			/* voip_tapinfo.tap_packet = tapPacket; */
+			voip_tapinfo.tap_draw = sharkd_session_process_tap_voip_calls_cb;
+			voip_tapinfo.tap_data = &voip_tapinfo;
+			voip_tapinfo.callsinfos = g_queue_new();
+			voip_tapinfo.h225_cstype = H225_OTHER;
+			voip_tapinfo.fs_option = /* all_flows ? FLOW_ALL : */ FLOW_ONLY_INVITES; /* flow show option */
+			voip_tapinfo.graph_analysis = sequence_analysis_info_new();
+			voip_tapinfo.graph_analysis->type = SEQ_ANALYSIS_VOIP;
+
+			voip_tapinfo.session = cfile.epan;
+
+			voip_tapinfo_used = 1;
+			voip_calls_init_all_taps(&voip_tapinfo);
+		}
 		else
 		{
 			fprintf(stderr, "sharkd_session_process_tap() %s not recognized\n", tok_tap);
@@ -909,6 +1076,15 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	printf("{\"taps\":[");
 	sharkd_retap();
 	printf("null],\"err\":0}\n");
+
+	if (voip_tapinfo_used)
+	{
+		// XXX possible memleaks
+		voip_calls_reset_all_taps(&voip_tapinfo);
+		voip_calls_remove_all_tap_listeners(&voip_tapinfo);
+
+		g_queue_free(voip_tapinfo.callsinfos);
+	}
 
 	for (i = 0; i < 16; i++)
 	{

@@ -668,6 +668,19 @@ var webshark_host_fields =
 	'rxb': 'RX Bytes'
 };
 
+var webshark_voip_calls_fields =
+{
+	'start':   'Start Time',
+	'stop':    'Stop Time',
+	'initial': 'Initial Speaker',
+	'from':    'From',
+	'to':      'To',
+	'proto':   'Protocol',
+	'pkts':    'Packets',
+	'state':   'State',
+	'comment': 'Comments'
+};
+
 function webshark_create_tap_table_common(fields)
 {
 	var table = document.createElement('table');
@@ -965,6 +978,24 @@ function webshark_render_tap(tap)
 		});
 
 		document.getElementById('toolbar_tap').appendChild(svg.node());
+	}
+	else if (tap['type'] == 'voip-calls')
+	{
+		var table = webshark_create_tap_table_common(webshark_voip_calls_fields);
+		var calls = tap['calls'];
+
+		for (var i = 0; i < calls.length; i++)
+		{
+			var call = calls[i];
+
+			/* TODO, generate comment for VOIP_ISUP, VOIP_H323 */
+
+			call['_filter'] = call['filter'];
+		}
+
+		webshark_create_tap_table_data_common(webshark_voip_calls_fields, table, calls);
+
+		document.getElementById('toolbar_tap').appendChild(table);
 	}
 }
 

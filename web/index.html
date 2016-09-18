@@ -269,6 +269,7 @@
 
 				if (opt['hide_menu'] == undefined)
 				{
+					create_tap_menu('cap_menu', ws_taps);
 					create_tap_menu('cap_menu', ws_stats);
 					create_tap_menu('cap_menu', ws_convs);
 				}
@@ -312,6 +313,7 @@
 			webshark_json_get('req=info',
 				function(data)
 				{
+					ws_taps  = data['taps'];
 					ws_stats = data['stats'];
 					ws_convs = data['convs'];
 					ws_ftypes = data['ftypes'];
