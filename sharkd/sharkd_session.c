@@ -254,6 +254,8 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
  *   (m) convs   - available conversation list, array of object with attributes:
  *                  'name' - conversation name
  *                  'tap'  - sharkd tap-name for conversation
+
+ *   (m) ftypes   - conversation table for FT_ number to string
  */
 static void
 sharkd_session_process_info(void)
@@ -291,6 +293,15 @@ sharkd_session_process_info(void)
 		}
 
 		g_list_free(cfg_list);
+	}
+	printf("]");
+
+	printf(",\"ftypes\":[");
+	for (i = 0; i < FT_NUM_TYPES; i++)
+	{
+		if (i)
+			printf(",");
+		json_puts_string(ftype_name((ftenum_t) i));
 	}
 	printf("]");
 
@@ -1237,8 +1248,8 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
  *   (m) err - always 0
  *   (o) field - array of object with attributes:
  *                  (m) f - field text
- *                  (m) t - field type
- *                  (m) n - field name
+ *                  (o) t - field type (FT_ number)
+ *                  (o) n - field name
  */
 static int
 sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
@@ -1277,8 +1288,7 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 				{
 					printf("\"f\":");
 					json_puts_string(protocol_filter);
-					printf(",\"t\":");
-					json_puts_string("FT_PROTOCOL");
+					printf(",\"t\":%d", FT_PROTOCOL);
 					printf(",\"n\":");
 					json_puts_string(protocol_name);
 				}
@@ -1300,10 +1310,14 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 					{
 						printf("\"f\":");
 						json_puts_string(hfinfo->abbrev);
-						printf(",\"t\":");
-						json_puts_string(ftype_name(hfinfo->type));
-						printf(",\"n\":");
-						json_puts_string(hfinfo->name);
+
+						/* XXX, skip displaying name, if there are multiple (to not confuse user) */
+						if (hfinfo->same_name_next == NULL)
+						{
+							printf(",\"t\":%d", hfinfo->type);
+							printf(",\"n\":");
+							json_puts_string(hfinfo->name);
+						}
 					}
 					printf("}");
 					sepa = ",";

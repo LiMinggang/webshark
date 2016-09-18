@@ -17,6 +17,7 @@
 	<script type="text/javascript">
 		var ws_columns = null;
 
+		var ws_ftypes = [ ];
 		var ws_stats = [ ];
 		var ws_convs = [ ];
 
@@ -116,7 +117,7 @@
 					if (data == undefined)
 						return;
 
-					data.sort();
+					data.sort(function(a, b) { return a['f'] < b['f'] ? -1 : 1; });
 
 					field_complete_cache[field] = data;
 
@@ -168,11 +169,17 @@
 
 						for (var i = 0; i < data.length; i++)
 						{
+							var field_name = data[i]['f'];
+							var field_descr = "";
+
+							if (data[i]['n'])
+								field_descr = data[i]['n'] + ' (' + ws_ftypes[data[i]['t']] + ')';
+
 							list[i] =
 								{
-									label: data[i]['f'],
-									descr: data[i]['n'] + ' (' + data[i]['t'] + ')',
-									value: fields[1] + data[i]['f'] + fields[2]
+									label: field_name,
+									descr: field_descr,
+									value: fields[1] + field_name + fields[2]
 								};
 						}
 
@@ -221,7 +228,7 @@
 								text.replace(RegExp("^" + Awesomplete.$.regExpEscape(input.trim()), "gi"), "<mark>$&</mark>");
 
 							if (text['descr'])
-								html += "<span style='float: right; font-size: 10px;'>" + text['descr'] + "</span>";
+								html += "<span style='float: right; font-size: 12px;'>" + text['descr'] + "</span>";
 
 							return Awesomplete.$.create("li",
 							{
@@ -307,6 +314,7 @@
 				{
 					ws_stats = data['stats'];
 					ws_convs = data['convs'];
+					ws_ftypes = data['ftypes'];
 
 					var columns_default = [ "%m", "%t", "%s", "%d", "%p", "%L", "%i" ];
 					var columns_title   = [ ];
