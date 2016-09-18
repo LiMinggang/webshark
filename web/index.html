@@ -7,8 +7,10 @@
 	<title>${CAPTURE_FILE} - webshark ${WEBSHARK_VER}</title>
 
 	<link rel="stylesheet" href="css/webshark.css" type="text/css">
+	<link rel="stylesheet" href="css/awesomplete.css" type="text/css">
 
 	<script src="https://d3js.org/d3.v4.min.js" type="text/javascript"></script>
+	<script src="js/webshark-awesomplete.js" type="text/javascript"></script>
 	<script src="js/webshark-clusterize.js"></script>
 	<script src="js/webshark.js" type="text/javascript"></script>
 
@@ -34,6 +36,8 @@
 //				{ "tcp.stream": "tcp.stream:0" },
 			],
 		};
+
+		var capture_filter_complete = null;
 
 		function create_tap_menu(id, taps)
 		{
@@ -120,45 +124,56 @@
 				});
 		}
 
+		function filter_input_extractor(filter)
+		{
+			var txt = filter.value;
+
+			var pos_end = filter.selectionStart;
+			var pos_start = pos_end;
+
+			while (pos_start > 0)
+			{
+				var ch = txt.charAt(--pos_start);
+
+				var ch_field = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || (ch == '.') || (ch == '_') || (ch == '-'));
+
+				if (!ch_field)
+				{
+					pos_start++;
+					break;
+				}
+			}
+
+			var result =
+				[
+					/* current text, before current, after current */
+					txt.slice(pos_start, pos_end),
+					txt.slice(0, pos_start),
+					txt.slice(pos_end)
+				];
+
+			return result;
+		}
+
 		function checkfilter(el)
 		{
 			if (el.value.length >= 2)
 			{
-				var field = el.value;
+				var fields = filter_input_extractor(el);
 
-				var pos_end = el.selectionStart;
-				var pos_start = pos_end;
-
-				while (pos_start > 0)
-				{
-					var ch = field.charAt(--pos_start);
-
-					var ch_field = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || (ch == '.') || (ch == '_') || (ch == '-'));
-
-					if (!ch_field)
-					{
-						pos_start++;
-						break;
-					}
-				}
-
-				var field1 = field.slice(0, pos_start);
-				var field2 = field.slice(pos_end);
-
-				field = field.slice(pos_start, pos_end);
-
-				sharkd_complete_field_cache(field,
+				sharkd_complete_field_cache(fields[0],
 					function(data)
 					{
-						var complete = document.getElementById('capture_filter_complete');
-						complete.innerHTML = "";
+						var list = [ ];
 
 						for (var i = 0; i < data.length; i++)
 						{
-							var opt = document.createElement("option");
-							opt.value = field1 + data[i] + field2;
-							complete.appendChild(opt);
+							list[i] = { label: data[i], value: fields[1] + data[i] + fields[2] };
+							// list[i] = fields[1] + data[i] + fields[2];
 						}
+
+						capture_filter_complete.list = list;
+						// capture_filter_complete.evaluate();
 					});
 			}
 
@@ -189,6 +204,12 @@
 
 			var frame = opt['frame'];
 			var tap = opt['tap'];
+
+			capture_filter_complete = new Awesomplete(document.getElementById("capture_filter"),
+				{
+					filter: Awesomplete.FILTER_STARTSWITH,
+					getvalue: function(f) { return filter_input_extractor(f)[0]; }
+				});
 
 			if (tap) {
 				document.getElementById('toolbar_capture').style.display = 'none';
@@ -315,8 +336,7 @@
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>
-		<datalist id="capture_filter_complete"></datalist>
-		Frame filter: <input id="capture_filter" type='text' list="capture_filter_complete" onchange='webshark_load_capture(this.value, ws_columns);' onkeyup='checkfilter(this)' style='width: 600px;' />
+		Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
 		<div style="float: right; border: 1px solid grey;">
 			<div id="capture_interval">
 				<svg width="620" height="100"></svg>
