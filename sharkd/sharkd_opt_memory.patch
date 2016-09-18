@@ -1,0 +1,84 @@
+diff --git a/epan/frame_data.h b/epan/frame_data.h
+index dd443ca..7201404 100644
+--- a/epan/frame_data.h
++++ b/epan/frame_data.h
+@@ -69,6 +69,7 @@ typedef struct _frame_data {
+   guint32      cum_bytes;    /**< Cumulative bytes into the capture */
+   gint64       file_off;     /**< File offset */
+   guint16      subnum;       /**< subframe number, for protocols that require this */
++  gint16       tsprec;       /**< Time stamp precision */
+   struct {
+     unsigned int passed_dfilter : 1; /**< 1 = display, 0 = no display */
+     unsigned int dependent_of_displayed : 1; /**< 1 if a displayed frame depends on this frame */
+@@ -83,12 +84,10 @@ typedef struct _frame_data {
+     unsigned int has_user_comment : 1; /** 1 = user set (also deleted) comment for this packet */
+     unsigned int need_colorize  : 1; /**< 1 = need to (re-)calculate packet color */
+   } flags;
+-  gint16       tsprec;       /**< Time stamp precision */
+ 
+   const struct _color_filter *color_filter;  /**< Per-packet matching color_filter_t object */
+ 
+   nstime_t     abs_ts;       /**< Absolute timestamp */
+-  nstime_t     shift_offset; /**< How much the abs_tm of the frame is shifted */
+   guint32      frame_ref_num; /**< Previous reference frame (0 if this is one) */
+   guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
+ } frame_data;
+diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
+index f24e7ab..0a28fba 100644
+--- a/epan/dissectors/packet-frame.c
++++ b/epan/dissectors/packet-frame.c
+@@ -54,7 +54,6 @@ static int proto_pkt_comment = -1;
+ static int proto_syscall = -1;
+ 
+ static int hf_frame_arrival_time = -1;
+-static int hf_frame_shift_offset = -1;
+ static int hf_frame_arrival_time_epoch = -1;
+ static int hf_frame_time_delta = -1;
+ static int hf_frame_time_delta_displayed = -1;
+@@ -383,9 +382,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
+ 								  " the valid range is 0-1000000000",
+ 								  (long) pinfo->abs_ts.nsecs);
+ 			}
+-			item = proto_tree_add_time(fh_tree, hf_frame_shift_offset, tvb,
+-					    0, 0, &(pinfo->fd->shift_offset));
+-			PROTO_ITEM_SET_GENERATED(item);
+ 
+ 			if (generate_epoch_time) {
+ 				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
+@@ -703,11 +699,6 @@ proto_register_frame(void)
+ 		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
+ 		    "Absolute time when this frame was captured", HFILL }},
+ 
+-		{ &hf_frame_shift_offset,
+-		  { "Time shift for this packet", "frame.offset_shift",
+-		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
+-		    "Time shift applied to this packet", HFILL }},
+-
+ 		{ &hf_frame_arrival_time_epoch,
+ 		  { "Epoch Time", "frame.time_epoch",
+ 		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
+diff --git a/epan/frame_data.c b/epan/frame_data.c
+index f9bb8b4..48d522b 100644
+--- a/epan/frame_data.c
++++ b/epan/frame_data.c
+@@ -190,8 +190,6 @@ frame_data_init(frame_data *fdata, guint32 num,
+   fdata->tsprec = (gint16)phdr->pkt_tsprec;
+   fdata->color_filter = NULL;
+   fdata->abs_ts = phdr->ts;
+-  fdata->shift_offset.secs = 0;
+-  fdata->shift_offset.nsecs = 0;
+   fdata->frame_ref_num = 0;
+   fdata->prev_dis_num = 0;
+ }
+diff --git a/ui/Makefile.am b/ui/Makefile.am
+index 91f189b..a7421b9 100644
+--- a/ui/Makefile.am
++++ b/ui/Makefile.am
+@@ -85,7 +85,6 @@ WIRESHARK_UI_SRC = \
+ 	tap-sequence-analysis.c	\
+ 	tap-tcp-stream.c	\
+ 	text_import.c		\
+-	time_shift.c		\
+ 	traffic_table_ui.c	\
+ 	util.c			\
+ 	voip_calls.c
