@@ -53,6 +53,13 @@
 		color: black;
 	}
 
+	.awesomplete > ul > li.truncated {
+		background: hsla(0,0%,100%,.9);
+		background: linear-gradient(to bottom right, white, hsla(0,0%,100%,.8));
+		float: right;
+		font-size: 10px;
+	}
+
 	.awesomplete > ul > li[aria-selected="true"] {
 		background: hsl(205, 40%, 40%);
 		color: white;

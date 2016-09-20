@@ -173,12 +173,12 @@ _.prototype = {
 	},
 
 	next: function () {
-		var count = this.ul.children.length;
+		var count = this.suggestions.length;
 		this.goto(this.index < count - 1 ? this.index + 1 : (count ? 0 : -1) );
 	},
 
 	previous: function () {
-		var count = this.ul.children.length;
+		var count = this.suggestions.length;
 		var pos = this.index - 1;
 
 		this.goto(this.selected && pos !== -1 ? pos : count - 1);
@@ -244,12 +244,20 @@ _.prototype = {
 				})
 				.filter(function(item) {
 					return me.filter(item, value);
-				})
-				.slice(0, this.maxItems);
+				});
+
+			var total_count = this.suggestions.length;
+			if (total_count > this.maxItems)
+				this.suggestions = this.suggestions.slice(0, this.maxItems);
 
 			this.suggestions.forEach(function(text) {
 					me.ul.appendChild(me.item(text, value));
 				});
+
+			if (total_count > this.maxItems) {
+				var rest = total_count - this.maxItems;
+				me.ul.appendChild($.create("li", { innerHTML: rest + ' items more...', className: 'truncated' }));
+			}
 
 			if (this.ul.children.length === 0) {
 				this.close({ reason: "nomatches" });
