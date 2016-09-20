@@ -38,16 +38,21 @@ function popup(url)
 
 function popup_on_click_a(ev)
 {
+	var node;
 	var url;
 
-	url = ev.target['href'];
-	if (url != null)
-		popup(url);
+	node = dom_find_node_attr(ev.target, 'href');
+	if (node != null)
+	{
+		url = node['href'];
+		if (url != null)
+			popup(url);
 
-	ev.preventDefault();
+		ev.preventDefault();
+	}
 }
 
-function btoa(ch)
+function chtoa(ch)
 {
 	return (ch > 0x1f && ch < 0x7f) ? String.fromCharCode(ch) : '.';
 }
@@ -71,6 +76,46 @@ function webshark_get_url()
 	return base_url + extra;
 }
 
+var glyph_cache = { };
+
+function webshark_glyph(what)
+{
+	if (glyph_cache[what])
+		return glyph_cache[what];
+
+	var svg;
+	switch (what)
+	{
+		case 'filter':
+		{
+			/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/filter.svg */
+			svg = d3.select("body").append("svg").remove()
+			   .attr("width", 1792)
+			   .attr("height", 1792)
+			   .attr("viewBox", "0 0 1792 1792")
+			   .attr("xmlns", "http://www.w3.org/2000/svg");
+
+			svg.append("svg:path")
+			    .attr("d","M1595 295q17 41-14 70l-493 493v742q0 42-39 59-13 5-25 5-27 0-45-19l-256-256q-19-19-19-45v-486l-493-493q-31-29-14-70 17-39 59-39h1280q42 0 59 39z")
+			    .style("fill", "#191970");
+			break;
+		}
+	}
+
+	var str = 'data:image/svg+xml;base64,' + window.btoa(svg.node().outerHTML);
+	glyph_cache[what] = str;
+	return str;
+}
+
+function webshark_glyph_img(what, width)
+{
+	var img = document.createElement('img');
+
+	img.setAttribute('src', webshark_glyph(what));
+	img.setAttribute('width', width);
+	return img;
+}
+
 function webshark_d3_chart(svg, data, opts)
 {
 	var title = opts['title'];
@@ -90,13 +135,24 @@ function webshark_d3_chart(svg, data, opts)
 
 	var margin = opts['margin'];
 
+	var full_width = opts['width'];
+
 	if (margin == undefined)
 		margin = {top: 30, right: 50, bottom: 30, left: 60};
 
-	svg.attr("width", opts['width'])
+	if (full_width == undefined)
+		full_width = margin.left + opts['iwidth'] * data.length + margin.right;
+
+	if (opts['mwidth'])
+	{
+		var mwidth = opts['mwidth'];
+		if (full_width < mwidth) full_width = mwidth;
+	}
+
+	svg.attr("width", full_width)
 		.attr("height", opts['height']);
 
-	var width = opts['width'] - margin.left - margin.right,
+	var width = full_width - margin.left - margin.right,
 	    height = opts['height']  - margin.top - margin.bottom;
 
 	var g = svg.append("g")
@@ -341,6 +397,16 @@ function dom_set_child(p, ch)
 {
 	dom_clear(p);
 	p.appendChild(ch);
+}
+
+function dom_create_label(str)
+{
+	var label = document.createElement("p");
+
+	label.setAttribute('align', 'center');
+	label.appendChild(document.createTextNode(str));
+
+	return label;
 }
 
 function dom_find_node_attr(n, attr)
@@ -605,7 +671,7 @@ function webshark_render_hexdump(pkt)
 			var ch = pkt.charCodeAt(i + j);
 
 			str_hex += xtoa(ch, 2) + " ";
-			str_ascii += btoa(ch);
+			str_ascii += chtoa(ch);
 		}
 
 		for (var j = limit; j < 16; j++)
@@ -723,6 +789,7 @@ function webshark_create_tap_table_common(fields)
 	tr.className = "header";
 
 	table.className = "ws_border";
+	table.setAttribute('width', '100%');
 
 	table.appendChild(tr);
 	return table;
@@ -774,7 +841,11 @@ function webshark_create_tap_action_common(data)
 		filter_a.setAttribute("href", webshark_get_url()+ "&filter=" + encodeURIComponent(data['_filter']));
 		filter_a.addEventListener("click", popup_on_click_a);
 
-		filter_a.appendChild(document.createTextNode('F'));
+		var glyph = webshark_glyph_img('filter', 16);
+		glyph.setAttribute('alt', 'Filter: ' + data['_filter']);
+		glyph.setAttribute('title', 'Filter: ' + data['_filter']);
+
+		filter_a.appendChild(glyph);
 		td.appendChild(filter_a);
 	}
 
@@ -827,15 +898,12 @@ function webshark_render_tap(tap)
 {
 	if (tap['type'] == 'stats')
 	{
-		var label = document.createElement("p");
-		label.appendChild(document.createTextNode("---" + tap['name']));
-
 		var table = webshark_create_tap_table_common(webshark_stat_fields);
 
 		webshark_create_tap_stat(table, tap['stats'], 0);
 
-		document.getElementById('toolbar_tap').appendChild(label);
-		document.getElementById('toolbar_tap').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("Stats TAP: " + tap['name']));
+		document.getElementById('ws_tap_table').appendChild(table);
 
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
@@ -843,7 +911,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, tap['stats'][0]['sub'],
 		{
 			title: tap['stats'][0]['name'],
-			width: 1000, height: 400,
+			mwidth: 800, iwidth: 50, height: 400,
 
 			getX: function(d) { return d['name'] },
 
@@ -857,7 +925,7 @@ function webshark_render_tap(tap)
 			color: [ 'steelblue' ]
 		});
 
-		document.getElementById('toolbar_tap').appendChild(svg.node());
+		document.getElementById('ws_tap_graph').appendChild(svg.node());
 	}
 	else if (tap['type'] == 'conv')
 	{
@@ -884,7 +952,8 @@ function webshark_render_tap(tap)
 
 		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
 
-		document.getElementById('toolbar_tap').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(dom_create_label(tap['proto'] + ' Conversations (' + convs.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
 
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
@@ -892,7 +961,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Frames Count',
-			width: 800, height: 400,
+			mwidth: 500, iwidth: 25, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -906,7 +975,7 @@ function webshark_render_tap(tap)
 			// color: [ '#e377c2', '#bcbd22' ],
 		});
 
-		document.getElementById('toolbar_tap').appendChild(svg.node());
+		document.getElementById('ws_tap_graph').appendChild(svg.node());
 
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
@@ -914,7 +983,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Bytes Count',
-			width: 800, height: 400,
+			mwidth: 500, iwidth: 25, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -927,7 +996,7 @@ function webshark_render_tap(tap)
 			color: [ '#d62728', '#2ca02c' ],
 		});
 
-		document.getElementById('toolbar_tap').appendChild(svg.node());
+		document.getElementById('ws_tap_graph').appendChild(svg.node());
 
 	}
 	else if (tap['type'] == 'host')
@@ -950,7 +1019,8 @@ function webshark_render_tap(tap)
 
 		webshark_create_tap_table_data_common(webshark_host_fields, table, hosts);
 
-		document.getElementById('toolbar_tap').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(dom_create_label(tap['proto'] + ' Endpoints (' + hosts.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
 
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
@@ -958,7 +1028,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Frames Count',
-			width: 800, height: 400,
+			mwidth: 400, iwidth: 25, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -972,7 +1042,7 @@ function webshark_render_tap(tap)
 			// color: [ '#e377c2', '#bcbd22' ],
 		});
 
-		document.getElementById('toolbar_tap').appendChild(svg.node());
+		document.getElementById('ws_tap_graph').appendChild(svg.node());
 
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
@@ -980,7 +1050,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Bytes Count',
-			width: 800, height: 400,
+			mwidth: 400, iwidth: 25, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -993,7 +1063,7 @@ function webshark_render_tap(tap)
 			color: [ '#d62728', '#2ca02c' ],
 		});
 
-		document.getElementById('toolbar_tap').appendChild(svg.node());
+		document.getElementById('ws_tap_graph').appendChild(svg.node());
 	}
 	else if (tap['type'] == 'voip-calls')
 	{
@@ -1011,7 +1081,8 @@ function webshark_render_tap(tap)
 
 		webshark_create_tap_table_data_common(webshark_voip_calls_fields, table, calls);
 
-		document.getElementById('toolbar_tap').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("VoIP calls (" + calls.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'rtp-streams')
 	{
@@ -1040,7 +1111,8 @@ function webshark_render_tap(tap)
 
 		webshark_create_tap_table_data_common(webshark_rtp_streams_fields, table, streams);
 
-		document.getElementById('toolbar_tap').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP streams (" + streams.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
 	}
 }
 
