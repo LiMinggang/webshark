@@ -16,12 +16,11 @@ RUN ./manage.py startapp webshark
 RUN mkdir -p ./webshark/static/webshark/
 COPY web/ ./webshark/static/webshark/
 
-RUN echo "INSTALLED_APPS += ('webshark',)" >> web/settings.py
+RUN echo "INSTALLED_APPS += ('webshark',)" >> web/settings.py && \
+    echo "SHARKD_CAP_DIR = '/caps/'" >> web/settings.py
 RUN echo "urlpatterns += [ url(r'^webshark/', include('webshark.urls')), ]" >> web/urls.py
 
-## TODO, push to git.
-COPY web-server/django-urls.py webshark/urls.py
-COPY web-server/django-views.py webshark/views.py
+COPY web-server/django/urls.py web-server/django/views.py webshark/
 
 COPY sharkd_cli.py webshark/sharkd_cli.py
 
