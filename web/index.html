@@ -256,7 +256,7 @@
 
 				document.getElementById('toolbar_frame').style.display = 'block';
 
-			} else {
+			} else if (_webshark_file) {
 				var filter = opt['filter'];
 
 				if (filter)
@@ -275,6 +275,16 @@
 				}
 
 				webshark_load_capture(filter, ws_columns);
+
+			} else {
+				document.getElementById('toolbar_capture').style.display = 'none';
+				document.getElementById('ws_packet_list_view').style.display = 'none';
+				document.getElementById('ws_packet_detail_view').style.display = 'none';
+				document.getElementById('ws_packet_bytes_view').style.display = 'none';
+
+				document.getElementById('files_view').style.display = 'block';
+
+				webshark_load_files();
 			}
 
 			document.getElementById("ws_div").style.display = "block";
@@ -299,6 +309,14 @@
 		{
 			_webshark_url = '/webshark/json?';
 			_webshark_interval_mode = "bps";
+
+			_webshark_files_html = new Clusterize({
+				rows: [],
+				rows_in_block: 50,
+				tag: 'tr',
+				scrollId: 'capture_files_view',
+				contentId: 'capture_files'
+			});
 
 			_webshark_frames_html = new Clusterize({
 				rows: [],
@@ -363,6 +381,24 @@
 </head>
 
 <body onload="load()"><div id="ws_div" style="display: none;">
+	<div id="files_view" style="display: none;">
+		<div id="capture_files_view" style="height:700px; overflow: auto;">
+			<table style="width: 100%;">
+				<thead id="capture_files_header">
+					<tr>
+						<th>Actions</th>
+						<th>Filename</th>
+						<th>File Size</th>
+						<th>Description</th>
+						<th>Analysis</th>
+					</tr>
+				</thead>
+				<tbody id="capture_files">
+				</tbody>
+			</table>
+		</div>
+	</div>
+
 	<div id="toolbar_capture">
 		<ul class="menu" id="cap_menu"></ul>
 		<div style="clear: both;"></div>

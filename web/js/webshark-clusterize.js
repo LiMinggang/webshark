@@ -91,6 +91,12 @@
     self.refresh = function() {
       self.getRowsHeight(rows) && self.update(rows);
     }
+    self.setData = function(data) {
+      self.data = data;
+      var rows = Array();
+      rows.length = data.length;
+      self.update(rows);
+    }
     self.update = function(new_rows) {
       rows = new_rows;
       var scroll_top = self.scroll_elem.scrollTop;
@@ -140,10 +146,10 @@
     createRows: function (rows, start, end) {
         var cb = this.options.callbacks.createHTML;
 
-        if (!cb) return;
+        if (!cb || !this.data) return;
 
         while (start < end) {
-            if (!rows[start]) rows[start] = cb(start);
+            if (!rows[start]) rows[start] = cb(this.data[start], start);
 			start++;
         }
     },

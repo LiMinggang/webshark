@@ -1,3 +1,19 @@
+#!/bin/python3
+
+# Copyright (C) 2016 Jakub Zawadzki
+#
+# This program is free software: you can redistribute it and/or  modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.conf import settings
@@ -22,8 +38,8 @@ def index(request):
     context = { }
     return render(request, 'webshark/index.html', context)
 
-def sharkd_instance(cap):
-    shark = captures.get(cap, None)
+def sharkd_instance(cap_file):
+    shark = captures.get(cap_file, None)
 
     if shark == None:
         try:
@@ -32,35 +48,64 @@ def sharkd_instance(cap):
             subprocess.call([ "sharkd", "unix:@sharkd-socket"])
             raise
 
-        captures[cap] = shark
-        if cap != '':
+        captures[cap_file] = shark
+        if cap_file != '':
+            cap = cap_dir + cap_file
             shark.send_req(dict(req='load', file=cap))
+
     return shark
 
-def json_handle_request(req):
-    cap_file = req.GET.get('capture', '')
+def sharkd_file_list():
+    result = list()
+    for root, dirs, files in os.walk(cap_dir):
+        for name in files:
+            full_filename = os.path.join(root, name)
+            filename = os.path.relpath(full_filename, cap_dir)
+
+            cap = dict()
+            cap['name'] = filename
+            cap['size'] = os.stat(full_filename).st_size
+            if captures.get(filename, False):
+                cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
+            cap['analysis'] = dict() ## TODO: from db: number of packets, capture file durations, list of protocols, ...
+            cap['desc'] = ''         ## TODO: from db
+            result.append(cap)
+
+    return result
+
+def json_handle_request(request):
+    cap_file = request.GET.get('capture', '')
+    req      = request.GET.get('req', '')
+
+    if req == '':
+        return json.dumps(dict(err=1, errstr="No request"))
+
+    if req == 'files':
+        return json.dumps(dict(files=sharkd_file_list()))
+
+    # internal request
+    if req == 'load':
+        return json.dumps(dict(err=1, errstr="Nope"))
+
     if '..' in cap_file:
         return json.dumps(dict(err=1, errstr="Nope"))
 
     if cap_file != '':
-        cap = cap_dir + cap_file
-        if os.path.isfile(cap) == False:
+        if os.path.isfile(cap_dir + cap_file) == False:
             return json.dumps(dict(err=1, errstr="No such capture file"))
-    else:
-        cap = cap_file
 
     try:
         lock.acquire()
-        shark = sharkd_instance(cap)
+        shark = sharkd_instance(cap_file)
     finally:
         lock.release()
 
     try:
-        ret = shark.send_req(req.GET.dict())
+        ret = shark.send_req(request.GET.dict())
     except BrokenPipeError:
         try:
             lock.acquire()
-            captures[cap] = None
+            captures[cap_file] = None
         finally:
             lock.release()
         ret = None

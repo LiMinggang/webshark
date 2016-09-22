@@ -18,6 +18,7 @@
 var _webshark_file = "";
 var _webshark_url = "/webshark/api?";
 
+var _webshark_files_html = null;
 var _webshark_frames_html = null;
 
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
@@ -461,13 +462,35 @@ th.width = Math.floor(1000 / col.length) +"px"; // XXX, temporary
 	dom_set_child(document.getElementById('packet_list_header'), tr);
 }
 
-function webshark_frame_tr_on_click(ev)
+function webshark_frame_row_on_click(ev)
 {
 	var frame_node;
 
 	frame_node = dom_find_node_attr(ev.target, 'data_ws_frame');
 	if (frame_node != null)
 		webshark_load_frame(frame_node.data_ws_frame);
+}
+
+function webshark_file_row_on_click(ev)
+{
+	var file_node;
+
+	file_node = dom_find_node_attr(ev.target, 'ws_file_data');
+	if (file_node != null)
+	{
+		var data = file_node['ws_file_data'];
+
+		document.getElementById('files_view').style.display = 'none';
+
+		_webshark_file = data['name'];
+
+		/* XXX, cleanup - maybe just open in another window? */
+		webshark_load_capture('', ws_columns);
+		document.getElementById('toolbar_capture').style.display = 'block';
+		document.getElementById('ws_packet_list_view').style.display = 'block';
+		document.getElementById('ws_packet_detail_view').style.display = 'block';
+		document.getElementById('ws_packet_bytes_view').style.display = 'block';
+	}
 }
 
 function webshark_tree_on_click(ev)
@@ -533,12 +556,59 @@ function webshark_frame_on_click(ev)
 	ev.preventDefault();
 }
 
-var _webshark_capture_frames = null;
-
-function webshark_create_frame_html(frame)
+function webshark_create_file_row_html(file, row_no)
 {
-	var frame = _webshark_capture_frames[frame];
+	var tr = document.createElement("tr");
 
+	var si_format = d3.format('.2s');
+
+	var stat = file['status'];
+
+	var data = [
+		'',
+		file['name'],
+		si_format(file['size']) + "B",
+		file['desc'],
+		JSON.stringify(file['analysis'])
+	];
+
+	for (var j = 0; j < data.length; j++)
+	{
+		var td = document.createElement("td");
+
+		if (j == 0)
+		{
+			if (stat && stat['online'])
+			{
+				/* XXX, online symbol */
+				td.appendChild(document.createTextNode("[R]"));
+				/* TODO: kill */
+			}
+		}
+		else
+		{
+			td.appendChild(document.createTextNode(data[j]));
+		}
+		tr.appendChild(td);
+	}
+
+	if (stat && stat['online'] == true)
+	{
+		tr.style['background-color'] = 'lightblue';
+	}
+	else
+	{
+		tr.style['background-color'] = '#ccc';
+	}
+
+	tr.ws_file_data = file;
+	tr.addEventListener("click", webshark_file_row_on_click);
+
+	return tr;
+}
+
+function webshark_create_frame_row_html(frame, row_no)
+{
 	var cols = frame['c'];
 	var fnum = frame['num'];
 
@@ -579,21 +649,17 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 	tr.id = 'packet-list-frame-' + fnum;
 	tr.data_ws_frame = fnum;
-	tr.addEventListener("click", webshark_frame_tr_on_click);
+	tr.addEventListener("click", webshark_frame_row_on_click);
 
 	return tr;
 }
 
 function webshark_lazy_frames(frames)
 {
-	_webshark_capture_frames = frames;
-
-	var data = Array();
-	data.length = frames.length;
-	_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_html;
+	_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_row_html;
 
 	// don't work _webshark_frames_html.scroll_elem.scrollTop = 0;
-	_webshark_frames_html.update(data);
+	_webshark_frames_html.setData(frames);
 }
 
 function webshark_create_proto_tree(tree, level)
@@ -1163,6 +1229,34 @@ function webshark_render_interval()
 	});
 
 	dom_set_child(document.getElementById('capture_interval'), svg.node());
+}
+
+function webshark_load_files()
+{
+	webshark_json_get('req=files',
+		function(data)
+		{
+			var files = data['files'];
+
+			files.sort(function(a, b)
+			{
+				var sta = a['status'], stb = b['status'];
+				var ona, onb;
+
+				ona = (sta && sta['online'] == true) ? 1 : 0;
+				onb = (stb && stb['online'] == true) ? 1 : 0;
+
+				/* first online */
+				if (ona != onb)
+					return ona < onb ? 1 : 0;
+
+				/* and than by filename */
+				return a['name'] > b['name'] ? 1 : 0;
+			});
+
+			_webshark_files_html.options.callbacks.createHTML = webshark_create_file_row_html;
+			_webshark_files_html.setData(files);
+		});
 }
 
 function webshark_load_capture(filter, cols)
