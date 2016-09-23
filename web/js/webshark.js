@@ -84,12 +84,23 @@ function webshark_glyph(what)
 	if (glyph_cache[what])
 		return glyph_cache[what];
 
+	var fa_paths =
+	{
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/filter.svg */
+		'filter': "M1595 295q17 41-14 70l-493 493v742q0 42-39 59-13 5-25 5-27 0-45-19l-256-256q-19-19-19-45v-486l-493-493q-31-29-14-70 17-39 59-39h1280q42 0 59 39z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/play.svg */
+		'play': "M1576 927l-1328 738q-23 13-39.5 3t-16.5-36v-1472q0-26 16.5-36t39.5 3l1328 738q23 13 23 31t-23 31z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/stop.svg */
+		'stop': "M1664 192v1408q0 26-19 45t-45 19h-1408q-26 0-45-19t-19-45v-1408q0-26 19-45t45-19h1408q26 0 45 19t19 45z"
+	};
+
 	var svg;
 	switch (what)
 	{
 		case 'filter':
+		case 'play':
+		case 'stop':
 		{
-			/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/filter.svg */
 			svg = d3.select("body").append("svg").remove()
 			   .attr("width", 1792)
 			   .attr("height", 1792)
@@ -97,7 +108,7 @@ function webshark_glyph(what)
 			   .attr("xmlns", "http://www.w3.org/2000/svg");
 
 			svg.append("svg:path")
-			    .attr("d","M1595 295q17 41-14 70l-493 493v742q0 42-39 59-13 5-25 5-27 0-45-19l-256-256q-19-19-19-45v-486l-493-493q-31-29-14-70 17-39 59-39h1280q42 0 59 39z")
+			    .attr("d", fa_paths[what])
 			    .style("fill", "#191970");
 			break;
 		}
@@ -565,7 +576,6 @@ function webshark_create_file_row_html(file, row_no)
 	var stat = file['status'];
 
 	var data = [
-		'',
 		file['name'],
 		si_format(file['size']) + "B",
 		file['desc'],
@@ -580,15 +590,24 @@ function webshark_create_file_row_html(file, row_no)
 		{
 			if (stat && stat['online'])
 			{
-				/* XXX, online symbol */
-				td.appendChild(document.createTextNode("[R]"));
-				/* TODO: kill */
+				var glyph = webshark_glyph_img('play', 16);
+				glyph.setAttribute('alt', 'Running');
+				glyph.setAttribute('title', 'Running ...');
+
+				td.appendChild(glyph);
 			}
+			else
+			{
+				var glyph = webshark_glyph_img('stop', 16);
+				glyph.setAttribute('alt', 'Stopped');
+				glyph.setAttribute('title', 'Stopped');
+
+				td.appendChild(glyph);
+			}
+			td.appendChild(document.createTextNode(' '));
 		}
-		else
-		{
-			td.appendChild(document.createTextNode(data[j]));
-		}
+
+		td.appendChild(document.createTextNode(data[j]));
 		tr.appendChild(td);
 	}
 

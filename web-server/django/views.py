@@ -26,6 +26,7 @@ import socket
 import json
 import subprocess
 
+from .models import Capture
 from .sharkd_cli import SharkdClient
 
 captures = dict()
@@ -55,6 +56,26 @@ def sharkd_instance(cap_file):
 
     return shark
 
+def sharkd_file_list_refresh_db():
+    for root, dirs, files in os.walk(cap_dir):
+        for name in files:
+            full_filename = os.path.join(root, name)
+            filename = os.path.relpath(full_filename, cap_dir)
+
+            try:
+                obj = Capture.objects.get(filename=filename)
+            except Capture.DoesNotExist:
+
+                shark = SharkdClient('@sharkd-socket')
+                shark.send_req(dict(req='load', file=full_filename))
+                analysis = shark.send_req(dict(req='analyse'))
+                shark.send_req(dict(req='bye'))
+
+                obj = Capture(filename=filename, description='', analysis=analysis)
+                obj.save()
+
+    return ''
+
 def sharkd_file_list():
     result = list()
     for root, dirs, files in os.walk(cap_dir):
@@ -67,8 +88,14 @@ def sharkd_file_list():
             cap['size'] = os.stat(full_filename).st_size
             if captures.get(filename, False):
                 cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
-            cap['analysis'] = dict() ## TODO: from db: number of packets, capture file durations, list of protocols, ...
-            cap['desc'] = ''         ## TODO: from db
+
+            try:
+                obj = Capture.objects.get(filename=filename)
+                cap['analysis'] = json.loads(obj.analysis)
+                cap['desc'] = obj.description
+            except Capture.DoesNotExist:
+                pass
+
             result.append(cap)
 
     return result
@@ -79,6 +106,9 @@ def json_handle_request(request):
 
     if req == '':
         return json.dumps(dict(err=1, errstr="No request"))
+
+    if req == 'refreshdb':
+        return sharkd_file_list_refresh_db()
 
     if req == 'files':
         return json.dumps(dict(files=sharkd_file_list()))

@@ -1377,7 +1377,7 @@ sharkd_load_cap_file(void)
 }
 
 int
-sharkd_dissect_request(int framenum, void (*cb)(proto_tree *, struct epan_column_info *, GSList *), int dissect_bytes, int dissect_columns, int dissect_tree)
+sharkd_dissect_request(int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
 {
 	frame_data *fdata;
 	column_info *cinfo = (dissect_columns) ? &cfile.cinfo : NULL;
@@ -1418,7 +1418,7 @@ sharkd_dissect_request(int framenum, void (*cb)(proto_tree *, struct epan_column
 		epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
 	}
 
-	cb(dissect_tree ? edt.tree : NULL, cinfo, dissect_bytes ? edt.pi.data_src : NULL);
+	cb(&edt.pi, dissect_tree ? edt.tree : NULL, cinfo, dissect_bytes ? edt.pi.data_src : NULL, data);
 
 	epan_dissect_cleanup(&edt);
 	wtap_phdr_cleanup(&phdr);

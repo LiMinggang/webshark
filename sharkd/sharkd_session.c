@@ -50,7 +50,7 @@ int sharkd_load_cap_file(void);
 int sharkd_retap(void);
 int sharkd_filter(const char *dftext, guint8 **result);
 int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
-int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree);
+int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree, void *data);
 const char *sharkd_version(void);
 
 static struct register_ct *
@@ -414,6 +414,91 @@ sharkd_session_process_status(void)
 	printf("{\"frames\":%d", cfile.count);
 
 	printf("}\n");
+}
+
+struct sharkd_analyse_data
+{
+	GHashTable *protocols_set;
+	nstime_t *first_time;
+	nstime_t *last_time;
+};
+
+static void
+sharkd_session_process_analyse_cb(packet_info *pi, proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src, void *data)
+{
+	struct sharkd_analyse_data *analyser = (struct sharkd_analyse_data *) data;
+	frame_data *fdata = pi->fd;
+
+	(void) tree;
+	(void) cinfo;
+	(void) data_src;
+
+	if (analyser->first_time == NULL || nstime_cmp(&fdata->abs_ts, analyser->first_time) < 0)
+		analyser->first_time = &fdata->abs_ts;
+
+	if (analyser->last_time == NULL || nstime_cmp(&fdata->abs_ts, analyser->last_time) > 0)
+		analyser->last_time = &fdata->abs_ts;
+
+	if (pi->layers)
+	{
+		wmem_list_frame_t *frame = wmem_list_head(pi->layers);
+
+		for (frame = wmem_list_head(pi->layers); frame; frame = wmem_list_frame_next(frame))
+		{
+			int proto_id = GPOINTER_TO_UINT(wmem_list_frame_data(frame));
+
+			if (!g_hash_table_lookup_extended(analyser->protocols_set, GUINT_TO_POINTER(proto_id), NULL, NULL))
+			{
+				g_hash_table_insert(analyser->protocols_set, GUINT_TO_POINTER(proto_id), GUINT_TO_POINTER(proto_id));
+
+				if (g_hash_table_size(analyser->protocols_set) != 1)
+					printf(",");
+				json_puts_string(proto_get_protocol_filter_name(proto_id));
+			}
+		}
+	}
+
+}
+
+/**
+ * sharkd_session_process_status()
+ *
+ * Process analyse request
+ *
+ * Output object with attributes:
+ *   (m) frames  - count of currently loaded frames
+ *   (m) protocols - protocol list
+ *   (m) first     - earliest frame time
+ *   (m) last      - latest frame time
+ */
+static void
+sharkd_session_process_analyse(void)
+{
+	extern capture_file cfile;
+
+	unsigned int framenum;
+	struct sharkd_analyse_data analyser;
+
+	analyser.first_time = NULL;
+	analyser.last_time  = NULL;
+	analyser.protocols_set = g_hash_table_new(NULL /* g_direct_hash() */, NULL /* g_direct_equal */);
+
+	printf("{\"frames\":%d", cfile.count);
+
+	printf(",\"protocols\":[");
+	for (framenum = 1; framenum <= cfile.count; framenum++)
+		sharkd_dissect_request(framenum, &sharkd_session_process_analyse_cb, 0, 0, 0, &analyser);
+	printf("]");
+
+	if (analyser.first_time)
+		printf(",\"first\":%.9f", nstime_to_sec(analyser.first_time));
+
+	if (analyser.last_time)
+		printf(",\"last\":%.9f", nstime_to_sec(analyser.last_time));
+
+	printf("}\n");
+
+	g_hash_table_destroy(analyser.protocols_set);
 }
 
 extern void col_finalize(column_info *cinfo);
@@ -1294,8 +1379,11 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 }
 
 static void
-sharkd_session_process_frame_cb(proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src)
+sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src, void *data)
 {
+	(void) pi;
+	(void) data;
+
 	printf("{");
 
 	printf("\"err\":0");
@@ -1483,7 +1571,7 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	if (!tok_frame || !(framenum = atoi(tok_frame)))
 		return;
 
-	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto);
+	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto, NULL);
 }
 
 /**
@@ -1677,6 +1765,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_load(buf, tokens, count);
 		else if (!strcmp(tok_req, "status"))
 			sharkd_session_process_status();
+		else if (!strcmp(tok_req, "analyse"))
+			sharkd_session_process_analyse();
 		else if (!strcmp(tok_req, "info"))
 			sharkd_session_process_info();
 		else if (!strcmp(tok_req, "check"))

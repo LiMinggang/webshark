@@ -20,9 +20,12 @@ RUN echo "INSTALLED_APPS += ('webshark',)" >> web/settings.py && \
     echo "SHARKD_CAP_DIR = '/caps/'" >> web/settings.py
 RUN echo "urlpatterns += [ url(r'^webshark/', include('webshark.urls')), ]" >> web/urls.py
 
-COPY web-server/django/urls.py web-server/django/views.py webshark/
+COPY web-server/django/urls.py web-server/django/views.py web-server/django/models.py webshark/
 
 COPY sharkd_cli.py webshark/sharkd_cli.py
+
+RUN ./manage.py makemigrations
+RUN ./manage.py migrate
 
 ## TODO, push to http, with build instructions
 ADD sharkd.tar.gz /
