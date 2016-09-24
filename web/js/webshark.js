@@ -482,25 +482,101 @@ function webshark_frame_row_on_click(ev)
 		webshark_load_frame(frame_node.data_ws_frame);
 }
 
+var _webshark_selected_file = null;
+
 function webshark_file_row_on_click(ev)
 {
 	var file_node;
 
 	file_node = dom_find_node_attr(ev.target, 'ws_file_data');
+
+	if (file_node == _webshark_selected_file)
+	{
+		/* TODO: after double(triple?) clicking auto load file? */
+		return;
+	}
+
 	if (file_node != null)
 	{
-		var data = file_node['ws_file_data'];
+		var file = file_node['ws_file_data'];
 
-		document.getElementById('files_view').style.display = 'none';
+		var div = document.createElement('div');
+		var p;
 
-		_webshark_file = data['name'];
+		p = document.createElement('p');
+		p.appendChild(document.createTextNode('File: ' + file['name']));
+		div.appendChild(p);
 
-		/* XXX, cleanup - maybe just open in another window? */
-		webshark_load_capture('', ws_columns);
-		document.getElementById('toolbar_capture').style.display = 'block';
-		document.getElementById('ws_packet_list_view').style.display = 'block';
-		document.getElementById('ws_packet_detail_view').style.display = 'block';
-		document.getElementById('ws_packet_bytes_view').style.display = 'block';
+		p = document.createElement('p');
+		p.appendChild(document.createTextNode('Size: ' + file['size']));
+		div.appendChild(p);
+
+		if (file['analysis'])
+		{
+			p = document.createElement('p');
+			p.appendChild(document.createTextNode('Frames: ' + file['analysis']['frames']));
+			div.appendChild(p);
+
+			/* Time */
+			var first = file['analysis']['first'];
+			var last  = file['analysis']['last'];
+
+			if (first && last)
+			{
+				var dura  = last - first;
+
+				var format = d3.utcFormat; /* XXX, check if UTC */
+
+				p = document.createElement('p');
+				p.appendChild(document.createTextNode('From: ' + format(new Date(first * 1000))));
+				div.appendChild(p);
+
+				p = document.createElement('p');
+				p.appendChild(document.createTextNode('To: ' + format(new Date(last * 1000))));
+				div.appendChild(p);
+
+				p = document.createElement('p');
+				p.appendChild(document.createTextNode('Duration: ' + (last - first) + " s"));
+				div.appendChild(p);
+			}
+
+			/* Protocols */
+			var protos = file['analysis']['protocols'];
+			if (protos && protos.length > 0)
+			{
+				var ul = document.createElement('ul')
+				ul.className = 'proto';
+
+				div.appendChild(document.createElement('p').appendChild(document.createTextNode('Protocols:')));
+				for (var k = 0; k < protos.length; k++)
+				{
+					var proto_li = document.createElement('li');
+
+					proto_li.appendChild(document.createTextNode(protos[k]));
+					proto_li.className = 'proto';
+
+					ul.appendChild(proto_li);
+				}
+				div.appendChild(ul);
+			}
+		}
+
+		a = document.createElement('a');
+		var url = window.location.href + '?file=' + file['name'];
+
+		a.appendChild(document.createTextNode('Load'));
+		a.setAttribute("href", url);
+		div.appendChild(a);
+
+		/* unselect previous */
+		if (_webshark_selected_file != null)
+			dom_remove_class(_webshark_selected_file, "selected");
+
+		dom_set_child(document.getElementById('capture_files_view_details'), div);
+
+		/* select new */
+		dom_add_class(file_node, "selected");
+		_webshark_selected_file = file_node;
 	}
 }
 
@@ -579,14 +655,13 @@ function webshark_create_file_row_html(file, row_no)
 		file['name'],
 		si_format(file['size']) + "B",
 		file['desc'],
-		JSON.stringify(file['analysis'])
 	];
 
 	for (var j = 0; j < data.length; j++)
 	{
 		var td = document.createElement("td");
 
-		if (j == 0)
+		if (j == 0) /* before filename */
 		{
 			if (stat && stat['online'])
 			{

@@ -72,6 +72,19 @@ ul.menu li
 	padding-right: 15px;
 }
 
+ul.proto
+{
+	list-style-type: none;
+	padding-left: 32px;
+}
+
+li.proto
+{
+	background-color: #ccc;
+	margin-right: 5px;
+	border: 2px solid grey;
+}
+
 span.example
 {
 	background-color: #adff2f;

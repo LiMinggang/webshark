@@ -296,6 +296,8 @@
 
 			var frames_count_min = undefined;
 			var frames_count_max = undefined;
+			var duration_time_min = undefined;
+			var duration_time_max = undefined;
 			var filename_contain = [ ];
 			var protocols = [ ];
 
@@ -307,6 +309,10 @@
 					frames_count_min = rule.slice('frames>'.length);
 				else if (rule.indexOf('frames<') != -1)
 					frames_count_max = rule.slice('frames<'.length);
+				else if (rule.indexOf('duration>') != -1)
+					duration_time_min = rule.slice('duration>'.length);
+				else if (rule.indexOf('duration<') != -1)
+					duration_time_max = rule.slice('duration<'.length);
 				else if (rule.indexOf('proto:') != -1)
 					protocols.push(rule.slice('proto:'.length));
 				else
@@ -318,12 +324,23 @@
 				var anal = file['analysis'];
 
 				// TODO, what to do if there are no analysis?
-
 				if (frames_count_min && anal['frames'] <= frames_count_min)
 					return false;
 
 				if (frames_count_max && anal['frames'] >= frames_count_max)
 					return false;
+
+				if (duration_time_min || duration_time_max)
+				{
+					// TODO, what to do if there are no time analysis?
+					var dura = anal['last'] - anal['first'];
+
+					if (duration_time_min && dura <= duration_time_min)
+						return false;
+
+					if (duration_time_max && dura >= duration_time_max)
+						return false;
+				}
 
 				for (var i = 0; i < filename_contain.length; i++)
 				{
@@ -445,24 +462,26 @@
 		Files filter: <input id="files_filter" type='text' onchange='filter_files(this.value);' style='width: 1000px;' />
 		<p style="font-size: 12px;">Filter examples:
 			<span class="example">filename</span>
-			<span class='example'>frames&lt;100</span>
-			<span class="example">frames&gt;100</span>
+			<span class="example">duration&lt;0.5 frames&gt;42</span>
+			<span class="example">duration&gt;60 frames&lt;42</span>
 			<span class="example">proto:tcp</span>
 			<span class="example">proto:wlan proto:eap</span>
 		</p>
-		<div id="capture_files_view" style="height:700px; overflow: auto;">
+		<div id="capture_files_view" style="height:800px; overflow: auto; width: 70%; float: left;">
 			<table style="width: 100%;">
 				<thead id="capture_files_header">
 					<tr>
 						<th>Filename</th>
 						<th>File Size</th>
 						<th>Description</th>
-						<th>Analysis</th>
 					</tr>
 				</thead>
 				<tbody id="capture_files">
 				</tbody>
 			</table>
+		</div>
+		<div id="capture_files_view_details" style="height:700px; overflow: auto; width: 20%; float: left;">
+			Click file to get details
 		</div>
 	</div>
 
