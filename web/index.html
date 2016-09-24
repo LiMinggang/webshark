@@ -290,6 +290,66 @@
 			document.getElementById("ws_div").style.display = "block";
 		}
 
+		function filter_files(filter)
+		{
+			var rules = filter.split(" ");
+
+			var frames_count_min = undefined;
+			var frames_count_max = undefined;
+			var filename_contain = [ ];
+			var protocols = [ ];
+
+			for (var i = 0; i < rules.length; i++)
+			{
+				var rule = rules[i];
+
+				if (rule.indexOf('frames>') != -1)
+					frames_count_min = rule.slice('frames>'.length);
+				else if (rule.indexOf('frames<') != -1)
+					frames_count_max = rule.slice('frames<'.length);
+				else if (rule.indexOf('proto:') != -1)
+					protocols.push(rule.slice('proto:'.length));
+				else
+					filename_contain.push(rule);
+			}
+
+			webshark_display_files(function(file)
+			{
+				var anal = file['analysis'];
+
+				// TODO, what to do if there are no analysis?
+
+				if (frames_count_min && anal['frames'] <= frames_count_min)
+					return false;
+
+				if (frames_count_max && anal['frames'] >= frames_count_max)
+					return false;
+
+				for (var i = 0; i < filename_contain.length; i++)
+				{
+					if (file['name'].indexOf(filename_contain[i]) == -1)
+						return false;
+				}
+
+				for (var i = 0; i < protocols.length; i++)
+				{
+					var found = false;
+					var proto = protocols[i];
+
+					for (var j = 0; found == false && j < anal['protocols'].length; j++)
+					{
+						if (proto == anal['protocols'][j])
+							found = true;
+					}
+
+					if (found == false)
+						return false;
+				}
+
+				return true;
+			});
+		}
+
 		function load_preferences()
 		{
 			for (var key in ws_default_pref)
@@ -382,6 +442,14 @@
 
 <body onload="load()"><div id="ws_div" style="display: none;">
 	<div id="files_view" style="display: none;">
+		Files filter: <input id="files_filter" type='text' onchange='filter_files(this.value);' style='width: 1000px;' />
+		<p style="font-size: 12px;">Filter examples:
+			<span class="example">filename</span>
+			<span class='example'>frames&lt;100</span>
+			<span class="example">frames&gt;100</span>
+			<span class="example">proto:tcp</span>
+			<span class="example">proto:wlan proto:eap</span>
+		</p>
 		<div id="capture_files_view" style="height:700px; overflow: auto;">
 			<table style="width: 100%;">
 				<thead id="capture_files_header">

@@ -1250,6 +1250,19 @@ function webshark_render_interval()
 	dom_set_child(document.getElementById('capture_interval'), svg.node());
 }
 
+var _webshark_files = [ ];
+
+function webshark_display_files(filter)
+{
+	var files = _webshark_files;
+
+	if (filter)
+		files = files.filter(filter);
+
+	_webshark_files_html.options.callbacks.createHTML = webshark_create_file_row_html;
+	_webshark_files_html.setData(files);
+}
+
 function webshark_load_files()
 {
 	webshark_json_get('req=files',
@@ -1267,14 +1280,14 @@ function webshark_load_files()
 
 				/* first online */
 				if (ona != onb)
-					return ona < onb ? 1 : 0;
+					return ona < onb ? 1 : -1;
 
 				/* and than by filename */
-				return a['name'] > b['name'] ? 1 : 0;
+				return a['name'] > b['name'] ? 1 : -1;
 			});
 
-			_webshark_files_html.options.callbacks.createHTML = webshark_create_file_row_html;
-			_webshark_files_html.setData(files);
+			_webshark_files = files;
+			webshark_display_files();
 		});
 }
 

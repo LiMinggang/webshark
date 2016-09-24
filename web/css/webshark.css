@@ -71,3 +71,8 @@ ul.menu li
 	float: left;
 	padding-right: 15px;
 }
+
+span.example
+{
+	background-color: #adff2f;
+}
