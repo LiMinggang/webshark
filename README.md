@@ -3,7 +3,18 @@ Webshark
 
 Web interface for wireshark.
 
-You can try it on openshift: http://webshark-darkjames.rhcloud.com/static/webshark/
+You can try demo on openshift: http://webshark-darkjames.rhcloud.com/static/webshark/
+
+Or by running docker image with your capture library:
+	$ docker run -v ~/yours_capture_directory:/caps -p 8000:80 -it webshark/webshark:devel
+
+Now you have webshark running under: http://localhost:8000/static/webshark/index.html
+
+Rebuilding database
+-------------
+
+To make advanced files filtering (duration, frames count) you must rebuild database by entering: http://yoursite/webshark/json?req=refreshdb
+You can monitor status by watching console.
 
 Building webshark docker image
 -------------
@@ -15,7 +26,7 @@ Get wireshark sources:
 	$ git reset --hard ede140a46a2af7febaaade67453c4c8f1d6c946d   ## tested with this hash
 ~~~~
 
-Apply sharkd:
+Integrate sharkd:
 ~~~~
 	$ patch -p1 < ../sharkd/sharkd.patch
 	$ patch -p1 < ../sharkd/sharkd_opt_memory.patch ## optional
@@ -50,8 +61,3 @@ Build and run docker image:
 	$ docker build .
 	$ docker run -v ~/pcaps:/caps -p 8000:80 -it <build image>
 ~~~~
-
-Check if webshark is working, and analyse pcap files (you can monitor console with webshark run for status):
-
-* http://localhost:8000/static/webshark/index.html
-* http://localhost:8000/webshark/json?req=refreshdb
