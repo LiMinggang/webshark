@@ -1,9 +1,9 @@
 Webshark
 ==============================
 
-Wireshark interface for web.
+Web interface for wireshark.
 
-You can try it on openshift (http://webshark-darkjames.rhcloud.com/static/webshark/).
+You can try it on openshift: http://webshark-darkjames.rhcloud.com/static/webshark/
 
 Building webshark docker image
 -------------
@@ -52,5 +52,6 @@ Build and run docker image:
 ~~~~
 
 Check if webshark is working, and analyse pcap files (you can monitor console with webshark run for status):
- * http://localhost:8000/static/webshark/index.html
- * http://localhost:8000/webshark/json?req=refreshdb
+
+* http://localhost:8000/static/webshark/index.html
+* http://localhost:8000/webshark/json?req=refreshdb
