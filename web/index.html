@@ -403,6 +403,12 @@
 				contentId: 'packet_list_frames'
 			});
 
+			_webshark_hexdump_html = new Hexdump({
+				data: [],
+				base: 16,
+				contentId: 'ws_packet_bytes_view'
+			});
+
 			load_preferences();
 
 			webshark_json_get('req=info',

@@ -3,6 +3,16 @@ tr.selected
 	background-color: #0080FF !important;
 }
 
+span.selected_bytes
+{
+	background-color: #0080FF;
+}
+
+span.selected_proto
+{
+	background-color: #bbbbbb;
+}
+
 li.selected
 {
 	background-color: #0080FF;

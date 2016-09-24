@@ -1333,6 +1333,12 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 			json_puts_string(finfo->rep->representation);
 		}
 
+		if (finfo->start >= 0 && finfo->length > 0)
+			printf(",\"h\":[%u,%u]", finfo->start, finfo->length);
+
+		if (finfo->appendix_start >= 0 && finfo->appendix_length > 0)
+			printf(",\"i\":[%u,%u]", finfo->appendix_start, finfo->appendix_length);
+
 		if (finfo->hfinfo && finfo->hfinfo->type == FT_PROTOCOL)
 			printf(",\"t\":\"proto\"");
 
@@ -1552,6 +1558,10 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *                  t: 'proto'
  *                  s - severity
  *                  n - array of subtree nodes
+ *                  h - two item array: (item start, item length)
+ *                  i - two item array: (appendix start, appendix length)
+ *                  p - [RESERVED] two item array: (protocol start, protocol length)
+ *                  t - tvb identifier (TODO)
  *
  *   (o) col   - array of column data
  *   (o) bytes - array of frame bytes [XXX, will be changed to support multiple bytes pane]

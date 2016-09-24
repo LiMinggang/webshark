@@ -20,8 +20,99 @@ var _webshark_url = "/webshark/api?";
 
 var _webshark_files_html = null;
 var _webshark_frames_html = null;
+var _webshark_hexdump_html = null;
 
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
+
+
+function Hexdump(opts)
+{
+	this.data  = opts.data;
+	this.base  = opts.base;
+	this.elem  = document.getElementById(opts.contentId);
+
+	this.highlights = [ ];
+}
+
+Hexdump.prototype.render_hexdump = function()
+{
+	var s, line;
+
+	var pkt = this.data;
+
+	s = "";
+	for (var i = 0; i < pkt.length; i += 16)
+	{
+		var limit = 16;
+
+		var str_off = xtoa(i, 4);
+		var str_hex = "";
+		var str_ascii = "";
+
+		var prev_class = "";
+
+		if (i + limit > pkt.length)
+			limit = pkt.length - i;
+
+		for (var j = 0; j < limit; j++)
+		{
+			var ch = pkt.charCodeAt(i + j);
+
+			var cur_class = "";
+
+			for (var k = 0; k < this.highlights.length; k++)
+			{
+				if (this.highlights[k].start <= (i + j) && (i + j) < this.highlights[k].end)
+				{
+					cur_class = this.highlights[k].style;
+					break;
+				}
+			}
+
+			if (prev_class != cur_class)
+			{
+				if (prev_class != "")
+				{
+					/* close span for previous class */
+					str_ascii += "</span>";
+					str_hex += "</span>";
+				}
+
+				if (cur_class != "")
+				{
+					/* open span for new class */
+					str_hex += "<span class='" + cur_class + "'>";
+					str_ascii += "<span class='" + cur_class + "'>";
+				}
+
+				prev_class = cur_class;
+			}
+
+			str_ascii += chtoa(ch);
+			str_hex += xtoa(ch, 2) + " ";
+		}
+
+		for (var j = limit; j < 16; j++)
+		{
+			str_hex += "  " + " ";
+			str_ascii += " ";
+		}
+
+		if (prev_class != "")
+		{
+			str_ascii += "</span>";
+			str_hex += "</span>";
+		}
+
+		line = str_off + "  " + str_hex + " " + str_ascii + "\n";
+		s += line;
+	}
+
+	var p = document.createElement("pre");
+	p.innerHTML = s;
+
+	dom_set_child(this.elem, p);
+};
 
 function debug(level, str)
 {
@@ -756,7 +847,7 @@ function webshark_lazy_frames(frames)
 	_webshark_frames_html.setData(frames);
 }
 
-function webshark_create_proto_tree(tree, level)
+function webshark_create_proto_tree(tree, proto_tree, level)
 {
 	var ul = document.createElement("ul");
 
@@ -773,7 +864,10 @@ function webshark_create_proto_tree(tree, level)
 		else if (finfo['t'] == "proto")
 			li.className = 'ws_cell_protocol';
 
-		li.data_ws_node = 1;
+		if (level > 1 && proto_tree['h'] != undefined)
+			finfo['p'] = proto_tree['h'];
+
+		li.data_ws_node = finfo;
 		li.addEventListener("click", webshark_node_on_click);
 
 		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
@@ -785,7 +879,10 @@ function webshark_create_proto_tree(tree, level)
 
 			expander.appendChild(document.createTextNode("\u21d2"));
 
-			var subtree = webshark_create_proto_tree(finfo['n'], level + 1);
+			if (level == 1)
+				proto_tree = finfo; /* XXX, verify */
+
+			var subtree = webshark_create_proto_tree(finfo['n'], proto_tree, level + 1);
 			ul.appendChild(subtree);
 
 			li.insertBefore(expander, li.firstChild);
@@ -805,49 +902,9 @@ function webshark_create_proto_tree(tree, level)
 
 function webshark_render_proto_tree(tree)
 {
-	var d = webshark_create_proto_tree(tree, 1);
+	var d = webshark_create_proto_tree(tree, null, 1);
 
 	dom_set_child(document.getElementById('ws_packet_detail_view'), d);
-}
-
-function webshark_render_hexdump(pkt)
-{
-	var s, line;
-
-	s = "";
-	for (var i = 0; i < pkt.length; i += 16)
-	{
-		var limit = 16;
-
-		var str_off = xtoa(i, 4);
-		var str_hex = "";
-		var str_ascii = "";
-
-		if (i + limit > pkt.length)
-			limit = pkt.length - i;
-
-		for (var j = 0; j < limit; j++)
-		{
-			var ch = pkt.charCodeAt(i + j);
-
-			str_hex += xtoa(ch, 2) + " ";
-			str_ascii += chtoa(ch);
-		}
-
-		for (var j = limit; j < 16; j++)
-		{
-			str_hex += "  " + " ";
-			str_ascii += " ";
-		}
-
-		line = str_off + "  " + str_hex + " " + str_ascii + "\n";
-		s += line;
-	}
-
-	var p = document.createElement("pre");
-	p.innerHTML = s;
-
-	dom_set_child(document.getElementById('ws_packet_bytes_view'), p);
 }
 
 var webshark_stat_fields =
@@ -1407,6 +1464,20 @@ function webshark_node_highlight_bytes(obj, node)
 	if (_webshark_current_node != null)
 		dom_remove_class(_webshark_current_node, "selected");
 
+	var hls = [ ];
+
+	if (node['h'] != undefined) /* highlight */
+		hls.push({ start: node['h'][0], end: (node['h'][0] + node['h'][1] ), style: 'selected_bytes' });
+
+	if (node['i'] != undefined) /* appendix */
+		hls.push({ start: node['i'][0], end: (node['i'][0] + node['i'][1] ), style: 'selected_bytes' });
+
+	if (node['p'] != undefined) /* protocol highlight */
+		hls.push({ start: node['p'][0], end: (node['p'][0] + node['p'][1] ), style: 'selected_proto' });
+
+	_webshark_hexdump_html.highlights = hls;
+	_webshark_hexdump_html.render_hexdump();
+
 	/* select new */
 	_webshark_current_node = obj;
 	dom_add_class(obj, 'selected');
@@ -1432,7 +1503,10 @@ function webshark_load_frame(framenum, cols)
 		function(data)
 		{
 			webshark_render_proto_tree(data['tree']);
-			webshark_render_hexdump(window.atob(data['bytes']));
+
+			_webshark_hexdump_html.data = window.atob(data['bytes']);
+			_webshark_hexdump_html.highlights = [ ];
+			_webshark_hexdump_html.render_hexdump();
 
 			_webshark_current_frame = framenum;
 
