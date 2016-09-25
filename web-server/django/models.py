@@ -1,7 +1,7 @@
 from django.db import models
 
 class Capture(models.Model):
-    filename = models.CharField(max_length=256)
+    filename = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=512)
     analysis = models.TextField()
 
