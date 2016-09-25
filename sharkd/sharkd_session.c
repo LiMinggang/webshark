@@ -30,6 +30,7 @@
 #include <epan/exceptions.h>
 #include <epan/color_filters.h>
 #include <epan/prefs.h>
+#include <epan/prefs-int.h>
 #include <wiretap/wtap.h>
 
 #include <epan/column.h>
@@ -1725,6 +1726,121 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 	return 0;
 }
 
+static guint
+sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
+{
+	const char **sepa = (const char **) data;
+
+	printf("%s\"%s\":{\"t\":", *sepa, pref->name);
+	json_puts_string(pref->title);
+
+	switch (pref->type)
+	{
+		case PREF_UINT:
+			printf(",\"uint\":%u,\"base\":%d", *pref->varp.uint, pref->info.base);
+			break;
+
+		case PREF_BOOL:
+			printf(",\"bool\":%s", *pref->varp.boolp ? "true" : "false");
+			break;
+
+		case PREF_STRING:
+			printf(",\"str\":");
+			json_puts_string(*pref->varp.string);
+			break;
+
+		case PREF_ENUM:
+		{
+			const enum_val_t *enums;
+			const char *enum_sepa = "";
+
+			printf(",\"enum\":[");
+			for (enums = pref->info.enum_info.enumvals; enums->name; enums++)
+			{
+				printf("%s{\"descr\":", enum_sepa);
+				json_puts_string(enums->description);
+
+				if (enums->value == *pref->varp.enump)
+					printf(",\"selected\":true");
+
+				printf(",\"val\":%d}", enums->value);
+				enum_sepa = ",";
+			}
+			printf("]");
+			break;
+		}
+
+		case PREF_RANGE:
+		{
+			char *range_str = range_convert_range(NULL, *pref->varp.range);
+			printf(",\"range\":\"%s\"", range_str);
+			wmem_free(NULL, range_str);
+			break;
+		}
+
+		case PREF_UAT:
+		case PREF_COLOR:
+		case PREF_CUSTOM:
+		case PREF_STATIC_TEXT:
+		case PREF_OBSOLETE:
+			/* TODO */
+			break;
+	}
+
+	printf("}");
+	*sepa = ",";
+
+	return 0; /* continue */
+}
+
+/**
+ * sharkd_session_process_dumpconf()
+ *
+ * Process dumpconf request
+ *
+ * Input:
+ *   (m) module - module (TODO, make it optional to dump whole configuration)
+ *
+ * Output object with attributes:
+ *   (o) module  - requested
+ *   (o) descr   - description of preference
+ *   (o) prefs   - object with module preferences
+ *                  (m) [KEY] - preference name
+ *                  (m) t - preference title
+ *                  (o) uint - preference value (only for PREF_UINT)
+ *                  (o) base - preference value suggested base for display (only for PREF_UINT)
+ *                  (o) bool - preference value (only for PREF_BOOL)
+ *                  (o) str  - preference value (only for PREF_STRING)
+ *                  (o) enum - preference possible values (only for PREF_ENUM)
+ *                  (o) range- preference value (only for PREF_RANGE)
+ */
+static void
+sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_module = json_find_attr(buf, tokens, count, "module");
+	module_t *pref_mod;
+
+	if (!tok_module)
+		return;
+
+	pref_mod = prefs_find_module(tok_module);
+	if (pref_mod)
+	{
+		const char *sepa = "";
+
+		printf("{\"module\":\"%s\"", tok_module);
+
+		printf(",\"descr\":");
+		json_puts_string(pref_mod->description);
+
+		printf(",\"prefs\":{");
+		prefs_pref_foreach(pref_mod, sharkd_session_process_dumpconf_cb, &sepa);
+		printf("}");
+
+		printf("}\n");
+    }
+}
+
 static void
 sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -1791,6 +1907,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
+		else if (!strcmp(tok_req, "dumpconf"))
+			sharkd_session_process_dumpconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))
 			_Exit(0);
 		else
