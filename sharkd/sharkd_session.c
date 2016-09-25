@@ -31,6 +31,7 @@
 #include <epan/color_filters.h>
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
+#include <epan/uat-int.h>
 #include <wiretap/wtap.h>
 
 #include <epan/column.h>
@@ -1809,6 +1810,38 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 		}
 
 		case PREF_UAT:
+		{
+			uat_t *uat = pref->varp.uat;
+			guint idx;
+
+			printf(",\"uat\":[");
+			for (idx = 0; idx < uat->raw_data->len; idx++)
+			{
+				void *rec = UAT_INDEX_PTR(uat, idx);
+				guint colnum;
+
+				if (idx)
+					printf(",");
+
+				printf("[");
+				for (colnum = 0; colnum < uat->ncols; colnum++)
+				{
+					char *str = uat_strfld(rec, &(uat->fields[colnum]));
+
+					if (colnum)
+						printf(",");
+
+					json_puts_string(str);
+					g_free(str);
+				}
+
+				printf("]");
+			}
+
+			printf("]");
+			break;
+		}
+
 		case PREF_COLOR:
 		case PREF_CUSTOM:
 		case PREF_STATIC_TEXT:
