@@ -1726,6 +1726,36 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 	return 0;
 }
 
+/**
+ * sharkd_session_process_setconf()
+ *
+ * Process setconf request
+ *
+ * Input:
+ *   (m) name  - preference name
+ *   (m) value - preference value
+ *
+ * Output object with attributes:
+ *   (m) err   - error code: 0 succeed
+ */
+static void
+sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_name = json_find_attr(buf, tokens, count, "name");
+	const char *tok_value = json_find_attr(buf, tokens, count, "value");
+	char pref[4096];
+
+	prefs_set_pref_e ret;
+
+	if (!tok_name || tok_name[0] == '\0' || !tok_value)
+		return;
+
+	snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
+
+	ret = prefs_set_pref(pref);
+	printf("{\"err\":%d}\n", ret);
+}
+
 static guint
 sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 {
@@ -1907,6 +1937,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
+		else if (!strcmp(tok_req, "setconf"))
+			sharkd_session_process_setconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "dumpconf"))
 			sharkd_session_process_dumpconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))
