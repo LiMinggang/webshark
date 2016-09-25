@@ -40,11 +40,21 @@ Hexdump.prototype.render_hexdump = function()
 
 	var pkt = this.data;
 
-	s = "";
-	for (var i = 0; i < pkt.length; i += 16)
-	{
-		var limit = 16;
+	var padcount = (this.base == 2) ? 8 : (this.base == 16) ? 2 : 0;
+	var limit = (this.base == 2) ? 8 : (this.base == 16) ? 16 : 0;
 
+	var emptypadded = "  ";
+	while (emptypadded.length < padcount)
+		emptypadded = emptypadded + emptypadded;
+
+	if (limit == 0)
+		return;
+
+	var full_limit = limit;
+
+	s = "";
+	for (var i = 0; i < pkt.length; i += full_limit)
+	{
 		var str_off = xtoa(i, 4);
 		var str_hex = "";
 		var str_ascii = "";
@@ -89,13 +99,12 @@ Hexdump.prototype.render_hexdump = function()
 			}
 
 			str_ascii += chtoa(ch);
-			str_hex += xtoa(ch, 2) + " ";
-		}
 
-		for (var j = limit; j < 16; j++)
-		{
-			str_hex += "  " + " ";
-			str_ascii += " ";
+			var numpad = ch.toString(this.base);
+			while (numpad.length < padcount)
+				numpad = '0' + numpad;
+
+			str_hex += numpad + " ";
 		}
 
 		if (prev_class != "")
@@ -104,14 +113,17 @@ Hexdump.prototype.render_hexdump = function()
 			str_hex += "</span>";
 		}
 
+		for (var j = limit; j < full_limit; j++)
+		{
+			str_hex += emptypadded + " ";
+			str_ascii += " ";
+		}
+
 		line = str_off + "  " + str_hex + " " + str_ascii + "\n";
 		s += line;
 	}
 
-	var p = document.createElement("pre");
-	p.innerHTML = s;
-
-	dom_set_child(this.elem, p);
+	this.elem.innerHTML = s;
 };
 
 function debug(level, str)

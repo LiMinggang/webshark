@@ -382,6 +382,12 @@
 			webshark_render_interval();
 		}
 
+		function bytes_display_base(new_base)
+		{
+			_webshark_hexdump_html.base = new_base;
+			_webshark_hexdump_html.render_hexdump();
+		}
+
 		function load()
 		{
 			_webshark_url = '/webshark/json?';
@@ -406,7 +412,7 @@
 			_webshark_hexdump_html = new Hexdump({
 				data: [],
 				base: 16,
-				contentId: 'ws_packet_bytes_view'
+				contentId: 'ws_bytes_dump'
 			});
 
 			load_preferences();
@@ -531,7 +537,9 @@ Select frame
 	</div>
 
 	<div id="ws_packet_bytes_view" style='overflow: auto; width: 100%; height: 200px; border: 2px solid grey;'>
-Select frame
+		<input type="radio" name="bytes_mode" onchange="bytes_display_base(16)" value="16" checked="checked"> Hex view
+		<input type="radio" name="bytes_mode" onchange="bytes_display_base(2)" value="2"> Bits view
+		<pre id='ws_bytes_dump'>Select frame</pre>
 	</div>
 
 </div></body>
