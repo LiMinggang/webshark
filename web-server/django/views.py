@@ -26,7 +26,7 @@ import socket
 import json
 import subprocess
 
-from .models import Capture
+from .models import Capture, CaptureSettings
 from .sharkd_cli import SharkdClient
 
 captures = dict()
@@ -51,6 +51,10 @@ def sharkd_instance(cap_file):
 
         captures[cap_file] = shark
         if cap_file != '':
+            settings = CaptureSettings.objects.filter(capture__filename=cap_file).all()
+            for s in settings:
+                shark.send_req(dict(req='setconf', name=s.var, value=s.value))
+
             cap = cap_dir + cap_file
             shark.send_req(dict(req='load', file=cap))
 
