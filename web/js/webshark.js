@@ -1277,6 +1277,16 @@ function webshark_render_tap(tap)
 			p.innerHTML = 'Webshark includes GeoLite2 data created by MaxMind, available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.';
 
 			document.getElementById('ws_tap_table').appendChild(p);
+
+			var link = "ipmap.html#" + window.btoa(JSON.stringify(tap['hosts']));
+			var iframe = document.createElement('iframe');
+			iframe.frameBorder = 0;
+			iframe.setAttribute("src", link);
+			iframe.height = "100%";
+			iframe.width = "100%";
+
+			document.getElementById('ws_tap_extra').style.display = 'block';
+			document.getElementById('ws_tap_extra').appendChild(iframe);
 		}
 
 		document.getElementById('ws_tap_table').appendChild(table);
