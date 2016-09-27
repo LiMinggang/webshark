@@ -1185,9 +1185,17 @@ function webshark_render_tap(tap)
 			var conv = convs[i];
 
 			if (conv['sport'])
-				conv['_name'] = conv['saddr'] + ':' + conv['sport'] + " <===>" + conv['daddr'] + ':' + conv['dport'];
+			{
+				conv['_sname'] = conv['saddr'] + ':' + conv['sport'];
+				conv['_dname'] = conv['daddr'] + ':' + conv['dport'];
+			}
 			else
-				conv['_name'] = conv['saddr'] + " <===>" + conv['daddr'];
+			{
+				conv['_sname'] = conv['saddr'];
+				conv['_dname'] = conv['daddr'];
+			}
+
+			conv['_name'] = conv['_sname'] + " <===>" + conv['_dname'];
 
 			conv['_packets']  = conv['rxf'] + conv['txf'];
 			conv['_bytes']    = conv['rxb'] + conv['txb'];
@@ -1199,6 +1207,24 @@ function webshark_render_tap(tap)
 		}
 
 		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
+		if (tap['geoip'] == true)
+		{
+			/* From http://dev.maxmind.com/geoip/geoip2/geolite2/ */
+			var p = document.createElement('p');
+			p.innerHTML = 'Webshark includes GeoLite2 data created by MaxMind, available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.';
+
+			document.getElementById('ws_tap_table').appendChild(p);
+
+			var link = "ipmap.html#" + window.btoa(JSON.stringify({'c': convs}));
+			var iframe = document.createElement('iframe');
+			iframe.frameBorder = 0;
+			iframe.setAttribute("src", link);
+			iframe.height = "100%";
+			iframe.width = "100%";
+
+			document.getElementById('ws_tap_extra').style.display = 'block';
+			document.getElementById('ws_tap_extra').appendChild(iframe);
+		}
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label(tap['proto'] + ' Conversations (' + convs.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
@@ -1278,7 +1304,7 @@ function webshark_render_tap(tap)
 
 			document.getElementById('ws_tap_table').appendChild(p);
 
-			var link = "ipmap.html#" + window.btoa(JSON.stringify(tap['hosts']));
+			var link = "ipmap.html#" + window.btoa(JSON.stringify({'h': hosts}));
 			var iframe = document.createElement('iframe');
 			iframe.frameBorder = 0;
 			iframe.setAttribute("src", link);

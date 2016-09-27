@@ -769,9 +769,12 @@ struct sharkd_conv_tap_data
 };
 
 static int
-sharkd_session_geoip_addr(address *addr)
+sharkd_session_geoip_addr(address *addr, const char *suffix)
 {
 	int with_geoip = 0;
+
+	(void) addr;
+	(void) suffix;
 
 #ifdef HAVE_GEOIP
 	if (addr->type == AT_IPv4)
@@ -822,7 +825,7 @@ sharkd_session_geoip_addr(address *addr)
 
 			if (geoip_key && (geoip_val = geoip_db_lookup_ipv4(dbnum, ip, NULL)))
 			{
-				printf(",\"%s\":", geoip_key);
+				printf(",\"%s%s\":", geoip_key, suffix);
 				json_puts_string(geoip_val);
 				with_geoip = 1;
 			}
@@ -878,7 +881,7 @@ sharkd_session_geoip_addr(address *addr)
 
 			if (geoip_key && (geoip_val = geoip_db_lookup_ipv6(dbnum, *ip6, NULL)))
 			{
-				printf(",\"%s\":", geoip_key);
+				printf(",\"%s%s\":", geoip_key, suffix);
 				json_puts_string(geoip_val);
 				with_geoip = 1;
 			}
@@ -991,6 +994,11 @@ sharkd_session_process_tap_conv_cb(void *arg)
 			wmem_free(NULL, src_addr);
 			wmem_free(NULL, dst_addr);
 
+			if (sharkd_session_geoip_addr(&(iui->src_address), "1"))
+				with_geoip = 1;
+			if (sharkd_session_geoip_addr(&(iui->dst_address), "2"))
+				with_geoip = 1;
+
 			printf("}");
 		}
 	}
@@ -1028,7 +1036,7 @@ sharkd_session_process_tap_conv_cb(void *arg)
 
 			wmem_free(NULL, host_str);
 
-			if (sharkd_session_geoip_addr(&(host->myaddress)))
+			if (sharkd_session_geoip_addr(&(host->myaddress), ""))
 				with_geoip = 1;
 			printf("}");
 		}
