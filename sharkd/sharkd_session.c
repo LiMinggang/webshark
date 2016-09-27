@@ -1644,6 +1644,41 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 	return 0;
 }
 
+struct sharkd_session_process_complete_pref_data
+{
+	const char *module;
+	const char *pref;
+	const char *sepa;
+};
+
+static guint
+sharkd_session_process_complete_pref_cb(module_t *module, gpointer d)
+{
+	struct sharkd_session_process_complete_pref_data *data = (struct sharkd_session_process_complete_pref_data *) d;
+
+	if (strncmp(data->pref, module->name, strlen(data->pref)) != 0)
+		return 0;
+
+	printf("%s{\"f\":\"%s\",\"d\":\"%s\"}", data->sepa, module->name, module->title);
+	data->sepa = ",";
+
+	return 0;
+}
+
+static guint
+sharkd_session_process_complete_pref_option_cb(pref_t *pref, gpointer d)
+{
+	struct sharkd_session_process_complete_pref_data *data = (struct sharkd_session_process_complete_pref_data *) d;
+
+	if (strncmp(data->pref, pref->name, strlen(data->pref)) != 0)
+		return 0;
+
+	printf("%s{\"f\":\"%s.%s\",\"d\":\"%s\"}", data->sepa, data->module, pref->name, pref->title);
+	data->sepa = ",";
+
+	return 0; /* continue */
+}
+
 /**
  * sharkd_session_process_complete()
  *
@@ -1651,6 +1686,7 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
  *
  * Input:
  *   (o) field - field to be completed
+ *   (o) pref  - preference to be completed
  *
  * Output object with attributes:
  *   (m) err - always 0
@@ -1658,11 +1694,15 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
  *                  (m) f - field text
  *                  (o) t - field type (FT_ number)
  *                  (o) n - field name
+ *   (o) pref  - array of object with attributes:
+ *                  (m) f - pref name
+ *                  (o) d - pref description
  */
 static int
 sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_field = json_find_attr(buf, tokens, count, "field");
+	const char *tok_pref  = json_find_attr(buf, tokens, count, "pref");
 
 	printf("{\"err\":0");
 	if (tok_field != NULL && tok_field[0])
@@ -1735,6 +1775,39 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 
 		printf("]");
 	}
+
+	if (tok_pref != NULL && tok_pref[0])
+	{
+		struct sharkd_session_process_complete_pref_data data;
+		char *dot_sepa;
+
+		data.module = tok_pref;
+		data.pref = tok_pref;
+		data.sepa = "";
+
+		printf(",\"pref\":[");
+
+		if ((dot_sepa = strchr(tok_pref, '.')))
+		{
+			module_t *pref_mod;
+
+			*dot_sepa = '\0'; /* XXX, C abuse: discarding-const */
+			data.pref = dot_sepa + 1;
+
+			pref_mod = prefs_find_module(data.module);
+			if (pref_mod)
+				prefs_pref_foreach(pref_mod, sharkd_session_process_complete_pref_option_cb, &data);
+
+			*dot_sepa = '.';
+		}
+		else
+		{
+			prefs_modules_foreach(sharkd_session_process_complete_pref_cb, &data);
+		}
+
+		printf("]");
+	}
+
 
 	printf("}\n");
 	return 0;
