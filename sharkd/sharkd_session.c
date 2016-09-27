@@ -47,6 +47,12 @@
 #include <ui/tap-rtp-common.h>
 #include <epan/to_str.h>
 
+#ifdef HAVE_GEOIP
+# include <GeoIP.h>
+# include <epan/geoip_db.h>
+# include <wsutil/pint.h>
+#endif
+
 cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
 int sharkd_load_cap_file(void);
 int sharkd_retap(void);
@@ -762,6 +768,127 @@ struct sharkd_conv_tap_data
 	gboolean resolve_port;
 };
 
+static int
+sharkd_session_geoip_addr(address *addr)
+{
+	int with_geoip = 0;
+
+#ifdef HAVE_GEOIP
+	if (addr->type == AT_IPv4)
+	{
+		uint32_t ip = pntoh32(addr->data);
+
+		guint num_dbs = geoip_db_num_dbs();
+		guint dbnum;
+
+		for (dbnum = 0; dbnum < num_dbs; dbnum++)
+		{
+			const char *geoip_key = NULL;
+			char *geoip_val;
+
+			int db_type = geoip_db_type(dbnum);
+
+			switch (db_type)
+			{
+				case GEOIP_COUNTRY_EDITION:
+					geoip_key = "geoip_country";
+					break;
+
+				case GEOIP_CITY_EDITION_REV0:
+				case GEOIP_CITY_EDITION_REV1:
+					geoip_key = "geoip_city";
+					break;
+
+				case GEOIP_ORG_EDITION:
+					geoip_key = "geoip_org";
+					break;
+
+				case GEOIP_ISP_EDITION:
+					geoip_key = "geoip_isp";
+					break;
+
+				case GEOIP_ASNUM_EDITION:
+					geoip_key = "geoip_as";
+					break;
+
+				case WS_LAT_FAKE_EDITION:
+					geoip_key = "geoip_lat";
+					break;
+
+				case WS_LON_FAKE_EDITION:
+					geoip_key = "geoip_lon";
+					break;
+			}
+
+			if (geoip_key && (geoip_val = geoip_db_lookup_ipv4(dbnum, ip, NULL)))
+			{
+				printf(",\"%s\":", geoip_key);
+				json_puts_string(geoip_val);
+				with_geoip = 1;
+			}
+		}
+	}
+#endif
+#ifdef HAVE_GEOIP_V6
+	if (addr->type == AT_IPv6)
+	{
+		const struct e_in6_addr *ip6 = (const struct e_in6_addr *) addr->data;
+
+		guint num_dbs = geoip_db_num_dbs();
+		guint dbnum;
+
+		for (dbnum = 0; dbnum < num_dbs; dbnum++)
+		{
+			const char *geoip_key = NULL;
+			char *geoip_val;
+
+			int db_type = geoip_db_type(dbnum);
+
+			switch (db_type)
+			{
+				case GEOIP_COUNTRY_EDITION_V6:
+					geoip_key = "geoip_country";
+					break;
+#if NUM_DB_TYPES > 31
+				case GEOIP_CITY_EDITION_REV0_V6:
+				case GEOIP_CITY_EDITION_REV1_V6:
+					geoip_key = "geoip_city";
+					break;
+
+				case GEOIP_ORG_EDITION_V6:
+					geoip_key = "geoip_org";
+					break;
+
+				case GEOIP_ISP_EDITION_V6:
+					geoip_key = "geoip_isp";
+					break;
+
+				case GEOIP_ASNUM_EDITION_V6:
+					geoip_key = "geoip_as";
+					break;
+#endif /* DB_NUM_TYPES */
+				case WS_LAT_FAKE_EDITION:
+					geoip_key = "geoip_lat";
+					break;
+
+				case WS_LON_FAKE_EDITION:
+					geoip_key = "geoip_lon";
+					break;
+			}
+
+			if (geoip_key && (geoip_val = geoip_db_lookup_ipv6(dbnum, *ip6, NULL)))
+			{
+				printf(",\"%s\":", geoip_key);
+				json_puts_string(geoip_val);
+				with_geoip = 1;
+			}
+		}
+	}
+#endif
+
+	return with_geoip;
+}
+
 /**
  * sharkd_session_process_tap_conv_cb()
  *
@@ -799,6 +926,8 @@ sharkd_session_process_tap_conv_cb(void *arg)
 	const char *proto;
 	int proto_with_port;
 	guint i;
+
+	int with_geoip = 0;
 
 	if (!strncmp(iu->type, "conv:", 5))
 	{
@@ -899,11 +1028,13 @@ sharkd_session_process_tap_conv_cb(void *arg)
 
 			wmem_free(NULL, host_str);
 
+			if (sharkd_session_geoip_addr(&(host->myaddress)))
+				with_geoip = 1;
 			printf("}");
 		}
 	}
 
-	printf("],\"proto\":\"%s\"},", proto);
+	printf("],\"proto\":\"%s\",\"geoip\":%s},", proto, with_geoip ? "true" : "false");
 }
 
 /**

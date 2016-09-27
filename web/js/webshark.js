@@ -963,6 +963,25 @@ var webshark_host_fields =
 	'rxb': 'RX Bytes'
 };
 
+var webshark_host_fields_geo =
+{
+	'host': 'Address',
+	'port': 'Port',
+	'_packets' : 'Packets',
+	'_bytes': 'Bytes',
+	'txf': 'TX Packets',
+	'txb': 'TX Bytes',
+	'rxf': 'RX Packets',
+	'rxb': 'RX Bytes',
+	'geoip_country': 'GeoIP Country',
+	'geoip_city': 'GeoIP City',
+	'geoip_org': 'GeoIP ORG',
+	'geoip_isp': 'GeoIP ISP',
+	'geoip_as': 'GeoIP AS',
+	'geoip_lat': 'GeoIP Lat',
+	'geoip_lon': 'GeoIP Lon'
+};
+
 var webshark_rtp_streams_fields =
 {
 	'saddr': 'Src addr',
@@ -1230,7 +1249,9 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'host')
 	{
-		var table = webshark_create_tap_table_common(webshark_host_fields);
+		var host_fields = (tap['geoip'] == true) ? webshark_host_fields_geo : webshark_host_fields;
+
+		var table = webshark_create_tap_table_common(host_fields);
 		var hosts = tap['hosts'];
 
 		for (var i = 0; i < hosts.length; i++)
@@ -1246,9 +1267,18 @@ function webshark_render_tap(tap)
 			host['_filter']   = host['filter'];
 		}
 
-		webshark_create_tap_table_data_common(webshark_host_fields, table, hosts);
+		webshark_create_tap_table_data_common(host_fields, table, hosts);
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label(tap['proto'] + ' Endpoints (' + hosts.length + ')'));
+		if (tap['geoip'] == true)
+		{
+			/* From http://dev.maxmind.com/geoip/geoip2/geolite2/ */
+			var p = document.createElement('p');
+			p.innerHTML = 'Webshark includes GeoLite2 data created by MaxMind, available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.';
+
+			document.getElementById('ws_tap_table').appendChild(p);
+		}
+
 		document.getElementById('ws_tap_table').appendChild(table);
 
 		var svg = d3.select("body").append("svg").remove()
