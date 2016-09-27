@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+
+	<title>${CAPTURE_FILE} configuration - webshark</title>
+
+	<link rel="stylesheet" href="css/webshark.css" type="text/css">
+	<link rel="stylesheet" href="css/awesomplete.css" type="text/css">
+
+	<script src="js/webshark-clusterize.js"></script>
+	<script src="js/webshark.js" type="text/javascript"></script>
+
+	<script type="text/javascript">
+		var _webshark_options_html = null;
+		var _webshark_options = null;
+
+		var _selected_option = null;
+
+		function option_row_on_click(ev)
+		{
+			var option_node = dom_find_node_attr(ev.target, 'ws_option');
+
+			if (option_node != null)
+			{
+				if (_selected_option != null)
+					dom_remove_class(_selected_option, "selected");
+
+				/* select new */
+				dom_add_class(option_node, "selected");
+				_selected_option = option_node;
+			}
+		}
+
+		function option_create_row_html(option, row)
+		{
+			var tr = document.createElement("tr");
+
+			/* name */
+			var td = document.createElement("td");
+			td.appendChild(document.createTextNode(option['name']));
+			tr.appendChild(td);
+
+			/* type */
+			var td = document.createElement("td");
+			if (option['bool'] != undefined)
+				td.appendChild(document.createTextNode('bool'));
+			else if (option['str'] != undefined)
+				td.appendChild(document.createTextNode('string'));
+			else if (option['uint'] != undefined)
+				td.appendChild(document.createTextNode('uint'));
+			else if (option['enum'] != undefined)
+				td.appendChild(document.createTextNode('enum'));
+			else if (option['range'] != undefined)
+				td.appendChild(document.createTextNode('range'));
+			else if (option['table'] != undefined)
+				td.appendChild(document.createTextNode('table'));
+			else
+				td.appendChild(document.createTextNode('unknown'));
+			tr.appendChild(td);
+
+			/* value */
+			var td = document.createElement("td");
+			if (option['bool'] != undefined)
+			{
+				var val = option['bool'] ? true : false;
+
+				var inp = document.createElement('input');
+				inp.setAttribute('type', 'checkbox');
+				if (val)
+					inp.setAttribute('checked', 'checked');
+
+				td.appendChild(inp);
+			}
+			else if (option['str'] != undefined)
+			{
+				var val = option['str'];
+
+				var inp = document.createElement('input');
+				inp.setAttribute('type', 'text');
+				inp.setAttribute('value', val);
+
+				td.appendChild(inp);
+			}
+			else if (option['uint'] != undefined)
+			{
+				var val = option['uint'];
+
+				var inp = document.createElement('input');
+				inp.setAttribute('type', 'text');
+				inp.setAttribute('value', val);
+
+				td.appendChild(inp);
+			}
+			else if (option['enum'] != undefined)
+			{
+				var inp = document.createElement('select');
+				for (var i = 0; i < option['enum'].length; i++)
+				{
+					var e = option['enum'][i];
+
+					var opt = document.createElement('option');
+					opt.setAttribute('value', e['v']);
+					opt.appendChild(document.createTextNode(e['d']));
+
+					if (e['s'] != undefined)
+						opt.setAttribute('selected', 'selected');
+
+					inp.appendChild(opt);
+				}
+
+				td.appendChild(inp);
+			}
+			else if (option['range'] != undefined)
+			{
+				var val = option['range'];
+
+				var inp = document.createElement('input');
+				inp.setAttribute('type', 'text');
+				inp.setAttribute('value', val);
+
+				td.appendChild(inp);
+			}
+			else if (option['table'] != undefined)
+			{
+				/* TODO */
+			}
+			tr.appendChild(td);
+
+			tr.ws_option = 'true';
+			tr.addEventListener("click", option_row_on_click);
+
+			return tr;
+		}
+
+		function run_option_filter(el)
+		{
+			var value = el.value;
+
+			var prefs_arr = _webshark_options.filter(function(data)
+			{
+				if (value == '') return true;
+
+				/* starts with */
+				return (data['name'].indexOf(value) == 0);
+			});
+
+			_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
+			_webshark_options_html.setData(prefs_arr);
+		}
+
+		function load()
+		{
+			_webshark_url = '/webshark/json?';
+
+			_webshark_options_html = new Clusterize({
+				rows: [],
+				rows_in_block: 50,
+				tag: 'tr',
+				scrollId: 'options_view',
+				contentId: 'options_items'
+			});
+
+			// TODO: load current preferences
+
+			/* TODO: column edit */
+
+			webshark_json_get('req=dumpconf',
+				function(data)
+				{
+					var prefs = data['prefs'];
+
+					var prefs_arr = [ ];
+					var pref_names = [ ];
+
+					for (var x in prefs)
+					{
+						var pref = prefs[x];
+
+						var p = { name: x };
+
+						p['bool'] = pref['b'];
+						p['str']  = pref['s'];
+						p['uint'] = pref['u'];
+						p['enum'] = pref['e'];
+						p['range'] = pref['r'];
+						p['table'] = pref['t'];
+
+						prefs_arr.push(p);
+					}
+
+					_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
+					_webshark_options_html.setData(prefs_arr);
+
+					_webshark_options = prefs_arr;
+				});
+		}
+
+	</script>
+</head>
+
+<body onload="load()">
+	<div>
+		Option filter: <input id="option_filter" type='text' oninput='run_option_filter(this)'  style='width: 600px;' />
+	</div>
+
+	<div id="options_view" style='height: 750px; overflow: auto; border: 2px solid grey;'>
+		<table id="options_list" style="width: 100%;">
+			<thead id="options_header">
+				<tr>
+					<th>Name</th>
+					<th>Type</th>
+					<th>Value</th>
+				</tr>
+			</thead>
+			<tbody id="options_items">
+			</tbody>
+		</table>
+	</div>
+</body>
+</html>

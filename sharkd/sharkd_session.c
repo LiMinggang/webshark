@@ -1890,10 +1890,9 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 
 				if (enums->value == *pref->varp.enump)
 					printf(",\"s\":1");
-#if 0
-				printf(",\"d\"");
+
+				printf(",\"d\":");
 				json_puts_string(enums->description);
-#endif
 
 				printf("}");
 				enum_sepa = ",";
