@@ -1448,7 +1448,7 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
  *
  * Input:
  *   (o) interval - interval time in ms, if not specified: 1000ms
- *   (o) filter   - TODO, filter for generating interval request
+ *   (o) filter   - filter for generating interval request
  *
  * Output object with attributes:
  *   (m) intervals - array of intervals, with indexes:
@@ -1468,6 +1468,9 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	extern capture_file cfile;
 
 	const char *tok_interval = json_find_attr(buf, tokens, count, "interval");
+	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+
+	const guint8 *filter_data = NULL;
 
 	struct
 	{
@@ -1487,6 +1490,13 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	if (tok_interval)
 		interval_ms = atoi(tok_interval);
 
+	if (tok_filter)
+	{
+		filter_data = sharkd_session_filter_data(tok_filter);
+		if (!filter_data)
+			return;
+	}
+
 	stat_total.frames = 0;
 	stat_total.bytes  = 0;
 
@@ -1505,6 +1515,9 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 		if (start_ts == NULL)
 			start_ts = &fdata->abs_ts;
+
+		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
+			continue;
 
 		/* TODO, make it 64-bit, to avoid msec overflow after 24days */
 		msec_rel = ((fdata->abs_ts.secs - start_ts->secs) * 1000 + (fdata->abs_ts.nsecs - start_ts->nsecs) / 1000000);

@@ -1346,12 +1346,16 @@ function webshark_render_tap(tap)
 }
 
 var _webshark_interval = null;
+var _webshark_interval_filter = null;
 var _webshark_interval_mode = "";
 
 function webshark_render_interval()
 {
-	var intervals_data = _webshark_interval['intervals'];
+	var intervals_data   = _webshark_interval ? _webshark_interval['intervals'] : null;
+	var intervals_filter = _webshark_interval_filter ? _webshark_interval_filter['intervals'] : null;
 	var intervals_full = [ ];
+
+	var color_arr = [ 'steelblue' ];
 
 	var count_idx =
 		(_webshark_interval_mode == "bps") ? 2 :
@@ -1362,14 +1366,29 @@ function webshark_render_interval()
 		return;
 
 	for (var i = 0; i <= _webshark_interval['last']; i++)
-		intervals_full[i] = [ i, 0 ];
+		intervals_full[i] = [ i, 0, 0 ];
 
-	for (var i = 0; i < intervals_data.length; i++)
+	if (intervals_data)
 	{
-		var idx = intervals_data[i][0];
-
-		intervals_full[idx][1] += intervals_data[i][count_idx];
+		for (var i = 0; i < intervals_data.length; i++)
+		{
+			var idx = intervals_data[i][0];
+			intervals_full[idx][1] += intervals_data[i][count_idx];
+		}
 	}
+
+	if (intervals_filter)
+	{
+		for (var i = 0; i < intervals_filter.length; i++)
+		{
+			var idx = intervals_filter[i][0];
+			intervals_full[idx][2] += intervals_filter[i][count_idx];
+		}
+
+		color_arr = [ '#ddd', 'steelblue' ]; /* grey out 'main interval', highlight 'filtered interval' */
+	}
+
+	/* TODO, put mark of current packet (_webshark_current_frame) */
 
 	var svg = d3.select("body").append("svg").remove();
 
@@ -1385,10 +1404,11 @@ function webshark_render_interval()
 		unit1: 'k',
 		series3:
 		[
-			function(d) { return d[1]; }
+			function(d) { return d[1]; },
+			function(d) { return d[2]; }
 		],
 
-		color: [ 'steelblue' ]
+		color: color_arr
 	});
 
 	dom_set_child(document.getElementById('capture_interval'), svg.node());
@@ -1460,10 +1480,19 @@ function webshark_load_capture(filter, cols)
 			}
 		});
 
-	webshark_json_get('req=intervals&capture=' + _webshark_file,
+	webshark_json_get('req=intervals&capture=' + _webshark_file + extra,
 		function(data)
 		{
-			_webshark_interval = data;
+			if (filter)
+			{
+				_webshark_interval_filter = data;
+			}
+			else
+			{
+				_webshark_interval = data;
+				_webshark_interval_filter = null; /* render only main */
+			}
+
 			webshark_render_interval();
 		});
 }
