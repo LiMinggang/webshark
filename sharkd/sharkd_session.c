@@ -140,6 +140,11 @@ json_puts_string(const char *str)
 				buf[out++] = str[i];
 				break;
 
+			case '\n':
+				buf[out++] = '\\';
+				buf[out++] = 'n';
+				break;
+
 			default:
 				buf[out++] = str[i];
 				break;
@@ -1843,26 +1848,33 @@ sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
 	printf("{\"err\":%d}\n", ret);
 }
 
-static guint
-sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
+struct sharkd_session_process_dumpconf_data
 {
-	const char **sepa = (const char **) data;
+	module_t *module;
+	const char *sepa;
+};
 
-	printf("%s\"%s\":{\"t\":", *sepa, pref->name);
-	json_puts_string(pref->title);
+static guint
+sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
+{
+	struct sharkd_session_process_dumpconf_data *data = (struct sharkd_session_process_dumpconf_data *) d;
+
+	printf("%s\"%s.%s\":{", data->sepa, data->module->name, pref->name);
 
 	switch (pref->type)
 	{
 		case PREF_UINT:
-			printf(",\"uint\":%u,\"base\":%d", *pref->varp.uint, pref->info.base);
+			printf("\"u\":%u", *pref->varp.uint);
+			if (pref->info.base != 10)
+				printf(",\"ub\":%d", pref->info.base);
 			break;
 
 		case PREF_BOOL:
-			printf(",\"bool\":%s", *pref->varp.boolp ? "true" : "false");
+			printf("\"b\":%s", *pref->varp.boolp ? "1" : "0");
 			break;
 
 		case PREF_STRING:
-			printf(",\"str\":");
+			printf("\"s\":");
 			json_puts_string(*pref->varp.string);
 			break;
 
@@ -1871,16 +1883,19 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 			const enum_val_t *enums;
 			const char *enum_sepa = "";
 
-			printf(",\"enum\":[");
+			printf("\"e\":[");
 			for (enums = pref->info.enum_info.enumvals; enums->name; enums++)
 			{
-				printf("%s{\"descr\":", enum_sepa);
-				json_puts_string(enums->description);
+				printf("%s{\"v\":%d", enum_sepa, enums->value);
 
 				if (enums->value == *pref->varp.enump)
-					printf(",\"selected\":true");
+					printf(",\"s\":1");
+#if 0
+				printf(",\"d\"");
+				json_puts_string(enums->description);
+#endif
 
-				printf(",\"val\":%d}", enums->value);
+				printf("}");
 				enum_sepa = ",";
 			}
 			printf("]");
@@ -1890,7 +1905,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 		case PREF_RANGE:
 		{
 			char *range_str = range_convert_range(NULL, *pref->varp.range);
-			printf(",\"range\":\"%s\"", range_str);
+			printf("\"r\":\"%s\"", range_str);
 			wmem_free(NULL, range_str);
 			break;
 		}
@@ -1900,7 +1915,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 			uat_t *uat = pref->varp.uat;
 			guint idx;
 
-			printf(",\"uat\":[");
+			printf("\"t\":[");
 			for (idx = 0; idx < uat->raw_data->len; idx++)
 			{
 				void *rec = UAT_INDEX_PTR(uat, idx);
@@ -1936,10 +1951,26 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
 			break;
 	}
 
+#if 0
+	printf(",\"t\":");
+	json_puts_string(pref->title);
+#endif
+
 	printf("}");
-	*sepa = ",";
+	data->sepa = ",";
 
 	return 0; /* continue */
+}
+
+static guint
+sharkd_session_process_dumpconf_mod_cb(module_t *module, gpointer d)
+{
+	struct sharkd_session_process_dumpconf_data *data = (struct sharkd_session_process_dumpconf_data *) d;
+
+	data->module = module;
+	prefs_pref_foreach(module, sharkd_session_process_dumpconf_cb, data);
+
+	return 0;
 }
 
 /**
@@ -1948,45 +1979,75 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer data)
  * Process dumpconf request
  *
  * Input:
- *   (m) module - module (TODO, make it optional to dump whole configuration)
+ *   (o) pref - module, or preference, NULL for all
  *
  * Output object with attributes:
- *   (o) module  - requested
- *   (o) descr   - description of preference
  *   (o) prefs   - object with module preferences
  *                  (m) [KEY] - preference name
- *                  (m) t - preference title
- *                  (o) uint - preference value (only for PREF_UINT)
- *                  (o) base - preference value suggested base for display (only for PREF_UINT)
- *                  (o) bool - preference value (only for PREF_BOOL)
- *                  (o) str  - preference value (only for PREF_STRING)
- *                  (o) enum - preference possible values (only for PREF_ENUM)
- *                  (o) range- preference value (only for PREF_RANGE)
+ *                  (o) u - preference value (only for PREF_UINT)
+ *                  (o) ub - preference value suggested base for display (only for PREF_UINT) and if different than 10
+ *                  (o) b - preference value (only for PREF_BOOL) (1 true, 0 false)
+ *                  (o) s - preference value (only for PREF_STRING)
+ *                  (o) e - preference possible values (only for PREF_ENUM)
+ *                  (o) r - preference value (only for PREF_RANGE)
+ *                  (o) t - preference value (only for PREF_UAT)
  */
 static void
 sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
 {
-	const char *tok_module = json_find_attr(buf, tokens, count, "module");
+	const char *tok_pref = json_find_attr(buf, tokens, count, "pref");
 	module_t *pref_mod;
+	char *dot_sepa;
 
-	if (!tok_module)
+	if (!tok_pref)
+	{
+		struct sharkd_session_process_dumpconf_data data;
+
+		data.module = NULL;
+		data.sepa = "";
+
+		printf("{\"prefs\":{");
+		prefs_modules_foreach(sharkd_session_process_dumpconf_mod_cb, &data);
+		printf("}}\n");
 		return;
+	}
 
-	pref_mod = prefs_find_module(tok_module);
+	if ((dot_sepa = strchr(tok_pref, '.')))
+	{
+		pref_t *pref = NULL;
+
+		*dot_sepa = '\0'; /* XXX, C abuse: discarding-const */
+		pref_mod = prefs_find_module(tok_pref);
+		if (pref_mod)
+			pref = prefs_find_preference(pref_mod, dot_sepa + 1);
+		*dot_sepa = '.';
+
+		if (pref)
+		{
+			struct sharkd_session_process_dumpconf_data data;
+
+			data.module = pref_mod;
+			data.sepa = "";
+
+			printf("{\"prefs\":{");
+			sharkd_session_process_dumpconf_cb(pref, &data);
+			printf("}}\n");
+		}
+
+		return;
+	}
+
+	pref_mod = prefs_find_module(tok_pref);
 	if (pref_mod)
 	{
-		const char *sepa = "";
+		struct sharkd_session_process_dumpconf_data data;
 
-		printf("{\"module\":\"%s\"", tok_module);
+		data.module = pref_mod;
+		data.sepa = "";
 
-		printf(",\"descr\":");
-		json_puts_string(pref_mod->description);
-
-		printf(",\"prefs\":{");
-		prefs_pref_foreach(pref_mod, sharkd_session_process_dumpconf_cb, &sepa);
-		printf("}");
-
-		printf("}\n");
+		printf("{\"prefs\":{");
+		prefs_pref_foreach(pref_mod, sharkd_session_process_dumpconf_cb, &data);
+		printf("}}\n");
     }
 }
 
