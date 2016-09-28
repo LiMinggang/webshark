@@ -1446,7 +1446,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 }
 
 static void
-sharkd_session_process_frame_cb_tree(proto_tree *tree)
+sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 {
 	proto_node *node;
 	const char *sepa = "";
@@ -1477,6 +1477,20 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 		else
 		{
 			json_puts_string(finfo->rep->representation);
+		}
+
+		if (finfo->ds_tvb && tvbs && tvbs[0] != finfo->ds_tvb)
+		{
+			int index;
+
+			for (index = 1; tvbs[index]; index++)
+			{
+				if (tvbs[index] == finfo->ds_tvb)
+				{
+					printf(",\"ds\":%d", index);
+					break;
+				}
+			}
 		}
 
 		if (finfo->start >= 0 && finfo->length > 0)
@@ -1521,7 +1535,7 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree)
 
 		if (((proto_tree *) node)->first_child) {
 			printf(",\"n\":");
-			sharkd_session_process_frame_cb_tree((proto_tree *) node);
+			sharkd_session_process_frame_cb_tree((proto_tree *) node, tvbs);
 		}
 
 		printf("}");
@@ -1542,8 +1556,31 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
 
 	if (tree)
 	{
+		tvbuff_t **tvbs = NULL;
+
 		printf(",\"tree\":");
-		sharkd_session_process_frame_cb_tree(tree);
+
+		/* arrayize data src, to speedup searching for ds_tvb index */
+		if (data_src && data_src->next /* only needed if there are more than one data source */)
+		{
+			guint count = g_slist_length((GSList *) data_src);
+			guint i;
+
+			tvbs = (tvbuff_t **) g_malloc((count + 1) * sizeof(*tvbs));
+
+			for (i = 0; i < count; i++)
+			{
+				struct data_source *src = (struct data_source *) g_slist_nth_data((GSList *) data_src, i);
+
+				tvbs[i] = get_data_source_tvb(src);
+			}
+
+			tvbs[count] = NULL;
+		}
+
+		sharkd_session_process_frame_cb_tree(tree, tvbs);
+
+		g_free(tvbs);
 	}
 
 	if (cinfo)
@@ -1563,23 +1600,71 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
 	if (data_src)
 	{
 		struct data_source *src = (struct data_source *)data_src->data;
+		const char *ds_sepa = NULL;
 
 		tvbuff_t *tvb;
 		guint length;
 
-		printf(",\"bytes\":");
-
 		tvb = get_data_source_tvb(src);
-
 		length = tvb_captured_length(tvb);
+
+		printf(",\"bytes\":");
 		if (length != 0)
 		{
 			const guchar *cp = tvb_get_ptr(tvb, 0, length);
 
 			/* XXX pi.fd->flags.encoding */
-
 			json_print_base64(cp, length);
 		}
+		else
+		{
+			json_print_base64("", 0);
+		}
+
+		data_src = data_src->next;
+		if (data_src)
+		{
+			printf(",\"ds\":[");
+			ds_sepa = "";
+		}
+
+		while (data_src)
+		{
+			src = (struct data_source *)data_src->data;
+
+			{
+				char *src_name = get_data_source_name(src);
+
+				printf("%s{\"name\":", ds_sepa);
+				json_puts_string(src_name);
+				wmem_free(NULL, src_name);
+			}
+
+			tvb = get_data_source_tvb(src);
+			length = tvb_captured_length(tvb);
+
+			printf(",\"bytes\":");
+			if (length != 0)
+			{
+				const guchar *cp = tvb_get_ptr(tvb, 0, length);
+
+				/* XXX pi.fd->flags.encoding */
+				json_print_base64(cp, length);
+			}
+			else
+			{
+				json_print_base64("", 0);
+			}
+
+			printf("}");
+			ds_sepa = ",";
+
+			data_src = data_src->next;
+		}
+
+		/* close ds, only if was opened */
+		if (ds_sepa != NULL)
+			printf("]");
 	}
 
 	printf("}\n");
@@ -1720,10 +1805,11 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *                  h - two item array: (item start, item length)
  *                  i - two item array: (appendix start, appendix length)
  *                  p - [RESERVED] two item array: (protocol start, protocol length)
- *                  t - tvb identifier (TODO)
+ *                  ds- data src index
  *
  *   (o) col   - array of column data
- *   (o) bytes - array of frame bytes [XXX, will be changed to support multiple bytes pane]
+ *   (o) bytes - base64 of frame bytes
+ *   (o) ds    - array of other data srcs
  */
 static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)

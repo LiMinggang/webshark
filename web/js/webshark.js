@@ -27,7 +27,8 @@ var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
 function Hexdump(opts)
 {
-	this.data  = opts.data;
+	this.datas = null;
+	this.active= -1;
 	this.base  = opts.base;
 	this.elem  = document.getElementById(opts.contentId);
 
@@ -38,7 +39,7 @@ Hexdump.prototype.render_hexdump = function()
 {
 	var s, line;
 
-	var pkt = this.data;
+	var pkt = this.datas[this.active];
 
 	var padcount = (this.base == 2) ? 8 : (this.base == 16) ? 2 : 0;
 	var limit = (this.base == 2) ? 8 : (this.base == 16) ? 16 : 0;
@@ -72,7 +73,7 @@ Hexdump.prototype.render_hexdump = function()
 
 			for (var k = 0; k < this.highlights.length; k++)
 			{
-				if (this.highlights[k].start <= (i + j) && (i + j) < this.highlights[k].end)
+				if (this.highlights[k].tab == this.active && this.highlights[k].start <= (i + j) && (i + j) < this.highlights[k].end)
 				{
 					cur_class = this.highlights[k].style;
 					break;
@@ -877,7 +878,10 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 			li.className = 'ws_cell_protocol';
 
 		if (level > 1 && proto_tree['h'] != undefined)
+		{
 			finfo['p'] = proto_tree['h'];
+			finfo['p_ds'] = proto_tree['ds'];
+		}
 
 		li.data_ws_node = finfo;
 		li.addEventListener("click", webshark_node_on_click);
@@ -1573,15 +1577,30 @@ function webshark_node_highlight_bytes(obj, node)
 
 	var hls = [ ];
 
+	var ds_idx = node['ds'];
+	if (ds_idx == undefined)
+		ds_idx = 0;
+
 	if (node['h'] != undefined) /* highlight */
-		hls.push({ start: node['h'][0], end: (node['h'][0] + node['h'][1] ), style: 'selected_bytes' });
+		hls.push({ tab: ds_idx, start: node['h'][0], end: (node['h'][0] + node['h'][1] ), style: 'selected_bytes' });
 
 	if (node['i'] != undefined) /* appendix */
-		hls.push({ start: node['i'][0], end: (node['i'][0] + node['i'][1] ), style: 'selected_bytes' });
+		hls.push({ tab: ds_idx, start: node['i'][0], end: (node['i'][0] + node['i'][1] ), style: 'selected_bytes' });
 
 	if (node['p'] != undefined) /* protocol highlight */
-		hls.push({ start: node['p'][0], end: (node['p'][0] + node['p'][1] ), style: 'selected_proto' });
+	{
+		var p_ds_idx = node['p_ds'];
+		if (p_ds_idx == undefined)
+			p_ds_idx = 0;
 
+		hls.push({ tab: p_ds_idx, start: node['p'][0], end: (node['p'][0] + node['p'][1] ), style: 'selected_proto' });
+	}
+
+	var dom_tab = document.getElementById('ws_bytes' + ds_idx);
+	if (dom_tab)
+		dom_tab.click();
+
+	_webshark_hexdump_html.active = ds_idx;
 	_webshark_hexdump_html.highlights = hls;
 	_webshark_hexdump_html.render_hexdump();
 
@@ -1609,9 +1628,52 @@ function webshark_load_frame(framenum, cols)
 	webshark_json_get('req=frame&bytes=yes&proto=yes&capture=' + _webshark_file + '&frame=' + framenum,
 		function(data)
 		{
+			var bytes_data = [ ];
+
 			webshark_render_proto_tree(data['tree']);
 
-			_webshark_hexdump_html.data = window.atob(data['bytes']);
+			bytes_data.push(window.atob(data['bytes']));
+
+			/* multiple data sources? */
+			var dom_ds = document.getElementById('ws_packet_pane');
+			dom_ds.innerHTML = '';
+			if (data['ds'])
+			{
+				var names = [ 'Frame (' + bytes_data[0].length + ' bytes)' ];
+
+				for (var i = 0; i < data['ds'].length; i++)
+				{
+					names.push(data['ds'][i]['name']);
+					bytes_data.push(window.atob(data['ds'][i]['bytes']));
+				}
+
+				/* TODO: tabs like in wireshark */
+				for (var i = 0; i < names.length; i++)
+				{
+					var input = document.createElement('input');
+
+					input.setAttribute('type', 'radio');
+					input.setAttribute('id', 'ws_bytes' + i);
+					input.setAttribute('name', 'ws_bytes');
+					input.setAttribute('value', "" + i);
+					if (i == 0)
+						input.setAttribute('checked', 'checked');
+
+					input.onchange = function()
+					{
+						var bytes_data = _webshark_hexdump_html.datas;
+
+						_webshark_hexdump_html.active = this.value;
+						_webshark_hexdump_html.render_hexdump();
+					};
+
+					dom_ds.appendChild(input);
+					dom_ds.appendChild(document.createTextNode(names[i]));
+				}
+			}
+
+			_webshark_hexdump_html.datas = bytes_data;
+			_webshark_hexdump_html.active = 0;
 			_webshark_hexdump_html.highlights = [ ];
 			_webshark_hexdump_html.render_hexdump();
 
