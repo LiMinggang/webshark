@@ -29,9 +29,10 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-static int _server_fd = -1;
+/* sharkd_session.c */
+extern int sharkd_session_main(void);
 
-int sharkd_session_main(void);
+static int _server_fd = -1;
 
 static int
 socket_init(char *path)

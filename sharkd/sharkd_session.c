@@ -53,13 +53,7 @@
 # include <wsutil/pint.h>
 #endif
 
-cf_status_t sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err);
-int sharkd_load_cap_file(void);
-int sharkd_retap(void);
-int sharkd_filter(const char *dftext, guint8 **result);
-int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
-int sharkd_dissect_request(int framenum, void *cb, int dissect_bytes, int dissect_columns, int dissect_tree, void *data);
-const char *sharkd_version(void);
+#include "sharkd.h"
 
 static struct register_ct *
 _get_conversation_table_by_name(const char *name)
@@ -422,8 +416,6 @@ sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 static void
 sharkd_session_process_status(void)
 {
-	extern capture_file cfile;
-
 	printf("{\"frames\":%d", cfile.count);
 
 	printf("}\n");
@@ -487,8 +479,6 @@ sharkd_session_process_analyse_cb(packet_info *pi, proto_tree *tree, struct epan
 static void
 sharkd_session_process_analyse(void)
 {
-	extern capture_file cfile;
-
 	unsigned int framenum;
 	struct sharkd_analyse_data analyser;
 
@@ -607,8 +597,6 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
 static void
 sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int count)
 {
-	extern capture_file cfile;
-
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
 	const char *tok_column = json_find_attr(buf, tokens, count, "column0");
 
@@ -1377,8 +1365,6 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		else if (!strcmp(tok_tap, "voip-calls"))
 		{
 			/* based on Qt code */
-			extern capture_file cfile;
-
 			memset(&voip_tapinfo, 0, sizeof(voip_tapinfo));
 
 			/* voip_tapinfo.tap_packet = tapPacket; */
@@ -1696,8 +1682,6 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
 static void
 sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 {
-	extern capture_file cfile;
-
 	const char *tok_interval = json_find_attr(buf, tokens, count, "interval");
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
 
@@ -1817,8 +1801,6 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 {
-	extern capture_file cfile;
-
 	const char *tok_frame = json_find_attr(buf, tokens, count, "frame");
 	int tok_proto   = (json_find_attr(buf, tokens, count, "proto") != NULL);
 	int tok_bytes   = (json_find_attr(buf, tokens, count, "bytes") != NULL);

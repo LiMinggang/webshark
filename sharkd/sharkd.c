@@ -120,9 +120,7 @@
 #include <wsutil/plugins.h>
 #endif
 
-/* sharkd_daemon.c */
-extern int sharkd_init(int argc, char **argv);
-extern int sharkd_loop(void);
+#include "sharkd.h"
 
 #if 0
 #define tshark_debug(...) g_warning(__VA_ARGS__)
@@ -1327,7 +1325,7 @@ sharkd_load_cap_file(void)
 }
 
 int
-sharkd_dissect_request(int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
+sharkd_dissect_request(int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
 {
 	frame_data *fdata;
 	column_info *cinfo = (dissect_columns) ? &cfile.cinfo : NULL;
