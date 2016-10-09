@@ -135,9 +135,9 @@ static frame_data *prev_dis;
 static frame_data *prev_cap;
 
 static gboolean do_dissection = TRUE; /* TRUE if we have to dissect each packet */
-static gboolean really_quiet = FALSE;
 
 #ifdef HAVE_LIBPCAP
+static gboolean really_quiet = FALSE;
 /*
  * TRUE if we're to print packet counts to keep track of captured packets.
  */
@@ -380,7 +380,7 @@ main(int argc, char *argv[])
 
   /* Scan for plugins.  This does *not* call their registration routines;
      that's done later. */
-  scan_plugins();
+  scan_plugins(REPORT_LOAD_FAILURE);
 
   /* Register all libwiretap plugin modules. */
   register_all_wiretap_modules();

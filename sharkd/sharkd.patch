@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 67ba8cd..a409f52 100644
+index df838a9..86e6530 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -47,7 +47,7 @@ bin_PROGRAMS = \
@@ -53,7 +53,7 @@ index 67ba8cd..a409f52 100644
  	$(SHARK_COMMON_SRC)	\
  	tfshark.c		\
 diff --git a/epan/column.c b/epan/column.c
-index 1f7b2fa..4ca1fa1 100644
+index 2a67019..7d6eb7e 100644
 --- a/epan/column.c
 +++ b/epan/column.c
 @@ -807,23 +807,18 @@ get_column_tooltip(const gint col)
@@ -126,7 +126,7 @@ index 1f7b2fa..4ca1fa1 100644
   * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
   *
 diff --git a/epan/dissectors/packet-tcp.c b/epan/dissectors/packet-tcp.c
-index bc7f4fd..856936e 100644
+index befef7a..3e9673f 100644
 --- a/epan/dissectors/packet-tcp.c
 +++ b/epan/dissectors/packet-tcp.c
 @@ -709,13 +709,27 @@ static const char* tcp_host_get_filter_type(hostlist_talker_t* host, conv_filter
@@ -137,8 +137,7 @@ index bc7f4fd..856936e 100644
 +    if (filter == CONV_FT_SRC_ADDRESS) {
          if (host->myaddress.type == AT_IPv4)
              return "ip.src";
--        if (host->myaddress.type == AT_IPv6)
-+        if (host->myaddress.type == AT_IPv6)
+         if (host->myaddress.type == AT_IPv6)
              return "ipv6.src";
      }
  
@@ -173,7 +172,7 @@ index 7cf51aa..a0622d8 100644
  
  /**
 diff --git a/ui/tap-sequence-analysis.c b/ui/tap-sequence-analysis.c
-index 48cd9fd..6edc0d1 100644
+index 48cd9fd..c515ea7 100644
 --- a/ui/tap-sequence-analysis.c
 +++ b/ui/tap-sequence-analysis.c
 @@ -290,7 +290,7 @@ sequence_analysis_list_get(capture_file *cf, seq_analysis_info_t *sainfo)
@@ -212,24 +211,24 @@ index 609ead9..301624c 100644
  const char *voip_call_state_name[8]={
      "",
 diff --git a/epan/uat-int.h b/epan/uat-int.h
-index 46a32bc..a9b26bd 100644
+index 43aa3c2..93e3877 100644
 --- a/epan/uat-int.h
 +++ b/epan/uat-int.h
-@@ -103,6 +103,9 @@ gboolean uat_save(uat_t* , char** );
- 
+@@ -129,6 +129,9 @@ gboolean uat_save(uat_t *uat, char **error);
+  */
  void uat_load_all(void);
  
 +WS_DLL_PUBLIC
 +char *uat_strfld(void *rec, uat_field_t *f);
 +
- #define UAT_UPDATE(uat) do { *((uat)->user_ptr) = (void*)((uat)->user_data->data); *((uat)->nrows_p) = (uat)->user_data->len; } while(0)
- #define UAT_INDEX_PTR(uat,idx) (uat->raw_data->data + (uat->record_size * (idx)))
- #define UAT_USER_INDEX_PTR(uat,idx) (uat->user_data->data + (uat->record_size * (idx)))
+ /**
+  * Exposes the array of valid records to the UAT consumer (dissectors), updating
+  * the contents of 'data_ptr' and 'num_items_ptr' (see 'uat_new').
 diff --git a/epan/uat.c b/epan/uat.c
-index 084c3f8..fdbc83e 100644
+index 3289202..ad2591f 100644
 --- a/epan/uat.c
 +++ b/epan/uat.c
-@@ -248,6 +248,43 @@ uat_t* uat_get_table_by_name(const char* name) {
+@@ -253,6 +253,43 @@ uat_t* uat_get_table_by_name(const char* name) {
      return NULL;
  }
  
