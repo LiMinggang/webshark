@@ -190,6 +190,10 @@ function webshark_glyph(what)
 
 	var fa_paths =
 	{
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-right.svg */
+		'collapsed': "M1152 896q0 26-19 45l-448 448q-19 19-45 19t-45-19-19-45v-896q0-26 19-45t45-19 45 19l448 448q19 19 19 45z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-down.svg */
+		'expanded': "M1408 704q0 26-19 45l-448 448q-19 19-45 19t-45-19l-448-448q-19-19-19-45t19-45 45-19h896q26 0 45 19t19 45z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/filter.svg */
 		'filter': "M1595 295q17 41-14 70l-493 493v742q0 42-39 59-13 5-25 5-27 0-45-19l-256-256q-19-19-19-45v-486l-493-493q-31-29-14-70 17-39 59-39h1280q42 0 59 39z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/play.svg */
@@ -201,6 +205,8 @@ function webshark_glyph(what)
 	var svg;
 	switch (what)
 	{
+		case 'collapsed':
+		case 'expanded':
 		case 'filter':
 		case 'play':
 		case 'stop':
@@ -684,6 +690,22 @@ function webshark_file_row_on_click(ev)
 	}
 }
 
+function webshark_tree_sync(subtree)
+{
+	if (subtree['expanded'] == false)
+	{
+		subtree['tree'].style.display = 'none';
+		subtree['exp'].style.display = 'none';
+		subtree['col'].style.display = 'inline';
+	}
+	else
+	{
+		subtree['tree'].style.display = 'block';
+		subtree['exp'].style.display = 'inline';
+		subtree['col'].style.display = 'none';
+	}
+}
+
 function webshark_tree_on_click(ev)
 {
 	var tree_node;
@@ -694,10 +716,8 @@ function webshark_tree_on_click(ev)
 	{
 		var subtree = tree_node.data_ws_subtree;
 
-		if (subtree.style.display == 'none')
-			subtree.style.display = 'block';
-		else
-			subtree.style.display = 'none';
+		subtree['expanded'] = !subtree['expanded'];
+		webshark_tree_sync(subtree);
 	}
 }
 
@@ -893,7 +913,15 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 			var expander = document.createElement("span");
 			expander.className = "tree_expander";
 
-			expander.appendChild(document.createTextNode("\u21d2"));
+			var g_collapsed = webshark_glyph_img('collapsed', 16);
+			g_collapsed.setAttribute('alt', 'Expand');
+			g_collapsed.setAttribute('title', 'Click to expand');
+			expander.appendChild(g_collapsed);
+
+			var g_expanded = webshark_glyph_img('expanded', 16);
+			g_expanded.setAttribute('alt', 'Collapse');
+			g_expanded.setAttribute('title', 'Click to collapse');
+			expander.appendChild(g_expanded);
 
 			if (level == 1)
 				proto_tree = finfo; /* XXX, verify */
@@ -903,7 +931,10 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 
 			li.insertBefore(expander, li.firstChild);
 
-			li.data_ws_subtree = subtree;
+			/* TODO, loaded expanded from user preference */
+			li.data_ws_subtree = { expanded: false, tree: subtree, exp: g_expanded, col: g_collapsed };
+
+			webshark_tree_sync(li.data_ws_subtree);
 			expander.addEventListener("click", webshark_tree_on_click);
 		}
 	}

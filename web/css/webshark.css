@@ -45,7 +45,7 @@ table.ws_border
 
 #ws_packet_detail_view span.tree_expander
 {
-	margin-left: -6px;
+	margin-left: -13px;
 }
 
 #packet_list_header tr, tr.header
