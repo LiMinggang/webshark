@@ -1614,10 +1614,6 @@ const char *sharkd_version(void)
 #endif
 }
 
-#ifdef COMPILE_FOR_OPENSHIFT /* newer glibc have memcpy@@GLIBC_2.14, and openshift don't have it */
-void *memcpy(void *dst, const void *src, size_t len) { return memmove(dst, src, len); }
-#endif
-
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *

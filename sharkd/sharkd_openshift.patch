@@ -1,0 +1,61 @@
+diff --git a/epan/proto.c b/epan/proto.c
+index 74f613c..497d5dc 100644
+--- a/epan/proto.c
++++ b/epan/proto.c
+@@ -6392,7 +6392,7 @@ static void
+ tmp_fld_check_assert(header_field_info *hfinfo)
+ {
+ 	gchar* tmp_str;
+-
++return;
+ 	/* The field must have a name (with length > 0) */
+ 	if (!hfinfo->name || !hfinfo->name[0]) {
+ 		if (hfinfo->abbrev)
+@@ -6840,7 +6840,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
+ 
+ 		/* Check that the filter name (abbreviation) is legal;
+ 		 * it must contain only alphanumerics, '-', "_", and ".". */
+-		c = wrs_check_charset(fld_abbrev_chars, hfinfo->abbrev);
++		c = 0;
+ 		if (c) {
+ 			if (g_ascii_isprint(c))
+ 				fprintf(stderr, "Invalid character '%c' in filter name '%s'\n", c, hfinfo->abbrev);
+diff --git a/epan/uat_load.l b/epan/uat_load.l
+index ace66b0..a0ced16 100644
+--- a/epan/uat_load.l
++++ b/epan/uat_load.l
+@@ -344,6 +344,7 @@ uat_load(uat_t *uat, char **errx)
+ 		return TRUE;
+ 	}
+ 
++	return FALSE; /* no such file */
+ 
+ 	if (!(in = ws_fopen(fname,"r"))) {
+ 		*errx = g_strdup(g_strerror(errno));
+diff --git a/epan/geoip_db.c b/epan/geoip_db.c
+index d22c439..1382006 100644
+--- a/epan/geoip_db.c
++++ b/epan/geoip_db.c
+@@ -116,7 +116,7 @@ geoip_dat_scan_dir(const char *dirname) {
+             name = ws_dir_get_name(file);
+             if (g_str_has_prefix(file, "Geo") && g_str_has_suffix(file, ".dat")) {
+                 datname = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dirname, name);
+-                gi = GeoIP_open(datname, GEOIP_MEMORY_CACHE);
++                gi = GeoIP_open(datname, GEOIP_STANDARD);
+                 if (gi) {
+                     g_array_append_val(geoip_dat_arr, gi);
+                 }
+diff --git a/sharkd/sharkd.c b/sharkd/sharkd.c
+index a31efdf..2c6b16a 100644
+--- a/sharkd/sharkd.c
++++ b/sharkd/sharkd.c
+@@ -1614,6 +1614,9 @@ const char *sharkd_version(void)
+ #endif
+ }
+ 
++/* newer glibc have memcpy@@GLIBC_2.14, and openshift don't have it */
++void *memcpy(void *dst, const void *src, size_t len) { return memmove(dst, src, len); }
++
+ /*
+  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
+  *
