@@ -1534,6 +1534,8 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 		}
 
 		if (((proto_tree *) node)->first_child) {
+			if (finfo->tree_type != -1)
+				printf(",\"e\":%d", finfo->tree_type);
 			printf(",\"n\":");
 			sharkd_session_process_frame_cb_tree((proto_tree *) node, tvbs);
 		}
@@ -1801,6 +1803,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *                  l - label
  *                  t: 'proto'
  *                  s - severity
+ *                  e - subtree ett index
  *                  n - array of subtree nodes
  *                  h - two item array: (item start, item length)
  *                  i - two item array: (appendix start, appendix length)

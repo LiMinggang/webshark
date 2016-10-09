@@ -718,6 +718,9 @@ function webshark_tree_on_click(ev)
 
 		subtree['expanded'] = !subtree['expanded'];
 		webshark_tree_sync(subtree);
+
+		if (subtree['ett'])
+			sessionStorage.setItem("ett-" + subtree['ett'], subtree['expanded'] ? '1' : '0');
 	}
 }
 
@@ -931,8 +934,11 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 
 			li.insertBefore(expander, li.firstChild);
 
-			/* TODO, loaded expanded from user preference */
-			li.data_ws_subtree = { expanded: false, tree: subtree, exp: g_expanded, col: g_collapsed };
+			var ett_expanded = false;
+			if (finfo['e'] && sessionStorage.getItem("ett-" + finfo['e']) == '1')
+				ett_expanded = true;
+
+			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: g_expanded, col: g_collapsed };
 
 			webshark_tree_sync(li.data_ws_subtree);
 			expander.addEventListener("click", webshark_tree_on_click);
