@@ -137,7 +137,6 @@ static frame_data *prev_dis;
 static frame_data *prev_cap;
 
 static gboolean do_dissection = TRUE; /* TRUE if we have to dissect each packet */
-static gboolean print_packet_info; /* TRUE if we're to print packet information */
 static gboolean really_quiet = FALSE;
 
 #ifdef HAVE_LIBPCAP
@@ -262,7 +261,6 @@ main(int argc, char *argv[])
   int                  gdp_open_errno, gdp_read_errno;
   int                  dp_open_errno, dp_read_errno;
   int                  cf_open_errno;
-  gboolean             quiet = FALSE;
   e_prefs             *prefs_p;
   int                  log_flags;
 
@@ -490,31 +488,6 @@ main(int argc, char *argv[])
 
   cap_file_init(&cfile);
 
-#ifdef HAVE_LIBPCAP
-  if (!global_capture_opts.saving_to_file) {
-    /* We're not saving the capture to a file; if "-q" wasn't specified,
-       we should print packet information */
-    if (!quiet)
-      print_packet_info = TRUE;
-  } else {
-    /* We're saving to a file; if we're writing to the standard output.
-       and we'll also be writing dissected packets to the standard
-       output, reject the request.  At best, we could redirect that
-       to the standard error; we *can't* write both to the standard
-       output and have either of them be useful. */
-    if (strcmp(global_capture_opts.save_file, "-") == 0 && print_packet_info) {
-      cmdarg_err("You can't write both raw packet data and dissected packets"
-          " to the standard output.");
-      return 1;
-    }
-  }
-#else
-  /* We're not saving the capture to a file; if "-q" wasn't specified,
-     we should print packet information */
-  if (!quiet)
-    print_packet_info = TRUE;
-#endif
-
 #ifdef _WIN32
   /* Start windows sockets */
   WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
@@ -529,22 +502,6 @@ main(int argc, char *argv[])
      have a tap filter with one of MATE's late-registered fields as part
      of the filter.  We can now process all the "-z" arguments. */
   start_requested_stats();
-
-#ifdef HAVE_LIBPCAP
-  /* We currently don't support taps, or printing dissected packets,
-     if we're writing to a pipe. */
-  if (global_capture_opts.saving_to_file &&
-      global_capture_opts.output_to_pipe) {
-    if (tap_listeners_require_dissection()) {
-      cmdarg_err("Taps aren't supported when saving to a pipe.");
-      return 1;
-    }
-    if (print_packet_info) {
-      cmdarg_err("Printing dissected packets isn't supported when saving to a pipe.");
-      return 1;
-    }
-  }
-#endif
 
   /* disabled protocols as per configuration file */
   if (gdp_path == NULL && dp_path == NULL) {
@@ -1024,11 +981,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
   int          err;
   gchar       *err_info = NULL;
   gint64       data_offset;
-  struct wtap_pkthdr phdr;
-  Buffer       buf;
   epan_dissect_t *edt = NULL;
-
-  wtap_phdr_init(&phdr);
 
   {
     tshark_debug("tshark: perform_two_pass_analysis, do_dissection=%s", do_dissection ? "TRUE" : "FALSE");
@@ -1083,12 +1036,9 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
 
     prev_dis = NULL;
     prev_cap = NULL;
-    ws_buffer_init(&buf, 1500);
 
     tshark_debug("tshark: done with first pass");
   }
-
-  wtap_phdr_cleanup(&phdr);
 
   if (err != 0) {
     tshark_debug("tshark: something failed along the line (%d)", err);
