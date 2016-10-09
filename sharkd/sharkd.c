@@ -1588,6 +1588,8 @@ sharkd_filter(const char *dftext, guint8 **result)
     epan_dissect_reset(&edt);
   }
 
+  if ((framenum & 7) == 0)
+      framenum--;
   result_bits[framenum / 8] = passed_bits;
 
   wtap_phdr_cleanup(&phdr);
