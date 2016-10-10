@@ -24,7 +24,7 @@
 
 #include <glib.h>
 
-#include <wsutil/jsmn.h>
+#include <wsutil/wsjsmn.h>
 
 #include <file.h>
 #include <epan/exceptions.h>
@@ -2352,13 +2352,9 @@ sharkd_session_main(void)
 	while (fgets(buf, sizeof(buf), stdin))
 	{
 		/* every command is line seperated JSON */
-
-		jsmn_parser p;
 		int ret;
 
-		jsmn_init(&p);
-
-		ret = jsmn_parse(&p, buf, strlen(buf), NULL, 0);
+		ret = wsjsmn_parse(buf, NULL, 0);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON -> closing\n");
@@ -2376,9 +2372,7 @@ sharkd_session_main(void)
 
 		memset(tokens, 0, ret * sizeof(jsmntok_t));
 
-		jsmn_init(&p);
-		ret = jsmn_parse(&p, buf, strlen(buf), tokens, ret);
-
+		ret = wsjsmn_parse(buf, tokens, ret);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON(2) -> closing\n");

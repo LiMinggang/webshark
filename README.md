@@ -23,7 +23,8 @@ Get wireshark sources:
 ~~~~
 	$ git clone https://code.wireshark.org/review/wireshark
 	$ cd wireshark
-	$ git reset --hard 630b64613567c268b2b08966707c81d3ec8661a5   ## tested with this hash
+	$ git reset --hard 11d3224142c0531879fb8e415daf9639a4eace66   ## tested with this hash
+
 ~~~~
 
 Integrate sharkd:

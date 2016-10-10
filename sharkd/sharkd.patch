@@ -158,19 +158,6 @@ index befef7a..3e9673f 100644
      return CONV_FILTER_INVALID;
  }
  
-diff --git a/wsutil/jsmn.h b/wsutil/jsmn.h
-index 7cf51aa..a0622d8 100644
---- a/wsutil/jsmn.h
-+++ b/wsutil/jsmn.h
-@@ -91,7 +91,7 @@ WS_DLL_PUBLIC void jsmn_init(jsmn_parser *parser);
-  * Run JSON parser. It parses a JSON data string into and array of tokens, each describing
-  * a single JSON object.
-  */
--int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
-+WS_DLL_PUBLIC int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
- 		jsmntok_t *tokens, unsigned int num_tokens);
- 
- /**
 diff --git a/ui/tap-sequence-analysis.c b/ui/tap-sequence-analysis.c
 index 48cd9fd..c515ea7 100644
 --- a/ui/tap-sequence-analysis.c
@@ -272,3 +259,44 @@ index 3289202..ad2591f 100644
  static void putfld(FILE* fp, void* rec, uat_field_t* f) {
      guint fld_len;
      char* fld_ptr;
+diff --git a/wsutil/wsjsmn.c b/wsutil/wsjsmn.c
+index e18bd45..693e945 100644
+--- a/wsutil/wsjsmn.c
++++ b/wsutil/wsjsmn.c
+@@ -66,6 +66,14 @@ gboolean jsmn_is_json(const guint8* buf, const size_t len)
+         return ret;
+ }
+ 
++int wsjsmn_parse(const char *buf, jsmntok_t *tokens, unsigned int max_tokens)
++{
++        jsmn_parser p;
++
++        jsmn_init(&p);
++        return jsmn_parse(&p, buf, strlen(buf), tokens, max_tokens);
++}
++
+ /*
+  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
+  *
+diff --git a/wsutil/wsjsmn.h b/wsutil/wsjsmn.h
+index 84e63eb..4b4d905 100644
+--- a/wsutil/wsjsmn.h
++++ b/wsutil/wsjsmn.h
+@@ -28,6 +28,8 @@
+ #include "ws_symbol_export.h"
+ #include <glib.h>
+ 
++#include "jsmn.h"
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -37,6 +39,8 @@ extern "C" {
+  */
+ WS_DLL_PUBLIC gboolean jsmn_is_json(const guint8* buf, const size_t len);
+ 
++WS_DLL_PUBLIC int wsjsmn_parse(const char *buf, jsmntok_t *tokens, unsigned int max_tokens);
++
+ #ifdef __cplusplus
+ }
+ #endif
