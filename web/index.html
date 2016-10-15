@@ -52,6 +52,13 @@
 				var title = taps[i].name;
 				var tap = taps[i].tap;
 
+/*
+TODO: Give user possible to generate multiple reports by selecting checkboxes
+				var inp = document.createElement('input');
+				inp.setAttribute('type', 'checkbox');
+				a.appendChild(inp);
+ */
+
 				a.appendChild(document.createTextNode(title));
 				a.setAttribute("target", "_blank");
 				a.setAttribute("href", window.location.href + "&tap=" + tap);
@@ -269,9 +276,9 @@
 
 				if (opt['hide_menu'] == undefined)
 				{
-					create_tap_menu('cap_menu', ws_taps);
-					create_tap_menu('cap_menu', ws_stats);
-					create_tap_menu('cap_menu', ws_convs);
+					create_tap_menu('report_menu', ws_convs);
+					create_tap_menu('report_menu2', ws_taps);
+					create_tap_menu('report_menu2', ws_stats);
 				}
 
 				webshark_load_capture(filter, ws_columns);
@@ -388,6 +395,16 @@
 			_webshark_hexdump_html.render_hexdump();
 		}
 
+		function show_hide_menu(id)
+		{
+			var elem = document.getElementById(id);
+
+			if (elem.style['display'] != 'block')
+				elem.style['display'] = 'block';
+			else
+				elem.style['display'] = 'none';
+		}
+
 		function load()
 		{
 			_webshark_url = '/webshark/json?';
@@ -497,9 +514,18 @@
 	</div>
 
 	<div id="toolbar_capture">
-		<ul class="menu" id="cap_menu"></ul>
-		<div style="clear: both;"></div>
-		Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
+		<ul class="menu">
+			<li>
+			Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
+			</li>
+			<li>
+				<a onclick="show_hide_menu('report_menu'); show_hide_menu('report_menu2');">Report</a>
+				<div class="submenu" id="report_menu">
+				</div>
+				<div class="submenu" id="report_menu2" style="margin-left: 300px;">
+				</div>
+			</li>
+		</ul>
 		<div style="float: right; border: 1px solid grey;">
 			<div id="capture_interval">
 				<svg width="620" height="100"></svg>

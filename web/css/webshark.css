@@ -82,6 +82,18 @@ ul.menu li
 	padding-right: 15px;
 }
 
+ul.menu li a
+{
+	color: black;
+	display: block;
+	text-decoration: none;
+}
+
+ul.menu li a:hover
+{
+	background-color: #0080FF;
+}
+
 ul.proto
 {
 	list-style-type: none;
@@ -98,4 +110,17 @@ li.proto
 span.example
 {
 	background-color: #adff2f;
+}
+
+div.submenu
+{
+	display: none;
+	border: 2px solid grey;
+	position: absolute;
+	background-color: #f9f9f9;
+}
+
+div.submenu li
+{
+	float: none;
 }
