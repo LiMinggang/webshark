@@ -2152,6 +2152,8 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 			break;
 		}
 
+		case PREF_DECODE_AS_UINT:
+		case PREF_DECODE_AS_RANGE:
 		case PREF_COLOR:
 		case PREF_CUSTOM:
 		case PREF_STATIC_TEXT:
