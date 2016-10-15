@@ -245,7 +245,7 @@ function webshark_d3_chart(svg, data, opts)
 
 	var s1    = opts['series1'];
 	var u1    = opts['unit1'];
-	var sc1   = null;
+	var sc1   = opts['scale1'];
 
 	var s2    = opts['series2'];
 
@@ -306,9 +306,12 @@ function webshark_d3_chart(svg, data, opts)
 		{
 			max_value = 1;
 
-			sc1 = [];
-			for (var i = 0; i < s1.length; i++)
-				sc1[i] = d3.sum(data.map(s1[i]));
+			if (sc1 == undefined)
+			{
+				sc1 = [];
+				for (var i = 0; i < s1.length; i++)
+					sc1[i] = d3.sum(data.map(s1[i]));
+			}
 		}
 		else
 		{
@@ -1197,14 +1200,19 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		webshark_d3_chart(svg, tap['stats'][0]['sub'],
+		var g_stat = tap['stats'][0];
+
+//		TODO: generate more graphs g_stat = g_stat['sub'][0];
+
+		webshark_d3_chart(svg, g_stat['sub'],
 		{
-			title: tap['stats'][0]['name'],
+			title: g_stat['name'],
 			mwidth: 800, iwidth: 50, height: 400,
 
 			getX: function(d) { return d['name'] },
 
 			unit1: '%',
+			scale1: [ g_stat['count'] ],
 
 			series1:
 			[
