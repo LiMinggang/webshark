@@ -514,10 +514,15 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 	</div>
 
 	<div id="toolbar_capture">
-		<ul class="menu">
-			<li>
-			Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
-			</li>
+		Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
+		<div style="float: right; border: 1px solid grey;">
+			<div id="capture_interval">
+				<svg width="620" height="100"></svg>
+			</div>
+			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
+			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
+		</div>
+		<ul class="menu" style="float: right;">
 			<li>
 				<a onclick="show_hide_menu('report_menu'); show_hide_menu('report_menu2');">Report</a>
 				<div class="submenu" id="report_menu">
@@ -526,13 +531,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				</div>
 			</li>
 		</ul>
-		<div style="float: right; border: 1px solid grey;">
-			<div id="capture_interval">
-				<svg width="620" height="100"></svg>
-			</div>
-			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
-			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
-		</div>
 		<div style="clear: both;"></div>
 	</div>
 
