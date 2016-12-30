@@ -24,7 +24,7 @@ index dd443ca..7201404 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index f24e7ab..0a28fba 100644
+index 52592d5..ff6aed5 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
 @@ -54,7 +54,6 @@ static int proto_pkt_comment = -1;
@@ -45,7 +45,7 @@ index f24e7ab..0a28fba 100644
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -703,11 +699,6 @@ proto_register_frame(void)
+@@ -704,11 +700,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
@@ -71,10 +71,10 @@ index f9bb8b4..48d522b 100644
    fdata->prev_dis_num = 0;
  }
 diff --git a/ui/Makefile.am b/ui/Makefile.am
-index 91f189b..a7421b9 100644
+index 3507f9a..1e15c6f 100644
 --- a/ui/Makefile.am
 +++ b/ui/Makefile.am
-@@ -85,7 +85,6 @@ WIRESHARK_UI_SRC = \
+@@ -82,7 +82,6 @@ WIRESHARK_UI_SRC = \
  	tap-sequence-analysis.c	\
  	tap-tcp-stream.c	\
  	text_import.c		\

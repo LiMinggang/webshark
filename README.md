@@ -23,7 +23,7 @@ Get wireshark sources:
 ~~~~
 	$ git clone https://code.wireshark.org/review/wireshark
 	$ cd wireshark
-	$ git reset --hard a19c12b4a973d8f514db3824ed16f664fb9f1151   ## tested with this hash
+	$ git reset --hard caadaaf62317a88f99373d9095b827102999e4e3   ## tested with this hash
 
 ~~~~
 

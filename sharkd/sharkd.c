@@ -65,6 +65,7 @@
 #include <epan/disabled_protos.h>
 #include <epan/prefs.h>
 #include <epan/column.h>
+#include <epan/decode_as.h>
 #include <epan/print.h>
 #include <epan/addr_resolv.h>
 #ifdef HAVE_LIBPCAP
@@ -371,12 +372,11 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
-  init_open_routines();
+  wtap_init();
 
 #ifdef HAVE_PLUGINS
   /* Register all the plugin types we have. */
   epan_register_plugin_types(); /* Types known to libwireshark */
-  wtap_register_plugin_types(); /* Types known to libwiretap */
 
   /* Scan for plugins.  This does *not* call their registration routines;
      that's done later. */
@@ -384,8 +384,6 @@ main(int argc, char *argv[])
 
   /* Register all libwiretap plugin modules. */
   register_all_wiretap_modules();
-#else
-  wtap_opttypes_initialize();
 #endif
 
   /* Register all dissectors; we must do this before checking for the

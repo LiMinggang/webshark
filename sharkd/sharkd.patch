@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index df838a9..86e6530 100644
+index 2f186f2..9767cca 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -47,7 +47,7 @@ bin_PROGRAMS = \
@@ -11,9 +11,9 @@ index df838a9..86e6530 100644
  	editcap mergecap dftest randpkt text2pcap dumpcap reordercap \
  	rawshark echld_test
  
-@@ -531,6 +531,40 @@ tshark_LDADD = \
- 	@LIBGNUTLS_LIBS@		\
- 	@LIBSMI_LDFLAGS@
+@@ -531,6 +531,35 @@ tshark_LDADD = \
+ 	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
+ 	@COREFOUNDATION_FRAMEWORKS@
  
 +sharkd_SOURCES = \
 +	$(SHARK_COMMON_SRC)	\
@@ -28,7 +28,7 @@ index df838a9..86e6530 100644
 +
 +sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
 +
-+# Libraries and plugin flags with which to link tshark.
++# Libraries and plugin flags with which to link sharkd.
 +sharkd_LDADD = \
 +	capchild/libcapchild.a		\
 +	caputils/libcaputils.a		\
@@ -37,23 +37,18 @@ index df838a9..86e6530 100644
 +	wiretap/libwiretap.la		\
 +	epan/libwireshark.la		\
 +	wsutil/libwsutil.la		\
-+	@SSL_LIBS@			\
 +	$(plugin_ldadd)			\
 +	@GLIB_LIBS@			\
 +	@PCAP_LIBS@			\
-+	@C_ARES_LIBS@			\
-+	@KRB5_LIBS@			\
++	${EPAN_EXTRA_LIBS}	\
 +	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-+	@COREFOUNDATION_FRAMEWORKS@	\
-+	@LIBGCRYPT_LIBS@		\
-+	@LIBGNUTLS_LIBS@		\
-+	@LIBSMI_LDFLAGS@
++	@COREFOUNDATION_FRAMEWORKS@
 +
  tfshark_SOURCES = \
  	$(SHARK_COMMON_SRC)	\
  	tfshark.c		\
 diff --git a/epan/column.c b/epan/column.c
-index 2a67019..7d6eb7e 100644
+index 6d4fa62..0fe3b3f 100644
 --- a/epan/column.c
 +++ b/epan/column.c
 @@ -807,23 +807,18 @@ get_column_tooltip(const gint col)
@@ -126,10 +121,10 @@ index 2a67019..7d6eb7e 100644
   * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
   *
 diff --git a/epan/dissectors/packet-tcp.c b/epan/dissectors/packet-tcp.c
-index befef7a..3e9673f 100644
+index 3b412f4..941349d 100644
 --- a/epan/dissectors/packet-tcp.c
 +++ b/epan/dissectors/packet-tcp.c
-@@ -709,13 +709,27 @@ static const char* tcp_host_get_filter_type(hostlist_talker_t* host, conv_filter
+@@ -713,13 +713,27 @@ static const char* tcp_host_get_filter_type(hostlist_talker_t* host, conv_filter
          return CONV_FILTER_INVALID;
      }
  
@@ -159,10 +154,10 @@ index befef7a..3e9673f 100644
  }
  
 diff --git a/ui/tap-sequence-analysis.c b/ui/tap-sequence-analysis.c
-index 48cd9fd..c515ea7 100644
+index eda3b04..4dc7282 100644
 --- a/ui/tap-sequence-analysis.c
 +++ b/ui/tap-sequence-analysis.c
-@@ -290,7 +290,7 @@ sequence_analysis_list_get(capture_file *cf, seq_analysis_info_t *sainfo)
+@@ -291,7 +291,7 @@ sequence_analysis_list_get(capture_file *cf, seq_analysis_info_t *sainfo)
          return;
      }
  
@@ -171,7 +166,7 @@ index 48cd9fd..c515ea7 100644
      remove_tap_listener(sainfo);
  
      /* SEQ_ANALYSIS_DEBUG("%d items", g_queue_get_length(sainfo->items)); */
-@@ -505,7 +505,7 @@ sequence_analysis_dump_to_file(const char *pathname, seq_analysis_info_t *sainfo
+@@ -514,7 +514,7 @@ sequence_analysis_dump_to_file(const char *pathname, seq_analysis_info_t *sainfo
  
      of = ws_fopen(pathname, "w");
      if (of==NULL) {
@@ -181,7 +176,7 @@ index 48cd9fd..c515ea7 100644
      }
  
 diff --git a/ui/voip_calls.c b/ui/voip_calls.c
-index 609ead9..301624c 100644
+index 6cd70d7..f54c6aa 100644
 --- a/ui/voip_calls.c
 +++ b/ui/voip_calls.c
 @@ -65,8 +65,10 @@
@@ -198,10 +193,10 @@ index 609ead9..301624c 100644
  const char *voip_call_state_name[8]={
      "",
 diff --git a/epan/uat-int.h b/epan/uat-int.h
-index 43aa3c2..93e3877 100644
+index be8ecbc..364c9e4 100644
 --- a/epan/uat-int.h
 +++ b/epan/uat-int.h
-@@ -129,6 +129,9 @@ gboolean uat_save(uat_t *uat, char **error);
+@@ -135,6 +135,9 @@ gboolean uat_save(uat_t *uat, char **error);
   */
  void uat_load_all(void);
  
@@ -212,10 +207,10 @@ index 43aa3c2..93e3877 100644
   * Exposes the array of valid records to the UAT consumer (dissectors), updating
   * the contents of 'data_ptr' and 'num_items_ptr' (see 'uat_new').
 diff --git a/epan/uat.c b/epan/uat.c
-index 3289202..ad2591f 100644
+index 461dee6..bdd570d 100644
 --- a/epan/uat.c
 +++ b/epan/uat.c
-@@ -253,6 +253,43 @@ uat_t* uat_get_table_by_name(const char* name) {
+@@ -264,6 +264,43 @@ uat_t* uat_get_table_by_name(const char* name) {
      return NULL;
  }
  
@@ -260,10 +255,19 @@ index 3289202..ad2591f 100644
      guint fld_len;
      char* fld_ptr;
 diff --git a/wsutil/wsjsmn.c b/wsutil/wsjsmn.c
-index e18bd45..693e945 100644
+index e18bd45..2c58113 100644
 --- a/wsutil/wsjsmn.c
 +++ b/wsutil/wsjsmn.c
-@@ -66,6 +66,14 @@ gboolean jsmn_is_json(const guint8* buf, const size_t len)
+@@ -26,6 +26,8 @@
+ #include <wsutil/jsmn.h>
+ #include "log.h"
+ 
++#include <string.h>
++
+ gboolean jsmn_is_json(const guint8* buf, const size_t len)
+ {
+         /* We expect no more than 1024 tokens */
+@@ -66,6 +68,14 @@ gboolean jsmn_is_json(const guint8* buf, const size_t len)
          return ret;
  }
  
