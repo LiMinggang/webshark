@@ -19,6 +19,8 @@
 
 #include <config.h>
 
+#include <glib.h>
+
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -30,6 +32,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+
+#include <wsutil/strtoi.h>
 
 /* sharkd_session.c */
 extern int sharkd_session_main(void);
@@ -48,13 +52,16 @@ socket_init(char *path)
 
 		path += 5;
 
+		if (strlen(path) + 1 > sizeof(s_un.sun_path))
+			return -1;
+
 		fd = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (fd == -1)
 			return -1;
 
 		memset(&s_un, 0, sizeof(s_un));
 		s_un.sun_family = AF_UNIX;
-		strcpy(s_un.sun_path, path);
+		strncpy(s_un.sun_path, path, sizeof(s_un.sun_path) - 1);
 
 		s_un_len = offsetof(struct sockaddr_un, sun_path) + strlen(s_un.sun_path);
 
@@ -73,21 +80,26 @@ socket_init(char *path)
 		struct sockaddr_in s_in;
 		int one = 1;
 		char *port_sep;
+		guint16 port;
 
 		path += 4;
-
-		fd = socket(AF_INET, SOCK_STREAM, 0);
-		if (fd == -1)
-			return -1;
 
 		port_sep = strchr(path, ':');
 		if (!port_sep)
 			return -1;
 
 		*port_sep = '\0';
+
+		if (ws_strtou16(port_sep + 1, NULL, &port) == FALSE)
+			return -1;
+
+		fd = socket(AF_INET, SOCK_STREAM, 0);
+		if (fd == -1)
+			return -1;
+
 		s_in.sin_family = AF_INET;
 		s_in.sin_addr.s_addr = inet_addr(path);
-		s_in.sin_port = htons(atoi(port_sep + 1));
+		s_in.sin_port = htons(port);
 		*port_sep = ':';
 
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -119,6 +131,7 @@ sharkd_init(int argc, char **argv)
 	// char server_sock[] = "tcp:127.0.0.1:4446";
 
 	int fd;
+	pid_t pid;
 
 	if (argc != 2)
 	{
@@ -129,12 +142,15 @@ sharkd_init(int argc, char **argv)
 	signal(SIGCHLD, SIG_IGN);
 
 	fd = socket_init(argv[1]);
-
 	if (fd == -1)
 		return -1;
 
 	/* all good - try to daemonize */
-	if (fork())
+	pid = fork();
+	if (pid == -1)
+		fprintf(stderr, "cannot go to background, sharkd will run in foreground");
+
+	if (pid != 0)
 	{
 		/* parent */
 		exit(0);
@@ -150,11 +166,18 @@ sharkd_loop(void)
 	while (1)
 	{
 		int fd;
+		pid_t pid;
 
 		fd = accept(_server_fd, NULL, NULL);
+		if (fd == -1)
+		{
+			fprintf(stderr, "cannot accept()\n");
+			continue;
+		}
 
 		/* wireshark is not ready for handling multiple capture files in single process, so fork(), and handle it in seperate process */
-		if (!fork())
+		pid = fork();
+		if (pid == 0)
 		{
 			/* redirect stdin, stdout to socket */
 			dup2(fd, 0);
@@ -164,8 +187,26 @@ sharkd_loop(void)
 			exit(sharkd_session_main());
 		}
 
+		if (pid == -1)
+		{
+			fprintf(stderr, "cannot fork(), closing socket\n");
+		}
+
 		close(fd);
 	}
 
 	return 0;
 }
+
+/*
+ * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 8
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * End:
+ *
+ * vi: set shiftwidth=8 tabstop=8 noexpandtab:
+ * :indentSize=8:tabSize=8:noTabs=false:
+ */

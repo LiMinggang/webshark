@@ -1326,7 +1326,7 @@ sharkd_load_cap_file(void)
 }
 
 int
-sharkd_dissect_request(int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
+sharkd_dissect_request(unsigned int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
 {
 	frame_data *fdata;
 	column_info *cinfo = (dissect_columns) ? &cfile.cinfo : NULL;

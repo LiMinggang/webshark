@@ -55,6 +55,8 @@
 # include <wsutil/pint.h>
 #endif
 
+#include <wsutil/strtoi.h>
+
 #include "sharkd.h"
 
 static struct register_ct *
@@ -118,92 +120,59 @@ json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *
 static void
 json_puts_string(const char *str)
 {
-	char buf[1024];
 	int i;
-	int out = 0;
 
 	if (str == NULL)
 		str = "";
 
-	buf[out++] = '"';
+	putchar('"');
 	for (i = 0; str[i]; i++)
 	{
-		if (out + 2 + 2 + 1 >= (int) sizeof(buf))
-		{
-			fwrite(buf, 1, out, stdout);
-			out = 0;
-		}
-
 		switch (str[i])
 		{
 			case '\\':
 			case '"':
-				buf[out++] = '\\';
-				buf[out++] = str[i];
+				putchar('\\');
+				putchar(str[i]);
 				break;
 
 			case '\n':
-				buf[out++] = '\\';
-				buf[out++] = 'n';
+				putchar('\\');
+				putchar('n');
 				break;
 
 			default:
-				buf[out++] = str[i];
+				putchar(str[i]);
 				break;
 		}
 	}
 
-	buf[out++] = '"';
-	fwrite(buf, 1, out, stdout);
+	putchar('"');
 }
 
 static void
 json_print_base64(const guint8 *data, int len)
 {
-	static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-	char buf[1024];
-	int out = 0;
 	int i;
+	int base64_state1 = 0;
+	int base64_state2 = 0;
+	gsize wrote;
+	gchar buf[(1 / 3 + 1) * 4 + 4];
 
-	int pad = len % 3;
+	putchar('"');
 
-	buf[out++] = '"';
-
-	for (i = 0; i < len; i += 3)
+	for (i = 0; i < len; i++)
 	{
-		guint32 n = ((guint32)data[i]) << 16;
-
-		if ((i + 1) < len)
-			n |= ((guint32)data[i + 1]) << 8;
-
-		if ((i + 2) < len)
-			n |= data[i + 2];
-
-		if (out + 4 + 3 + 1 >= (int) sizeof(buf))
-		{
-			fwrite(buf, 1, out, stdout);
-			out = 0;
-		}
-
-		buf[out++] = base64_str[(n >> 18) & 63];
-		buf[out++] = base64_str[(n >> 12) & 63];
-
-		if ((i + 1) < len)
-			buf[out++] = base64_str[(n >> 6) & 63];
-
-		if ((i + 2) < len)
-			buf[out++] = base64_str[n & 63];
+		wrote = g_base64_encode_step(&data[i], 1, FALSE, buf, &base64_state1, &base64_state2);
+		if (wrote > 0)
+			fwrite(buf, 1, wrote, stdout);
 	}
 
-	if (pad > 0)
-	{
-		for (; pad < 3; pad++)
-			buf[out++] = '=';
-	}
+	wrote = g_base64_encode_close(FALSE, buf, &base64_state1, &base64_state2);
+	if (wrote > 0)
+		fwrite(buf, 1, wrote, stdout);
 
-	buf[out++] = '"';
-	fwrite(buf, 1, out, stdout);
+	putchar('"');
 }
 
 struct filter_item
@@ -1697,7 +1666,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	nstime_t *start_ts = NULL;
 
-	unsigned int interval_ms = 1000; /* default: one per second */
+	guint32 interval_ms = 1000; /* default: one per second */
 
 	const char *sepa = "";
 	unsigned int framenum;
@@ -1705,7 +1674,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	int max_idx = 0;
 
 	if (tok_interval)
-		interval_ms = atoi(tok_interval);
+		(void) ws_strtou32(tok_interval, NULL, &interval_ms);
 
 	if (tok_filter)
 	{
@@ -1808,9 +1777,9 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	int tok_bytes   = (json_find_attr(buf, tokens, count, "bytes") != NULL);
 	int tok_columns = (json_find_attr(buf, tokens, count, "columns") != NULL);
 
-	int framenum;
+	guint32 framenum;
 
-	if (!tok_frame || !(framenum = atoi(tok_frame)))
+	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
 		return;
 
 	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto, NULL);
@@ -2390,3 +2359,16 @@ sharkd_session_main(void)
 
 	return 0;
 }
+
+/*
+ * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 8
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * End:
+ *
+ * vi: set shiftwidth=8 tabstop=8 noexpandtab:
+ * :indentSize=8:tabSize=8:noTabs=false:
+ */
