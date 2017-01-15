@@ -934,11 +934,11 @@ sharkd_session_process_tap_conv_cb(void *arg)
 				wmem_free(NULL, dst_port);
 			}
 
-			printf(",\"rxf\":%llu", (long long unsigned) iui->rx_frames);
-			printf(",\"rxb\":%llu", (long long unsigned) iui->rx_bytes);
+			printf(",\"rxf\":%" G_GUINT64_FORMAT, iui->rx_frames);
+			printf(",\"rxb\":%" G_GUINT64_FORMAT, iui->rx_bytes);
 
-			printf(",\"txf\":%llu", (long long unsigned) iui->tx_frames);
-			printf(",\"txb\":%llu", (long long unsigned) iui->tx_bytes);
+			printf(",\"txf\":%" G_GUINT64_FORMAT, iui->tx_frames);
+			printf(",\"txb\":%" G_GUINT64_FORMAT, iui->tx_bytes);
 
 			printf(",\"start\":%.9f", nstime_to_sec(&iui->start_time));
 			printf(",\"stop\":%.9f", nstime_to_sec(&iui->stop_time));
@@ -980,11 +980,11 @@ sharkd_session_process_tap_conv_cb(void *arg)
 				wmem_free(NULL, port_str);
 			}
 
-			printf(",\"rxf\":%llu", (long long unsigned) host->rx_frames);
-			printf(",\"rxb\":%llu", (long long unsigned) host->rx_bytes);
+			printf(",\"rxf\":%" G_GUINT64_FORMAT, host->rx_frames);
+			printf(",\"rxb\":%" G_GUINT64_FORMAT, host->rx_bytes);
 
-			printf(",\"txf\":%llu", (long long unsigned) host->tx_frames);
-			printf(",\"txb\":%llu", (long long unsigned) host->tx_bytes);
+			printf(",\"txf\":%" G_GUINT64_FORMAT, host->tx_frames);
+			printf(",\"txb\":%" G_GUINT64_FORMAT, host->tx_bytes);
 
 			filter_str = get_hostlist_filter(host);
 			if (filter_str)
@@ -1438,13 +1438,13 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 
 		if (finfo->ds_tvb && tvbs && tvbs[0] != finfo->ds_tvb)
 		{
-			int index;
+			int idx;
 
-			for (index = 1; tvbs[index]; index++)
+			for (idx = 1; tvbs[idx]; idx++)
 			{
-				if (tvbs[index] == finfo->ds_tvb)
+				if (tvbs[idx] == finfo->ds_tvb)
 				{
-					printf(",\"ds\":%d", index);
+					printf(",\"ds\":%d", idx);
 					break;
 				}
 			}
@@ -1661,7 +1661,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	struct
 	{
 		unsigned int frames;
-		unsigned long long bytes;
+		guint64 bytes;
 	} stat, stat_total;
 
 	nstime_t *start_ts = NULL;
@@ -1713,7 +1713,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 		{
 			if (stat.frames != 0)
 			{
-				printf("%s[%d,%u,%llu]", sepa, idx, stat.frames, stat.bytes);
+				printf("%s[%d,%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
 				sepa = ",";
 			}
 
@@ -1734,11 +1734,11 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	if (stat.frames != 0)
 	{
-		printf("%s[%d,%u,%llu]", sepa, idx, stat.frames, stat.bytes);
+		printf("%s[%d,%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
 		/* sepa = ","; */
 	}
 
-	printf("],\"last\":%d,\"frames\":%u,\"bytes\":%llu}\n", max_idx, stat_total.frames, stat_total.bytes);
+	printf("],\"last\":%d,\"frames\":%u,\"bytes\":%" G_GUINT64_FORMAT "}\n", max_idx, stat_total.frames, stat_total.bytes);
 }
 
 /**

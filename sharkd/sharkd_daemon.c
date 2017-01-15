@@ -61,7 +61,7 @@ socket_init(char *path)
 
 		memset(&s_un, 0, sizeof(s_un));
 		s_un.sun_family = AF_UNIX;
-		strncpy(s_un.sun_path, path, sizeof(s_un.sun_path) - 1);
+		g_strlcpy(s_un.sun_path, path, sizeof(s_un.sun_path));
 
 		s_un_len = offsetof(struct sockaddr_un, sun_path) + strlen(s_un.sun_path);
 
@@ -99,7 +99,7 @@ socket_init(char *path)
 
 		s_in.sin_family = AF_INET;
 		s_in.sin_addr.s_addr = inet_addr(path);
-		s_in.sin_port = htons(port);
+		s_in.sin_port = g_htons(port);
 		*port_sep = ':';
 
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
