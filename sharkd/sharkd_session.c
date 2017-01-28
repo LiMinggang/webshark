@@ -2,6 +2,10 @@
  *
  * Copyright (C) 2016 Jakub Zawadzki
  *
+ * Wireshark - Network traffic analyzer
+ * By Gerald Combs <gerald@wireshark.org>
+ * Copyright 1998 Gerald Combs
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -27,6 +31,7 @@
 #include <glib.h>
 
 #include <wsutil/wsjsmn.h>
+#include <wsutil/ws_printf.h>
 
 #include <file.h>
 #include <epan/exceptions.h>
@@ -417,7 +422,7 @@ sharkd_session_process_analyse_cb(packet_info *pi, proto_tree *tree, struct epan
 
 	if (pi->layers)
 	{
-		wmem_list_frame_t *frame = wmem_list_head(pi->layers);
+		wmem_list_frame_t *frame;
 
 		for (frame = wmem_list_head(pi->layers); frame; frame = wmem_list_frame_next(frame))
 		{
@@ -738,7 +743,7 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 #ifdef HAVE_GEOIP
 	if (addr->type == AT_IPv4)
 	{
-		uint32_t ip = pntoh32(addr->data);
+		guint32 ip = pntoh32(addr->data);
 
 		guint num_dbs = geoip_db_num_dbs();
 		guint dbnum;
@@ -1262,7 +1267,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 		taps_data[i] = NULL;
 
-		snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
+		ws_snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
 		tok_tap = json_find_attr(buf, tokens, count, tapbuf);
 		if (!tok_tap)
 			break;
@@ -1670,11 +1675,15 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	const char *sepa = "";
 	unsigned int framenum;
-	int idx;
-	int max_idx = 0;
+	gint64 idx;
+	gint64 max_idx = 0;
 
-	if (tok_interval)
-		(void) ws_strtou32(tok_interval, NULL, &interval_ms);
+	if (tok_interval) {
+		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0) {
+			fprintf(stderr, "Invalid interval parameter: %s.\n", tok_interval);
+			return;
+		}
+	}
 
 	if (tok_filter)
 	{
@@ -1696,8 +1705,8 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
 		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
-		int msec_rel;
-		int new_idx;
+		gint64 msec_rel;
+		gint64 new_idx;
 
 		if (start_ts == NULL)
 			start_ts = &fdata->abs_ts;
@@ -1705,15 +1714,14 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
 
-		/* TODO, make it 64-bit, to avoid msec overflow after 24days */
-		msec_rel = ((fdata->abs_ts.secs - start_ts->secs) * 1000 + (fdata->abs_ts.nsecs - start_ts->nsecs) / 1000000);
+		msec_rel = (fdata->abs_ts.secs - start_ts->secs) * (gint64) 1000 + (fdata->abs_ts.nsecs - start_ts->nsecs) / 1000000;
 		new_idx  = msec_rel / interval_ms;
 
 		if (idx != new_idx)
 		{
 			if (stat.frames != 0)
 			{
-				printf("%s[%d,%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
+				printf("%s[%" G_GINT64_FORMAT ",%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
 				sepa = ",";
 			}
 
@@ -1734,11 +1742,11 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	if (stat.frames != 0)
 	{
-		printf("%s[%d,%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
+		printf("%s[%" G_GINT64_FORMAT ",%u,%" G_GUINT64_FORMAT "]", sepa, idx, stat.frames, stat.bytes);
 		/* sepa = ","; */
 	}
 
-	printf("],\"last\":%d,\"frames\":%u,\"bytes\":%" G_GUINT64_FORMAT "}\n", max_idx, stat_total.frames, stat_total.bytes);
+	printf("],\"last\":%" G_GINT64_FORMAT ",\"frames\":%u,\"bytes\":%" G_GUINT64_FORMAT "}\n", max_idx, stat_total.frames, stat_total.bytes);
 }
 
 /**
@@ -2023,7 +2031,7 @@ sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
 	if (!tok_name || tok_name[0] == '\0' || !tok_value)
 		return;
 
-	snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
+	ws_snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
 
 	ret = prefs_set_pref(pref);
 	printf("{\"err\":%d}\n", ret);
@@ -2304,11 +2312,12 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 		else if (!strcmp(tok_req, "dumpconf"))
 			sharkd_session_process_dumpconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))
-			_Exit(0);
+			exit(0);
 		else
 			fprintf(stderr, "::: req = %s\n", tok_req);
 
 		printf("\n");
+		fflush(stdout);
 	}
 }
 
@@ -2320,7 +2329,6 @@ sharkd_session_main(void)
 	int tokens_max = -1;
 
 	fprintf(stderr, "Hello in child!\n");
-	setlinebuf(stdout);
 
 	while (fgets(buf, sizeof(buf), stdin))
 	{
@@ -2334,7 +2342,7 @@ sharkd_session_main(void)
 			return 1;
 		}
 
-		fprintf(stderr, "JSON: %d tokens\n", ret);
+		/* fprintf(stderr, "JSON: %d tokens\n", ret); */
 		ret += 1;
 
 		if (tokens == NULL || tokens_max < ret)
