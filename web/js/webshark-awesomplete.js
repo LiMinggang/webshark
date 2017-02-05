@@ -23,6 +23,7 @@ var _ = function (input, o) {
 	configure(this, {
 		minChars: 2,
 		maxItems: 10,
+		maxHeight: undefined,
 		autoFirst: false,
 		data: _.DATA,
 		filter: _.FILTER_CONTAINS,
@@ -44,6 +45,11 @@ var _ = function (input, o) {
 		hidden: "hidden",
 		inside: this.container
 	});
+
+	if (this.maxItems == 0 && this.maxHeight) {
+		this.ul.style.overflowY = 'auto';
+		this.ul.style.maxHeight = this.maxHeight;
+	}
 
 	this.status = $.create("span", {
 		className: "visually-hidden",
@@ -247,14 +253,14 @@ _.prototype = {
 				});
 
 			var total_count = this.suggestions.length;
-			if (total_count > this.maxItems)
+			if (this.maxItems > 0 && total_count > this.maxItems)
 				this.suggestions = this.suggestions.slice(0, this.maxItems);
 
 			this.suggestions.forEach(function(text) {
 					me.ul.appendChild(me.item(text, value));
 				});
 
-			if (total_count > this.maxItems) {
+			if (this.maxItems > 0 && total_count > this.maxItems) {
 				var rest = total_count - this.maxItems;
 				me.ul.appendChild($.create("li", { innerHTML: rest + ' items more...', className: 'truncated' }));
 			}

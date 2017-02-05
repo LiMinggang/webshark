@@ -227,7 +227,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				{
 					filter: Awesomplete.FILTER_STARTSWITH,
 					getvalue: function(f) { return filter_input_extractor(f)[0]; },
-					maxItems: 16,
+					maxItems: 0,
+					maxHeight: '250px',
 					item: function (text, input)
 						{
 							var html = input === '' ?
