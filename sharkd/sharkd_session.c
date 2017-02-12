@@ -795,7 +795,6 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 			}
 		}
 	}
-#endif
 #ifdef HAVE_GEOIP_V6
 	if (addr->type == AT_IPv6)
 	{
@@ -851,7 +850,8 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 			}
 		}
 	}
-#endif
+#endif /* HAVE_GEOIP_V6 */
+#endif /* HAVE_GEOIP */
 
 	return with_geoip;
 }
@@ -1863,11 +1863,13 @@ static guint
 sharkd_session_process_complete_pref_option_cb(pref_t *pref, gpointer d)
 {
 	struct sharkd_session_process_complete_pref_data *data = (struct sharkd_session_process_complete_pref_data *) d;
+	const char *pref_name = prefs_get_name(pref);
+	const char *pref_title = prefs_get_title(pref);
 
-	if (strncmp(data->pref, pref->name, strlen(data->pref)) != 0)
+	if (strncmp(data->pref, pref_name, strlen(data->pref)) != 0)
 		return 0;
 
-	printf("%s{\"f\":\"%s.%s\",\"d\":\"%s\"}", data->sepa, data->module, pref->name, pref->title);
+	printf("%s{\"f\":\"%s.%s\",\"d\":\"%s\"}", data->sepa, data->module, pref_name, pref_title);
 	data->sepa = ",";
 
 	return 0; /* continue */
@@ -2047,24 +2049,26 @@ static guint
 sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 {
 	struct sharkd_session_process_dumpconf_data *data = (struct sharkd_session_process_dumpconf_data *) d;
+	const char *pref_name = prefs_get_name(pref);
 
-	printf("%s\"%s.%s\":{", data->sepa, data->module->name, pref->name);
+	printf("%s\"%s.%s\":{", data->sepa, data->module->name, pref_name);
 
-	switch (pref->type)
+	switch (prefs_get_type(pref))
 	{
 		case PREF_UINT:
-			printf("\"u\":%u", *pref->varp.uint);
-			if (pref->info.base != 10)
-				printf(",\"ub\":%d", pref->info.base);
+		case PREF_DECODE_AS_UINT:
+			printf("\"u\":%u", prefs_get_uint_value_real(pref, pref_current));
+			if (prefs_get_uint_base(pref) != 10)
+				printf(",\"ub\":%d", prefs_get_uint_base(pref));
 			break;
 
 		case PREF_BOOL:
-			printf("\"b\":%s", *pref->varp.boolp ? "1" : "0");
+			printf("\"b\":%s", prefs_get_bool_value(pref, pref_current) ? "1" : "0");
 			break;
 
 		case PREF_STRING:
 			printf("\"s\":");
-			json_puts_string(*pref->varp.string);
+			json_puts_string(prefs_get_string_value(pref, pref_current));
 			break;
 
 		case PREF_ENUM:
@@ -2073,11 +2077,11 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 			const char *enum_sepa = "";
 
 			printf("\"e\":[");
-			for (enums = pref->info.enum_info.enumvals; enums->name; enums++)
+			for (enums = prefs_get_enumvals(pref); enums->name; enums++)
 			{
 				printf("%s{\"v\":%d", enum_sepa, enums->value);
 
-				if (enums->value == *pref->varp.enump)
+				if (enums->value == prefs_get_enum_value(pref, pref_current))
 					printf(",\"s\":1");
 
 				printf(",\"d\":");
@@ -2091,8 +2095,9 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 		}
 
 		case PREF_RANGE:
+		case PREF_DECODE_AS_RANGE:
 		{
-			char *range_str = range_convert_range(NULL, *pref->varp.range);
+			char *range_str = range_convert_range(NULL, prefs_get_range_value_real(pref, pref_current));
 			printf("\"r\":\"%s\"", range_str);
 			wmem_free(NULL, range_str);
 			break;
@@ -2100,7 +2105,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 
 		case PREF_UAT:
 		{
-			uat_t *uat = pref->varp.uat;
+			uat_t *uat = prefs_get_uat_value(pref);
 			guint idx;
 
 			printf("\"t\":[");
@@ -2131,8 +2136,6 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 			break;
 		}
 
-		case PREF_DECODE_AS_UINT:
-		case PREF_DECODE_AS_RANGE:
 		case PREF_COLOR:
 		case PREF_CUSTOM:
 		case PREF_STATIC_TEXT:
@@ -2316,7 +2319,23 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 		else
 			fprintf(stderr, "::: req = %s\n", tok_req);
 
+		/* reply for every command are 0+ lines of JSON reply (outputed above), finished by empty new line */
 		printf("\n");
+
+		/*
+		 * We do an explicit fflush after every line, because
+		 * we want output to be written to the socket as soon
+		 * as the line is complete.
+		 *
+		 * The stream is fully-buffered by default, so it's
+		 * only flushed when the buffer fills or the FILE *
+		 * is closed.  On UN*X, we could set it to be line
+		 * buffered, but the MSVC standard I/O routines don't
+		 * support line buffering - they only support *byte*
+		 * buffering, doing a write for every byte written,
+		 * which is too inefficient, and full buffering,
+		 * which is what you get if you request line buffering.
+		 */
 		fflush(stdout);
 	}
 }
