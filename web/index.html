@@ -18,7 +18,9 @@
 		var ws_columns = null;
 
 		var ws_ftypes = [ ];
+		var ws_taps  = [ ];
 		var ws_stats = [ ];
+		var ws_eo    = [ ];
 		var ws_convs = [ ];
 
 		var ws_pref = { };
@@ -285,6 +287,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					create_tap_menu('report_menu', ws_convs);
 					create_tap_menu('report_menu2', ws_taps);
 					create_tap_menu('report_menu2', ws_stats);
+					create_tap_menu('report_menu2', ws_eo);
 				}
 
 				webshark_load_capture(filter, ws_columns);
@@ -446,6 +449,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				{
 					ws_taps  = data['taps'];
 					ws_stats = data['stats'];
+					ws_eo    = data['eo'];
 					ws_convs = data['convs'];
 					ws_ftypes = data['ftypes'];
 

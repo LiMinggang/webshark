@@ -201,7 +201,9 @@ function webshark_glyph(what)
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/play.svg */
 		'play': "M1576 927l-1328 738q-23 13-39.5 3t-16.5-36v-1472q0-26 16.5-36t39.5 3l1328 738q23 13 23 31t-23 31z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/stop.svg */
-		'stop': "M1664 192v1408q0 26-19 45t-45 19h-1408q-26 0-45-19t-19-45v-1408q0-26 19-45t45-19h1408q26 0 45 19t19 45z"
+		'stop': "M1664 192v1408q0 26-19 45t-45 19h-1408q-26 0-45-19t-19-45v-1408q0-26 19-45t45-19h1408q26 0 45 19t19 45z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/download.svg */
+		'download': "M1344 1344q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm256 0q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm128-224v320q0 40-28 68t-68 28h-1472q-40 0-68-28t-28-68v-320q0-40 28-68t68-28h465l135 136q58 56 136 56t136-56l136-136h464q40 0 68 28t28 68zm-325-569q17 41-14 70l-448 448q-18 19-45 19t-45-19l-448-448q-31-29-14-70 17-39 59-39h256v-448q0-26 19-45t45-19h256q26 0 45 19t19 45v448h256q42 0 59 39z"
 	};
 
 	var svg;
@@ -212,6 +214,7 @@ function webshark_glyph(what)
 		case 'filter':
 		case 'play':
 		case 'stop':
+		case 'download':
 		{
 			svg = d3.select("body").append("svg").remove()
 			   .attr("width", 1792)
@@ -1063,6 +1066,15 @@ var webshark_host_fields_geo =
 	'geoip_lon': 'GeoIP Lon'
 };
 
+var webshark_eo_fields =
+{
+	'pkt': 'Packet number',
+	'hostname': 'Hostname',
+	'type': 'Content Type',
+	'filename': 'Filename',
+	'len': 'Length'
+};
+
 var webshark_rtp_streams_fields =
 {
 	'saddr': 'Src addr',
@@ -1176,6 +1188,23 @@ function webshark_create_tap_action_common(data)
 
 		filter_a.appendChild(glyph);
 		td.appendChild(filter_a);
+	}
+
+	if (data['_download'])
+	{
+		var down_a = document.createElement('a');
+
+		down_a.setAttribute("target", "_blank");
+
+		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_download']));
+		down_a.addEventListener("click", popup_on_click_a);
+
+		var glyph = webshark_glyph_img('download', 16);
+		glyph.setAttribute('alt', 'Download: ' + data['_download']);
+		glyph.setAttribute('title', 'Download: ' + data['_download']);
+
+		down_a.appendChild(glyph);
+		td.appendChild(down_a);
 	}
 
 	td.className = "ws_border";
@@ -1445,6 +1474,16 @@ function webshark_render_tap(tap)
 		});
 
 		document.getElementById('ws_tap_graph').appendChild(svg.node());
+	}
+	else if (tap['type'] == 'eo')
+	{
+		var table = webshark_create_tap_table_common(webshark_eo_fields);
+		var objects = tap['objects'];
+
+		webshark_create_tap_table_data_common(webshark_eo_fields, table, objects);
+
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("Export " + tap['proto'] + " object (" + objects.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'voip-calls')
 	{

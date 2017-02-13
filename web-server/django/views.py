@@ -26,6 +26,7 @@ import os
 import threading
 import socket
 import json
+import base64
 import subprocess
 
 from .models import Capture, CaptureSettings
@@ -147,9 +148,28 @@ def json_handle_request(request):
             lock.release()
         ret = None
 
+    if req == 'download':
+        ## FIXME
+
+        js = json.loads(ret)
+        mime = js['mime']
+        filename = js['file']
+        data = base64.b64decode(js['data'])
+
+        response = HttpResponse(content_type=mime)
+        response['Content-Disposition'] = 'attachment; filename="' + filename + '"'
+
+        response.write(data)
+        return response
+
     return ret
 
 def json_req(request):
     # js = json.dumps(json_handle_request(request))
     js = json_handle_request(request)
+
+    ## FIXME
+    if isinstance(js, HttpResponse):
+        return js
+
     return HttpResponse(js, content_type="application/json")

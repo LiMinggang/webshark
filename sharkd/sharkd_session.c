@@ -46,6 +46,7 @@
 #include <epan/stats_tree_priv.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
+#include <epan/export_object.h>
 
 #include <epan/dissectors/packet-h225.h>
 #include <epan/rtp_pt.h>
@@ -60,6 +61,7 @@
 # include <wsutil/pint.h>
 #endif
 
+#include <wsutil/glib-compat.h>
 #include <wsutil/strtoi.h>
 
 #include "sharkd.h"
@@ -255,6 +257,25 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
 	}
 }
 
+static gboolean
+sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
+{
+	register_eo_t *eo = (register_eo_t*)value;
+	int *pi = (int *) user_data;
+
+	const int proto_id = get_eo_proto_id(eo);
+	const char *filter = proto_get_protocol_filter_name(proto_id);
+	const char *label  = proto_get_protocol_short_name(find_protocol_by_id(proto_id));
+
+	printf("%s{", (*pi) ? "," : "");
+		printf("\"name\":\"Export Object/%s\"", label);
+		printf(",\"tap\":\"eo:%s\"", filter);
+	printf("}");
+
+	*pi = *pi + 1;
+	return FALSE;
+}
+
 /**
  * sharkd_session_process_info()
  *
@@ -271,6 +292,10 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
  *
  *   (m) convs   - available conversation list, array of object with attributes:
  *                  'name' - conversation name
+ *                  'tap'  - sharkd tap-name for conversation
+ *
+ *   (m) eo      - available export object list, array of object with attributes:
+ *                  'name' - export object name
  *                  'tap'  - sharkd tap-name for conversation
  *
  *   (m) taps - available taps, array of object with attributes:
@@ -340,6 +365,11 @@ sharkd_session_process_info(void)
 		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "RTP streams", "rtp-streams");
 	}
+	printf("]");
+
+	printf(",\"eo\":[");
+	i = 0;
+	eo_iterate_tables(sharkd_export_object_visit_cb, &i);
 	printf("]");
 
 	printf("}\n");
@@ -1015,6 +1045,97 @@ sharkd_session_process_tap_conv_cb(void *arg)
 	printf("],\"proto\":\"%s\",\"geoip\":%s},", proto, with_geoip ? "true" : "false");
 }
 
+struct sharkd_export_object_list
+{
+	struct sharkd_export_object_list *next;
+
+	char *type;
+	const char *proto;
+	GSList *entries;
+};
+
+static struct sharkd_export_object_list *sharkd_eo_list;
+
+/**
+ * sharkd_session_process_tap_eo_cb()
+ *
+ * Output eo tap:
+ *   (m) tap        - tap name
+ *   (m) type       - tap output type
+ *   (m) proto      - protocol short name
+ *   (m) objects    - array of object with attributes:
+ *                  (m) pkt - packet number
+ *                  (o) hostname - hostname
+ *                  (o) type - content type
+ *                  (o) filename - filename
+ *                  (m) len - object length
+ */
+static void
+sharkd_session_process_tap_eo_cb(void *tapdata)
+{
+	export_object_list_t *tap_object = (export_object_list_t *) tapdata;
+	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list*) tap_object->gui_data;
+	GSList *slist;
+	int i = 0;
+
+	printf("{\"tap\":\"%s\",\"type\":\"eo\"", object_list->type);
+	printf(",\"proto\":\"%s\"", object_list->proto);
+	printf(",\"objects\":[");
+
+	for (slist = object_list->entries; slist; slist = slist->next)
+	{
+		const export_object_entry_t *eo_entry = (export_object_entry_t *) slist->data;
+
+		printf("%s{", i ? "," : "");
+
+		printf("\"pkt\":%u", eo_entry->pkt_num);
+
+		if (eo_entry->hostname)
+		{
+			printf(",\"hostname\":");
+			json_puts_string(eo_entry->hostname);
+		}
+
+		if (eo_entry->content_type)
+		{
+			printf(",\"type\":");
+			json_puts_string(eo_entry->content_type);
+		}
+
+		if (eo_entry->filename)
+		{
+			printf(",\"filename\":");
+			json_puts_string(eo_entry->filename);
+		}
+
+		printf(",\"_download\":\"%s_%d\"", object_list->type, i);
+
+		printf(",\"len\":%" G_GUINT64_FORMAT, eo_entry->payload_len);
+
+		printf("}");
+
+		i++;
+	}
+
+	printf("]},");
+}
+
+static void
+sharkd_eo_object_list_add_entry(void *gui_data, export_object_entry_t *entry)
+{
+	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list *) gui_data;
+
+	object_list->entries = g_slist_append(object_list->entries, entry);
+}
+
+static export_object_entry_t *
+sharkd_eo_object_list_get_entry(void *gui_data, int row)
+{
+	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list *) gui_data;
+
+	return (export_object_entry_t *) g_slist_nth_data(object_list->entries, row);
+}
+
 /**
  * sharkd_session_process_tap_rtp_cb()
  *
@@ -1245,6 +1366,7 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
  *                  for type:host see sharkd_session_process_tap_conv_cb()
  *                  for type:voip-calls see sharkd_session_process_tap_voip_calls_cb()
  *                  for type:rtp-streams see sharkd_session_process_tap_rtp_cb()
+ *                  for type:eo see sharkd_session_process_tap_eo_cb()
  *
  *   (m) err   - error code
  */
@@ -1343,6 +1465,47 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, tap_func, sharkd_session_process_tap_conv_cb);
 
 			tap_data = &ct_data->hash;
+		}
+		else if (!strncmp(tok_tap, "eo:", 3))
+		{
+			register_eo_t *eo = get_eo_by_name(tok_tap + 3);
+			export_object_list_t *eo_object;
+			struct sharkd_export_object_list *object_list;
+
+			if (!eo)
+			{
+				fprintf(stderr, "sharkd_session_process_tap() eo=%s not found\n", tok_tap + 3);
+				continue;
+			}
+
+			for (object_list = sharkd_eo_list; object_list; object_list = object_list->next)
+			{
+				if (!strcmp(object_list->type, tok_tap))
+				{
+					g_slist_free_full(object_list->entries, (GDestroyNotify) eo_free_entry);
+					object_list->entries = NULL;
+					break;
+				}
+			}
+
+			if (!object_list)
+			{
+				object_list = g_new(struct sharkd_export_object_list, 1);
+				object_list->type = g_strdup(tok_tap);
+				object_list->proto = proto_get_protocol_short_name(find_protocol_by_id(get_eo_proto_id(eo)));
+				object_list->entries = NULL;
+				object_list->next = sharkd_eo_list;
+				sharkd_eo_list = object_list;
+			}
+
+			eo_object  = g_new0(export_object_list_t, 1);
+			eo_object->add_entry = sharkd_eo_object_list_add_entry;
+			eo_object->get_entry = sharkd_eo_object_list_get_entry;
+			eo_object->gui_data = (void *) object_list;
+
+			tap_error = register_tap_listener(get_eo_tap_listener_name(eo), eo_object, NULL, 0, NULL, get_eo_packet_func(eo), sharkd_session_process_tap_eo_cb);
+
+			tap_data = eo_object;
 		}
 		else if (!strcmp(tok_tap, "voip-calls"))
 		{
@@ -2270,6 +2433,63 @@ sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
     }
 }
 
+/**
+ * sharkd_session_process_download()
+ *
+ * Process download request
+ *
+ * Input:
+ *   (m) token  - token to download
+ *
+ * Output object with attributes:
+ *   (o) file - suggested name of file
+ *   (o) mime - suggested content type
+ *   (o) data - payload base64 encoded
+ */
+static void
+sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_token      = json_find_attr(buf, tokens, count, "token");
+
+	if (!tok_token)
+		return;
+
+	if (!strncmp(tok_token, "eo:", 3))
+	{
+		struct sharkd_export_object_list *object_list;
+		const export_object_entry_t *eo_entry = NULL;
+
+		for (object_list = sharkd_eo_list; object_list; object_list = object_list->next)
+		{
+			size_t eo_type_len = strlen(object_list->type);
+
+			if (!strncmp(tok_token, object_list->type, eo_type_len) && tok_token[eo_type_len] == '_')
+			{
+				int row;
+
+				sscanf(&tok_token[eo_type_len + 1], "%d", &row);
+
+				eo_entry = (export_object_entry_t *) g_slist_nth_data(object_list->entries, row);
+				break;
+			}
+		}
+
+		if (eo_entry)
+		{
+			const char *mime     = (eo_entry->content_type) ? eo_entry->content_type : "application/octet-stream";
+			const char *filename = (eo_entry->filename) ? eo_entry->filename : tok_token;
+
+			printf("{\"file\":");
+			json_puts_string(filename);
+			printf(",\"mime\":");
+			json_puts_string(mime);
+			printf(",\"data\":");
+			json_print_base64(eo_entry->payload_data, eo_entry->payload_len);
+			printf("}\n");
+		}
+	}
+}
+
 static void
 sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -2340,6 +2560,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_setconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "dumpconf"))
 			sharkd_session_process_dumpconf(buf, tokens, count);
+		else if (!strcmp(tok_req, "download"))
+			sharkd_session_process_download(buf, tokens, count);
 		else if (!strcmp(tok_req, "bye"))
 			exit(0);
 		else
