@@ -64,6 +64,7 @@ table.ws_border
 .ws_gui_text_invalid    { background-color: #ffb0b0; }
 
 .ws_cell_protocol             { background-color: #E5E5E5; }
+.ws_cell_link                 { color: blue; text-decoration: underline; } /* render_as_url() */
 .ws_cell_expert_color_comment { background-color: #b7f8f4; }
 .ws_cell_expert_color_chat    { background-color: #80b7f7; }
 .ws_cell_expert_color_note    { background-color: #a0ffff; }

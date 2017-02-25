@@ -1467,8 +1467,26 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 		if (finfo->appendix_start >= 0 && finfo->appendix_length > 0)
 			printf(",\"i\":[%u,%u]", finfo->appendix_start, finfo->appendix_length);
 
-		if (finfo->hfinfo && finfo->hfinfo->type == FT_PROTOCOL)
-			printf(",\"t\":\"proto\"");
+
+		if (finfo->hfinfo)
+		{
+			if (finfo->hfinfo->type == FT_PROTOCOL)
+			{
+				printf(",\"t\":\"proto\"");
+			}
+			else if (finfo->hfinfo->type == FT_FRAMENUM)
+			{
+				printf(",\"t\":\"framenum\",\"fnum\":%u", finfo->value.value.uinteger);
+			}
+			else if (FI_GET_FLAG(finfo, FI_URL) && IS_FT_STRING(finfo->hfinfo->type))
+			{
+				char *url = fvalue_to_string_repr(NULL, &finfo->value, FTREPR_DISPLAY, finfo->hfinfo->display);
+
+				printf(",\"t\":\"url\",\"url\":");
+				json_puts_string(url);
+				wmem_free(NULL, url);
+			}
+		}
 
 		if (FI_GET_FLAG(finfo, PI_SEVERITY_MASK))
 		{
@@ -1770,7 +1788,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *   (m) err   - 0 if succeed
  *   (o) tree  - array of frame nodes with attributes:
  *                  l - label
- *                  t: 'proto'
+ *                  t: 'proto', 'framenum', 'url' - type of node
  *                  s - severity
  *                  e - subtree ett index
  *                  n - array of subtree nodes
@@ -1778,6 +1796,8 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *                  i - two item array: (appendix start, appendix length)
  *                  p - [RESERVED] two item array: (protocol start, protocol length)
  *                  ds- data src index
+ *                  url  - only for t:'url', url
+ *                  fnum - only for t:'framenum', frame number
  *
  *   (o) col   - array of column data
  *   (o) bytes - base64 of frame bytes

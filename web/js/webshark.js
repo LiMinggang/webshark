@@ -775,6 +775,20 @@ function webshark_frame_on_click(ev)
 	ev.preventDefault();
 }
 
+function webshark_frame_goto(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_frame');
+	if (node != null)
+	{
+		webshark_load_frame(node.data_ws_frame);
+		// TODO: also scroll table to that position.
+	}
+
+	ev.preventDefault();
+}
+
 function webshark_create_file_row_html(file, row_no)
 {
 	var tr = document.createElement("tr");
@@ -897,13 +911,34 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 		var finfo = tree[i];
 
 		var li = document.createElement("li");
-		li.appendChild(document.createTextNode(finfo['l']));
-		ul.appendChild(li);
+		var txt_node = document.createTextNode(finfo['l']);
 
 		if (finfo['s'])
 			li.className = 'ws_cell_expert_color_' + finfo['s'];
 		else if (finfo['t'] == "proto")
 			li.className = 'ws_cell_protocol';
+		else if (finfo['t'] == "url")
+		{
+			// TODO: url in finfo['url'] but not trusted, so don't generate link.
+			li.className = 'ws_cell_link';
+		}
+		else if (finfo['t'] == "framenum")
+		{
+			var a = document.createElement('a');
+
+			a.appendChild(txt_node);
+
+			a.setAttribute("target", "_blank");
+			a.setAttribute("href", webshark_get_url() + "&frame=" + finfo['fnum']);
+			a.addEventListener("click", webshark_frame_goto);
+
+			a.data_ws_frame = finfo['fnum'];
+
+			txt_node = a;
+		}
+
+		li.appendChild(txt_node);
+		ul.appendChild(li);
 
 		if (level > 1 && proto_tree['h'] != undefined)
 		{
