@@ -58,7 +58,7 @@ Hexdump.prototype.render_hexdump = function()
 	s = "";
 	for (var i = 0; i < pkt.length; i += full_limit)
 	{
-		var str_off = xtoa(i, 4);
+		var str_off = "<span class='hexdump_offset'>" + xtoa(i, 4) + " </span>";
 		var str_hex = "";
 		var str_ascii = "";
 
@@ -122,7 +122,7 @@ Hexdump.prototype.render_hexdump = function()
 			str_ascii += " ";
 		}
 
-		line = str_off + "  " + str_hex + " " + str_ascii + "\n";
+		line = str_off + " " + str_hex + " " + str_ascii + "\n";
 		s += line;
 	}
 

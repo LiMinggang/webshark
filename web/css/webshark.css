@@ -3,6 +3,11 @@ tr.selected
 	background-color: #0080FF !important;
 }
 
+span.hexdump_offset
+{
+	background-color: #dddddd;
+}
+
 span.selected_bytes
 {
 	background-color: #0080FF;
