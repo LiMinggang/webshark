@@ -4,7 +4,7 @@
 <head>
 	<meta charset="utf-8">
 
-	<title>${CAPTURE_FILE} - webshark ${WEBSHARK_VER}</title>
+	<title>webshark ${WEBSHARK_VER}</title>
 
 	<link rel="stylesheet" href="css/webshark.css" type="text/css">
 	<link rel="stylesheet" href="css/awesomplete.css" type="text/css">
@@ -218,7 +218,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			var opt = parse_query(window.location.href.split("?")[1]);
 
 			_webshark_file = opt['file'];
-			document.title = document.title.replace("${CAPTURE_FILE}", _webshark_file);
 
 			var frame = opt['frame'];
 			var tap = opt['tap'];
@@ -247,6 +246,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				});
 
 			if (tap) {
+				document.title = "Report of " + _webshark_file + " - " + document.title;
+
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
 				document.getElementById('ws_packet_detail_view').style.display = 'none';
@@ -257,6 +258,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				webshark_load_tap(tap.split(","));
 
 			} else if (frame) {
+				document.title = _webshark_file + " #" + frame + " - " + document.title;
+
 				webshark_load_frame(frame);
 
 				document.getElementById('toolbar_capture').style.display = 'none';
@@ -265,6 +268,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				document.getElementById('toolbar_frame').style.display = 'block';
 
 			} else if (_webshark_file) {
+				document.title = _webshark_file + " - " + document.title;
+
 				var filter = opt['filter'];
 
 				if (filter)
@@ -285,6 +290,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				webshark_load_capture(filter, ws_columns);
 
 			} else {
+				document.title = "Capture files - " + document.title;
+
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
 				document.getElementById('ws_packet_detail_view').style.display = 'none';
