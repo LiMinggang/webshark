@@ -132,6 +132,19 @@ def json_handle_request(request):
         if os.path.isfile(cap_dir + cap_file) == False:
             return json.dumps(dict(err=1, errstr="No such capture file"))
 
+    if req == 'download':
+        ## FIXME
+        if request.GET.get('token', '') == 'self':
+            mime = "application/octet-stream"
+            filename = cap_file
+            data = open(cap_dir + cap_file, "rb").read()
+
+            response = HttpResponse(content_type=mime)
+            response['Content-Disposition'] = 'attachment; filename="' + filename + '"'
+
+            response.write(data)
+            return response
+
     try:
         lock.acquire()
         shark = sharkd_instance(cap_file)
@@ -150,7 +163,6 @@ def json_handle_request(request):
 
     if req == 'download':
         ## FIXME
-
         js = json.loads(ret)
         mime = js['mime']
         filename = js['file']

@@ -282,6 +282,25 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					checkfilter(el_filter);
 				}
 
+				/* Link to download capture file */
+				{
+					var down_a = document.createElement('a');
+
+					down_a.setAttribute("target", "_blank");
+
+					down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=self");
+					down_a.addEventListener("click", popup_on_click_a);
+
+					var glyph = webshark_glyph_img('download', 16);
+					glyph.setAttribute('alt', 'Download capture file');
+					glyph.setAttribute('title', 'Download capture file');
+
+					down_a.appendChild(glyph);
+
+					var toolbar = document.getElementById('toolbar_capture');
+					toolbar.insertBefore(down_a, toolbar.childNodes[0]);
+				}
+
 				if (opt['hide_menu'] == undefined)
 				{
 					create_tap_menu('report_menu', ws_convs);
