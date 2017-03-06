@@ -602,6 +602,78 @@ function webshark_frame_row_on_click(ev)
 
 var _webshark_selected_file = null;
 
+function webshark_create_file_details(file)
+{
+	var div = document.createElement('div');
+	var p;
+
+	a = document.createElement('a');
+
+	a.appendChild(document.createTextNode('Load'));
+	a.setAttribute("href", file['url']);
+	div.appendChild(a);
+
+	p = document.createElement('p');
+	p.appendChild(document.createTextNode('File: ' + file['name']));
+	div.appendChild(p);
+
+	p = document.createElement('p');
+	p.appendChild(document.createTextNode('Size: ' + file['size']));
+	div.appendChild(p);
+
+	if (file['analysis'])
+	{
+		p = document.createElement('p');
+		p.appendChild(document.createTextNode('Frames: ' + file['analysis']['frames']));
+		div.appendChild(p);
+
+		/* Time */
+		var first = file['analysis']['first'];
+		var last  = file['analysis']['last'];
+
+		if (first && last)
+		{
+			var dura  = last - first;
+
+			var format = d3.utcFormat; /* XXX, check if UTC */
+
+			p = document.createElement('p');
+			p.appendChild(document.createTextNode('From: ' + format(new Date(first * 1000))));
+			div.appendChild(p);
+
+			p = document.createElement('p');
+			p.appendChild(document.createTextNode('To: ' + format(new Date(last * 1000))));
+			div.appendChild(p);
+
+			p = document.createElement('p');
+			p.appendChild(document.createTextNode('Duration: ' + (last - first) + " s"));
+			div.appendChild(p);
+		}
+
+		/* Protocols */
+		var protos = file['analysis']['protocols'];
+		if (protos && protos.length > 0)
+		{
+			var ul = document.createElement('ul')
+			ul.className = 'proto';
+
+			div.appendChild(document.createElement('p').appendChild(document.createTextNode('Protocols:')));
+			for (var k = 0; k < protos.length; k++)
+			{
+				var proto_li = document.createElement('li');
+
+				proto_li.appendChild(document.createTextNode(protos[k]));
+				proto_li.className = 'proto';
+
+				ul.appendChild(proto_li);
+			}
+			div.appendChild(ul);
+		}
+	}
+
+	return div;
+}
+
 function webshark_file_row_on_click(ev)
 {
 	var file_node;
@@ -618,73 +690,9 @@ function webshark_file_row_on_click(ev)
 	{
 		var file = file_node['ws_file_data'];
 
-		var div = document.createElement('div');
-		var p;
+		file['url'] = window.location.href + '?file=' + file['name'];
 
-		p = document.createElement('p');
-		p.appendChild(document.createTextNode('File: ' + file['name']));
-		div.appendChild(p);
-
-		p = document.createElement('p');
-		p.appendChild(document.createTextNode('Size: ' + file['size']));
-		div.appendChild(p);
-
-		if (file['analysis'])
-		{
-			p = document.createElement('p');
-			p.appendChild(document.createTextNode('Frames: ' + file['analysis']['frames']));
-			div.appendChild(p);
-
-			/* Time */
-			var first = file['analysis']['first'];
-			var last  = file['analysis']['last'];
-
-			if (first && last)
-			{
-				var dura  = last - first;
-
-				var format = d3.utcFormat; /* XXX, check if UTC */
-
-				p = document.createElement('p');
-				p.appendChild(document.createTextNode('From: ' + format(new Date(first * 1000))));
-				div.appendChild(p);
-
-				p = document.createElement('p');
-				p.appendChild(document.createTextNode('To: ' + format(new Date(last * 1000))));
-				div.appendChild(p);
-
-				p = document.createElement('p');
-				p.appendChild(document.createTextNode('Duration: ' + (last - first) + " s"));
-				div.appendChild(p);
-			}
-
-			/* Protocols */
-			var protos = file['analysis']['protocols'];
-			if (protos && protos.length > 0)
-			{
-				var ul = document.createElement('ul')
-				ul.className = 'proto';
-
-				div.appendChild(document.createElement('p').appendChild(document.createTextNode('Protocols:')));
-				for (var k = 0; k < protos.length; k++)
-				{
-					var proto_li = document.createElement('li');
-
-					proto_li.appendChild(document.createTextNode(protos[k]));
-					proto_li.className = 'proto';
-
-					ul.appendChild(proto_li);
-				}
-				div.appendChild(ul);
-			}
-		}
-
-		a = document.createElement('a');
-		var url = window.location.href + '?file=' + file['name'];
-
-		a.appendChild(document.createTextNode('Load'));
-		a.setAttribute("href", url);
-		div.appendChild(a);
+		var div = webshark_create_file_details(file);
 
 		/* unselect previous */
 		if (_webshark_selected_file != null)

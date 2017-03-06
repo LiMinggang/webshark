@@ -19,16 +19,19 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.conf import settings
-import json
+from django.views.decorators.csrf import csrf_exempt
 
 import sys
 import os
+import time
 import threading
 import socket
 import json
 import base64
 import subprocess
+import tempfile
 
+from .forms import UploadFileForm
 from .models import Capture, CaptureSettings
 from .sharkd_cli import SharkdClient
 
@@ -37,6 +40,7 @@ lock = threading.Lock()
 
 cap_dir_default = os.getenv("HOME") + "/webshark_captures"
 cap_dir = getattr(settings, "SHARKD_CAP_DIR", cap_dir_default) + "/"
+cap_upload_tmpdir = getattr(settings, "SHARKD_UPLOAD_TMPDIR", cap_dir + '../upload') + "/"
 
 def index(request):
     context = { }
@@ -185,3 +189,53 @@ def json_req(request):
         return js
 
     return HttpResponse(js, content_type="application/json")
+
+def handle_uploaded_file(f):
+    if f.size > 10 * 1024 * 1024:
+        return
+
+    fd, tmp_name = tempfile.mkstemp(dir=cap_upload_tmpdir)
+
+    with os.fdopen(fd, 'wb') as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+
+    try:
+        shark = SharkdClient('@sharkd-socket')
+        shark.send_req(dict(req='load', file=tmp_name))
+        analysis = shark.send_req(dict(req='analyse'))
+        shark.send_req(dict(req='bye'))
+
+        js = dict()
+        js['size'] = os.stat(tmp_name).st_size
+        js['analysis'] = json.loads(analysis)
+
+        # move only if frames > 0
+        if js['analysis']['frames'] > 0:
+            desc = 'File uploaded on ' + time.asctime() + '. Original filename: ' + f.name
+
+            filename = 'upload/' + str(time.time())
+
+            js['name'] = filename
+            os.rename(tmp_name, cap_dir + filename)
+
+            obj = Capture(filename=filename, description=desc, analysis=analysis)
+            obj.save()
+
+        else:
+            js['err'] = 'frames 0'
+            os.remove(tmp_name)
+
+        js = json.dumps(js)
+
+        return HttpResponse(js, content_type="application/json")
+
+    except ConnectionRefusedError:
+        raise
+
+@csrf_exempt
+def upload_file(request):
+    if request.method == 'POST':
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            return handle_uploaded_file(request.FILES['f'])
