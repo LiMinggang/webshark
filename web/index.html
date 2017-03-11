@@ -21,6 +21,7 @@
 		var ws_taps  = [ ];
 		var ws_stats = [ ];
 		var ws_eo    = [ ];
+		var ws_follow= [ ];
 		var ws_convs = [ ];
 
 		var ws_pref = { };
@@ -64,6 +65,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				a.appendChild(document.createTextNode(title));
 				a.setAttribute("target", "_blank");
 				a.setAttribute("href", window.location.href + "&tap=" + tap);
+				a.setAttribute("id", "menu_tap_" + tap);
 				// a.addEventListener("click", popup_on_click);
 
 				li.appendChild(a);
@@ -223,6 +225,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			var frame = opt['frame'];
 			var tap = opt['tap'];
+			var follow = opt['follow'];
+			var filter = opt['filter'];
 
 			capture_filter_complete = new Awesomplete(document.getElementById("capture_filter"),
 				{
@@ -247,7 +251,20 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 						}
 				});
 
-			if (tap) {
+			if (follow) {
+
+				document.title = "Following " + follow + ' (' + filter + ') ' + _webshark_file + " - " + document.title;
+
+				document.getElementById('toolbar_capture').style.display = 'none';
+				document.getElementById('ws_packet_list_view').style.display = 'none';
+				document.getElementById('ws_packet_detail_view').style.display = 'none';
+				document.getElementById('ws_packet_bytes_view').style.display = 'none';
+
+				document.getElementById('toolbar_tap').style.display = 'block';
+
+				webshark_load_follow(follow, filter);
+
+			} else if (tap) {
 				document.title = "Report of " + _webshark_file + " - " + document.title;
 
 				document.getElementById('toolbar_capture').style.display = 'none';
@@ -271,8 +288,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			} else if (_webshark_file) {
 				document.title = _webshark_file + " - " + document.title;
-
-				var filter = opt['filter'];
 
 				if (filter)
 				{
@@ -307,6 +322,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					create_tap_menu('report_menu2', ws_taps);
 					create_tap_menu('report_menu2', ws_stats);
 					create_tap_menu('report_menu2', ws_eo);
+					create_tap_menu('report_menu2', ws_follow);
 				}
 
 				webshark_load_capture(filter, ws_columns);
@@ -469,6 +485,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					ws_taps  = data['taps'];
 					ws_stats = data['stats'];
 					ws_eo    = data['eo'];
+					ws_follow= data['follow'];
 					ws_convs = data['convs'];
 					ws_ftypes = data['ftypes'];
 

@@ -47,6 +47,7 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
 #include <epan/export_object.h>
+#include <epan/follow.h>
 
 #include <epan/dissectors/packet-h225.h>
 #include <epan/rtp_pt.h>
@@ -276,6 +277,25 @@ sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
 	return FALSE;
 }
 
+static gboolean
+sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
+{
+	register_follow_t *follower = (register_follow_t*) value;
+	int *pi = (int *) user_data;
+
+	const int proto_id = get_follow_proto_id(follower);
+	const char *label  = proto_get_protocol_short_name(find_protocol_by_id(proto_id));
+	const char *filter = label; /* correct: get_follow_by_name() is registered by short name */
+
+	printf("%s{", (*pi) ? "," : "");
+		printf("\"name\":\"Follow/%s\"", label);
+		printf(",\"tap\":\"follow:%s\"", filter);
+	printf("}");
+
+	*pi = *pi + 1;
+	return FALSE;
+}
+
 /**
  * sharkd_session_process_info()
  *
@@ -299,6 +319,10 @@ sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
  *                  'tap'  - sharkd tap-name for conversation
  *
  *   (m) taps - available taps, array of object with attributes:
+ *                  'name' - tap name
+ *                  'tap'  - sharkd tap-name
+
+ *   (m) follow - available followers, array of object with attributes:
  *                  'name' - tap name
  *                  'tap'  - sharkd tap-name
  *
@@ -370,6 +394,11 @@ sharkd_session_process_info(void)
 	printf(",\"eo\":[");
 	i = 0;
 	eo_iterate_tables(sharkd_export_object_visit_cb, &i);
+	printf("]");
+
+	printf(",\"follow\":[");
+	i = 0;
+	follow_iterate_followers(sharkd_follower_visit_cb, &i);
 	printf("]");
 
 	printf("}\n");
@@ -1576,6 +1605,130 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	}
 }
 
+/**
+ * sharkd_session_process_follow()
+ *
+ * Process follow request
+ *
+ * Input:
+ *   (m) follow  - follow protocol request (e.g. HTTP)
+ *   (m) filter  - filter request (e.g. tcp.stream == 1)
+ *
+ * Output object with attributes:
+ *
+ *   (m) err    - error code
+ *   (m) shost  - server host
+ *   (m) sport  - server port
+ *   (m) sbytes - server send bytes count
+ *   (m) chost  - client host
+ *   (m) cport  - client port
+ *   (m) cbytes - client send bytes count
+ *   (o) payloads - array of object with attributes:
+ *                  (o) s - set if server sent, else client
+ *                  (m) n - packet number
+ *                  (m) d - data base64 encoded
+ */
+static void
+sharkd_session_process_follow(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_follow = json_find_attr(buf, tokens, count, "follow");
+	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+
+	register_follow_t *follower;
+	GString *tap_error;
+
+	follow_info_t *follow_info;
+	const char *host;
+	char *port;
+
+	if (!tok_follow || !tok_filter)
+		return;
+
+	follower = get_follow_by_name(tok_follow);
+	if (!follower)
+	{
+		fprintf(stderr, "sharkd_session_process_follow() follower=%s not found\n", tok_follow);
+		return;
+	}
+
+	/* follow_reset_stream ? */
+	follow_info = g_new0(follow_info_t, 1);
+	/* gui_data, filter_out_filter not set, but not used by dissector */
+
+	tap_error = register_tap_listener(get_follow_tap_string(follower), follow_info, tok_filter, 0, NULL, get_follow_tap_handler(follower), NULL);
+	if (tap_error)
+	{
+		fprintf(stderr, "sharkd_session_process_follow() name=%s error=%s", tok_follow, tap_error->str);
+		g_string_free(tap_error, TRUE);
+		g_free(follow_info);
+		return;
+	}
+
+	sharkd_retap();
+
+	printf("{");
+
+	printf("\"err\":0");
+
+	/* Server information: hostname, port, bytes sent */
+	host = address_to_name(&follow_info->server_ip);
+	printf(",\"shost\":");
+	json_puts_string(host);
+
+	port = get_follow_port_to_display(follower)(NULL, follow_info->server_port);
+	printf(",\"sport\":");
+	json_puts_string(port);
+	wmem_free(NULL, port);
+
+	printf(",\"sbytes\":%u", follow_info->bytes_written[0]);
+
+	/* Client information: hostname, port, bytes sent */
+	host = address_to_name(&follow_info->client_ip);
+	printf(",\"chost\":");
+	json_puts_string(host);
+
+	port = get_follow_port_to_display(follower)(NULL, follow_info->client_port);
+	printf(",\"cport\":");
+	json_puts_string(port);
+	wmem_free(NULL, port);
+
+	printf(",\"cbytes\":%u", follow_info->bytes_written[1]);
+
+	if (follow_info->payload)
+	{
+		follow_record_t *follow_record;
+		GList *cur;
+		const char *sepa = "";
+
+		printf(",\"payloads\":[");
+
+		for (cur = follow_info->payload; cur; cur = g_list_next(cur))
+		{
+			follow_record = (follow_record_t *) cur->data;
+
+			printf("%s{", sepa);
+
+			printf("\"n\":%u", follow_record->packet_num);
+
+			printf(",\"d\":");
+			json_print_base64(follow_record->data->data, follow_record->data->len);
+
+			if (follow_record->is_server)
+				printf(",\"s\":%d", 1);
+
+			printf("}");
+			sepa = ",";
+		}
+
+		printf("]");
+	}
+
+	printf("}\n");
+
+	remove_tap_listener(follow_info);
+	follow_info_free(follow_info);
+}
+
 static void
 sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 {
@@ -1693,6 +1846,33 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 		sepa = ",";
 	}
 	printf("]");
+}
+
+static gboolean
+sharkd_follower_visit_layers_cb(const void *key _U_, void *value, void *user_data)
+{
+	register_follow_t *follower = (register_follow_t *) value;
+	packet_info *pi = (packet_info *) user_data;
+
+	const int proto_id = get_follow_proto_id(follower);
+
+	guint32 ignore_stream;
+
+	if (proto_is_frame_protocol(pi->layers, proto_get_protocol_filter_name(proto_id)))
+	{
+		const char *layer_proto = proto_get_protocol_short_name(find_protocol_by_id(proto_id));
+		char *follow_filter;
+
+		follow_filter = get_follow_conv_func(follower)(pi, &ignore_stream);
+
+		printf(",[\"%s\",", layer_proto);
+		json_puts_string(follow_filter);
+		printf("]");
+
+		g_free(follow_filter);
+	}
+
+	return FALSE;
 }
 
 static void
@@ -1817,6 +1997,10 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
 		if (ds_sepa != NULL)
 			printf("]");
 	}
+
+	printf(",\"fol\":[0");
+	follow_iterate_followers(sharkd_follower_visit_layers_cb, pi);
+	printf("]");
 
 	printf("}\n");
 }
@@ -1965,6 +2149,9 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *   (o) col   - array of column data
  *   (o) bytes - base64 of frame bytes
  *   (o) ds    - array of other data srcs
+ *   (o) fol   - array of follow filters:
+ *                  [0] - protocol
+ *                  [1] - filter string
  */
 static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
@@ -2552,6 +2739,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_frames(buf, tokens, count);
 		else if (!strcmp(tok_req, "tap"))
 			sharkd_session_process_tap(buf, tokens, count);
+		else if (!strcmp(tok_req, "follow"))
+			sharkd_session_process_follow(buf, tokens, count);
 		else if (!strcmp(tok_req, "intervals"))
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))

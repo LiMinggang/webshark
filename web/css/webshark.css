@@ -130,3 +130,15 @@ div.submenu li
 {
 	float: none;
 }
+
+pre.follow_server_tag
+{
+	color: #00007f;            /* gui.stream.server.fg */
+	background-color: #ededfb; /* gui.stream.server.bg */
+}
+
+pre.follow_client_tag
+{
+	color: #7f0000;            /* gui.stream.client.fg */
+	background-color: #fbeded; /* gui.stream.client.bg */
+}

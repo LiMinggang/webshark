@@ -1761,6 +1761,26 @@ function webshark_load_frame(framenum, cols)
 
 			webshark_render_proto_tree(data['tree']);
 
+			var fol = data['fol'];
+
+			for (var i = 0; i < ws_follow.length; i++)
+			{
+				var it = document.getElementById('menu_tap_' + ws_follow[i].tap);
+
+				it.style.display = 'none';
+			}
+
+			if (fol)
+			{
+				for (var i = 1; i < fol.length; i++)
+				{
+					var it = document.getElementById('menu_tap_follow:' + fol[i][0]);
+
+					it.setAttribute("href", window.location.href + "&follow=" + fol[i][0] + '&filter=' + fol[i][1]);
+					it.style.display = 'inline';
+				}
+			}
+
 			bytes_data.push(window.atob(data['bytes']));
 
 			/* multiple data sources? */
@@ -1827,5 +1847,37 @@ function webshark_load_tap(taps)
 		{
 			for (var i = 0; i < data['taps'].length - 1; i++)
 				webshark_render_tap(data['taps'][i]);
+		});
+}
+
+function webshark_load_follow(follow, filter)
+{
+	webshark_json_get('req=follow&capture=' + _webshark_file + '&follow=' + follow + '&filter=' + filter,
+		function(data)
+		{
+			var f = data;
+			var server_to_client_string = f['shost'] + ':' + f['sport'] + ' --> ' + f['chost'] + ':' + f['cport'] + ' (' + f['sbytes'] + ' bytes)';
+			var client_to_server_string = f['chost'] + ':' + f['cport'] + ' --> ' + f['shost'] + ':' + f['sport'] + ' (' + f['cbytes'] + ' bytes)';
+
+			var div = document.createElement('div');
+
+			if (f['payloads'])
+			{
+				var p = f['payloads'];
+
+				for (var i = 0; i < p.length; i++)
+				{
+					var pre = document.createElement('pre');
+
+					pre.className = (p[i]['s'] != undefined) ? 'follow_server_tag' : 'follow_client_tag';
+
+					pre.innerHTML = window.atob(p[i]['d']);
+
+					div.appendChild(pre);
+				}
+			}
+
+			document.getElementById('ws_tap_table').appendChild(div);
+
 		});
 }
