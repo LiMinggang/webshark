@@ -70,20 +70,7 @@
 static struct register_ct *
 _get_conversation_table_by_name(const char *name)
 {
-	guint count = conversation_table_get_num();
-	guint i;
-
-	/* XXX, wow O(n^2), move to libwireshark */
-	for (i = 0; i < count; i++)
-	{
-		struct register_ct *table = get_conversation_table_by_num(i);
-		const char *label = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(table)));
-
-		if (!strcmp(label, name))
-			return table;
-	}
-
-	return NULL;
+	return get_conversation_by_proto_id(proto_get_id_by_short_name(name));
 }
 
 static void
@@ -229,13 +216,13 @@ sharkd_session_filter_data(const char *filter)
 	}
 }
 
-static void
-sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
+static gboolean
+sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata)
 {
-	struct register_ct *table = (struct register_ct *) data;
-	int *pi = (int *) user_data;
+	struct register_ct *table = (struct register_ct *) value;
+	int *pi = (int *) userdata;
 
-	const char *label = proto_get_protocol_short_name(find_protocol_by_id(get_conversation_proto_id(table)));
+	const char *label = (const char*)key;
 
 	if (get_conversation_packet_func(table))
 	{
@@ -256,6 +243,7 @@ sharkd_session_process_info_conv_cb(gpointer data, gpointer user_data)
 
 		*pi = *pi + 1;
 	}
+	return FALSE;
 }
 
 static gboolean
@@ -2671,7 +2659,7 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			printf(",\"mime\":");
 			json_puts_string(mime);
 			printf(",\"data\":");
-			json_print_base64(eo_entry->payload_data, eo_entry->payload_len);
+			json_print_base64(eo_entry->payload_data, (int) eo_entry->payload_len); /* XXX, export object will be truncated if >= 2^31 */
 			printf("}\n");
 		}
 	}
