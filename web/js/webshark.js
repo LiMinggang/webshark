@@ -1112,6 +1112,15 @@ var webshark_voip_calls_fields =
 	'comment': 'Comments'
 };
 
+var webshark_expert_fields =
+{
+	'n': 'No',
+	's': 'Severity',
+	'g': 'Group',
+	'p': 'Protocol',
+	'm': 'Summary'
+};
+
 function webshark_create_tap_table_common(fields)
 {
 	var table = document.createElement('table');
@@ -1166,6 +1175,11 @@ function webshark_create_tap_table_data_common(fields, table, data)
 			td.appendChild(document.createTextNode(value));
 			td.className = "ws_border";
 			tr.appendChild(td);
+		}
+
+		if (val['_css_class'])
+		{
+			tr.className = val['_css_class'];
 		}
 
 		if (val['_filter'])
@@ -1512,6 +1526,28 @@ function webshark_render_tap(tap)
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("VoIP calls (" + calls.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
+	else if (tap['type'] == 'expert')
+	{
+		var table = webshark_create_tap_table_common(webshark_expert_fields);
+		var details = tap['details'];
+
+		for (var i = 0; i < details.length; i++)
+		{
+			var item = details[i];
+
+			if (item['s'])
+			{
+				item['_css_class'] = 'ws_cell_expert_color_' + item['s'];
+			}
+
+			item['_filter'] = 'frame.number == ' + item['n'];
+		}
+
+		webshark_create_tap_table_data_common(webshark_expert_fields, table, details);
+
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("Expert information (" + details.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
+	}
 	else if (tap['type'] == 'rtp-streams')
 	{
 		var table = webshark_create_tap_table_common(webshark_rtp_streams_fields);
@@ -1767,7 +1803,10 @@ function webshark_load_frame(framenum, cols)
 			{
 				var it = document.getElementById('menu_tap_' + ws_follow[i].tap);
 
-				it.style.display = 'none';
+				if (it)
+				{
+					it.style.display = 'none';
+				}
 			}
 
 			if (fol)
@@ -1776,8 +1815,11 @@ function webshark_load_frame(framenum, cols)
 				{
 					var it = document.getElementById('menu_tap_follow:' + fol[i][0]);
 
-					it.setAttribute("href", window.location.href + "&follow=" + fol[i][0] + '&filter=' + fol[i][1]);
-					it.style.display = 'inline';
+					if (it)
+					{
+						it.setAttribute("href", window.location.href + "&follow=" + fol[i][0] + '&filter=' + fol[i][1]);
+						it.style.display = 'inline';
+					}
 				}
 			}
 

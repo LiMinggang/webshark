@@ -70,11 +70,11 @@ table.ws_border
 
 .ws_cell_protocol             { background-color: #E5E5E5; }
 .ws_cell_link                 { color: blue; text-decoration: underline; } /* render_as_url() */
-.ws_cell_expert_color_comment { background-color: #b7f8f4; }
-.ws_cell_expert_color_chat    { background-color: #80b7f7; }
-.ws_cell_expert_color_note    { background-color: #a0ffff; }
-.ws_cell_expert_color_warn    { background-color: #f7f253; }
-.ws_cell_expert_color_error   { background-color: #ff5c5c; }
+.ws_cell_expert_color_Comment { background-color: #b7f8f4; }
+.ws_cell_expert_color_Chat    { background-color: #80b7f7; }
+.ws_cell_expert_color_Note    { background-color: #a0ffff; }
+.ws_cell_expert_color_Warning { background-color: #f7f253; }
+.ws_cell_expert_color_Error   { background-color: #ff5c5c; }
 
 ul.menu
 {
