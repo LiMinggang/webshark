@@ -818,7 +818,7 @@ sharkd_session_process_tap_expert_cb(void *tapdata)
 
 		printf("%s{", sepa);
 
-		printf("\"n\":%u,", ei->packet_num);
+		printf("\"f\":%u,", ei->packet_num);
 
 		tmp = try_val_to_str(ei->severity, expert_severity_vals);
 		if (tmp)

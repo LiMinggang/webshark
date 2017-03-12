@@ -1114,7 +1114,7 @@ var webshark_voip_calls_fields =
 
 var webshark_expert_fields =
 {
-	'n': 'No',
+	'f': 'No',
 	's': 'Severity',
 	'g': 'Group',
 	'p': 'Protocol',
@@ -1540,7 +1540,7 @@ function webshark_render_tap(tap)
 				item['_css_class'] = 'ws_cell_expert_color_' + item['s'];
 			}
 
-			item['_filter'] = 'frame.number == ' + item['n'];
+			item['_filter'] = 'frame.number == ' + item['f'];
 		}
 
 		webshark_create_tap_table_data_common(webshark_expert_fields, table, details);
