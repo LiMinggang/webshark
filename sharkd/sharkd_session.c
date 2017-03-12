@@ -67,12 +67,6 @@
 
 #include "sharkd.h"
 
-static struct register_ct *
-_get_conversation_table_by_name(const char *name)
-{
-	return get_conversation_by_proto_id(proto_get_id_by_short_name(name));
-}
-
 static void
 json_unescape_str(char *input)
 {
@@ -768,13 +762,21 @@ sharkd_session_process_tap_stats_node_cb(const stat_node *n)
 static void
 sharkd_session_process_tap_stats_cb(void *psp)
 {
-	stats_tree *st = (stats_tree *)psp;
+	stats_tree *st = (stats_tree *) psp;
 
 	printf("{\"tap\":\"stats:%s\",\"type\":\"stats\"", st->cfg->abbr);
 
 	printf(",\"name\":\"%s\",\"stats\":", st->cfg->name);
 	sharkd_session_process_tap_stats_node_cb(&st->root);
 	printf("},");
+}
+
+static void
+sharkd_session_free_tap_stats_cb(void *psp)
+{
+	stats_tree *st = (stats_tree *) psp;
+
+	stats_tree_free(st);
 }
 
 struct sharkd_conv_tap_data
@@ -1060,6 +1062,24 @@ sharkd_session_process_tap_conv_cb(void *arg)
 	}
 
 	printf("],\"proto\":\"%s\",\"geoip\":%s},", proto, with_geoip ? "true" : "false");
+}
+
+static void
+sharkd_session_free_tap_conv_cb(void *arg)
+{
+	conv_hash_t *hash = (conv_hash_t *) arg;
+	struct sharkd_conv_tap_data *iu = (struct sharkd_conv_tap_data *) hash->user_data;
+
+	if (!strncmp(iu->type, "conv:", 5))
+	{
+		reset_conversation_table_data(hash);
+	}
+	else if (!strncmp(iu->type, "endpt:", 6))
+	{
+		reset_hostlist_table_data(hash);
+	}
+
+	g_free(iu);
 }
 
 struct sharkd_export_object_list
@@ -1391,6 +1411,7 @@ static void
 sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 {
 	void *taps_data[16];
+	GFreeFunc taps_free[16];
 	int taps_count = 0;
 	int i;
 
@@ -1398,19 +1419,17 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	rtpstream_tapinfo_t rtp_tapinfo =
 		{NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE};
 
-	int voip_tapinfo_used = 0;
+	int voip_tapinfo_used = -1;
 
 	for (i = 0; i < 16; i++)
 	{
 		char tapbuf[32];
 		const char *tok_tap;
 
-		tap_packet_cb tap_func = NULL;
 		void *tap_data = NULL;
+		GFreeFunc tap_free = NULL;
 		const char *tap_filter = "";
 		GString *tap_error = NULL;
-
-		taps_data[i] = NULL;
 
 		ws_snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
 		tok_tap = json_find_attr(buf, tokens, count, tapbuf);
@@ -1432,20 +1451,22 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			tap_error = register_tap_listener(st->cfg->tapname, st, st->filter, st->cfg->flags, stats_tree_reset, stats_tree_packet, sharkd_session_process_tap_stats_cb);
 
-			tap_data = st;
-
 			if (!tap_error && cfg->init)
 				cfg->init(st);
+
+			tap_data = st;
+			tap_free = sharkd_session_free_tap_stats_cb;
 		}
 		else if (!strncmp(tok_tap, "conv:", 5) || !strncmp(tok_tap, "endpt:", 6))
 		{
 			struct register_ct *ct = NULL;
 			const char *ct_tapname;
 			struct sharkd_conv_tap_data *ct_data;
+			tap_packet_cb tap_func = NULL;
 
 			if (!strncmp(tok_tap, "conv:", 5))
 			{
-				ct = _get_conversation_table_by_name(tok_tap + 5);
+				ct = get_conversation_by_proto_id(proto_get_id_by_short_name(tok_tap + 5));
 
 				if (!ct || !(tap_func = get_conversation_packet_func(ct)))
 				{
@@ -1455,11 +1476,11 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			}
 			else if (!strncmp(tok_tap, "endpt:", 6))
 			{
-				ct = _get_conversation_table_by_name(tok_tap + 6);
+				ct = get_conversation_by_proto_id(proto_get_id_by_short_name(tok_tap + 6));
 
 				if (!ct || !(tap_func = get_hostlist_packet_func(ct)))
 				{
-					fprintf(stderr, "sharkd_session_process_tap() endpt %s not found\n", tok_tap + 5);
+					fprintf(stderr, "sharkd_session_process_tap() endpt %s not found\n", tok_tap + 6);
 					continue;
 				}
 			}
@@ -1482,6 +1503,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, tap_func, sharkd_session_process_tap_conv_cb);
 
 			tap_data = &ct_data->hash;
+			tap_free = sharkd_session_free_tap_conv_cb;
 		}
 		else if (!strncmp(tok_tap, "eo:", 3))
 		{
@@ -1523,8 +1545,9 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_error = register_tap_listener(get_eo_tap_listener_name(eo), eo_object, NULL, 0, NULL, get_eo_packet_func(eo), sharkd_session_process_tap_eo_cb);
 
 			tap_data = eo_object;
+			tap_free = g_free; /* need to free only eo_object, object_list need to be kept for potential download */
 		}
-		else if (!strcmp(tok_tap, "voip-calls"))
+		else if (!strcmp(tok_tap, "voip-calls") && voip_tapinfo_used == -1)
 		{
 			/* based on Qt code */
 			memset(&voip_tapinfo, 0, sizeof(voip_tapinfo));
@@ -1540,7 +1563,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			voip_tapinfo.session = cfile.epan;
 
-			voip_tapinfo_used = 1;
+			voip_tapinfo_used = taps_count;
 			voip_calls_init_all_taps(&voip_tapinfo);
 		}
 		else if (!strcmp(tok_tap, "rtp-streams"))
@@ -1548,6 +1571,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_error = register_tap_listener("rtp", &rtp_tapinfo, tap_filter, 0, rtpstream_reset_cb, rtpstream_packet, sharkd_session_process_tap_rtp_cb);
 
 			tap_data = &rtp_tapinfo;
+			tap_free = rtpstream_reset_cb;
 		}
 		else
 		{
@@ -1557,13 +1581,15 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 		if (tap_error)
 		{
-			/* XXX, tap data memleaks */
 			fprintf(stderr, "sharkd_session_process_tap() name=%s error=%s", tok_tap, tap_error->str);
 			g_string_free(tap_error, TRUE);
+			if (tap_free)
+				tap_free(tap_data);
 			continue;
 		}
 
-		taps_data[i] = tap_data;
+		taps_data[taps_count] = tap_data;
+		taps_free[taps_count] = tap_free;
 		taps_count++;
 	}
 
@@ -1575,21 +1601,23 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	sharkd_retap();
 	printf("null],\"err\":0}\n");
 
-	if (voip_tapinfo_used)
+	for (i = 0; i < taps_count; i++)
 	{
-		// XXX possible memleaks
-		voip_calls_reset_all_taps(&voip_tapinfo);
-		voip_calls_remove_all_tap_listeners(&voip_tapinfo);
+		if (i == voip_tapinfo_used)
+		{
+			// XXX possible memleaks
+			voip_calls_reset_all_taps(&voip_tapinfo);
+			voip_calls_remove_all_tap_listeners(&voip_tapinfo);
 
-		g_queue_free(voip_tapinfo.callsinfos);
-	}
+			g_queue_free(voip_tapinfo.callsinfos);
+			continue;
+		}
 
-	for (i = 0; i < 16; i++)
-	{
 		if (taps_data[i])
 			remove_tap_listener(taps_data[i]);
 
-		/* XXX, taps data memleaks */
+		if (taps_free[i])
+			taps_free[i](taps_data[i]);
 	}
 }
 
