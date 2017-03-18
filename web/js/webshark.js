@@ -135,6 +135,12 @@ function debug(level, str)
 		console.log("<" + level + "> " + str);
 }
 
+function prec_trunc(x, num)
+{
+	var xnum = x * num;
+	return Math.round(xnum) / x;
+}
+
 function popup(url)
 {
 	var newwindow = window.open(url, url, 'height=500,width=1000');
@@ -527,6 +533,15 @@ function dom_set_child(p, ch)
 {
 	dom_clear(p);
 	p.appendChild(ch);
+}
+
+function dom_create_label_span(str)
+{
+	var label = document.createElement("span");
+
+	label.appendChild(document.createTextNode(str));
+
+	return label;
 }
 
 function dom_create_label(str)
@@ -1099,6 +1114,27 @@ var webshark_rtp_streams_fields =
 	'_pb': 'Pb?'
 };
 
+
+var webshark_rtd_fields =
+{
+	'n':       'Name',
+	'num':     'Messages',
+	'_min':    'Min SRT [ms]',
+	'_max':    'Max SRT [ms]',
+	'_avg':    'AVG SRT [ms]',
+	'min_frame': 'Min in Frame',
+	'max_frame': 'Max in Frame',
+};
+
+var webshark_srt_fields =
+{
+	'n':       'Procedure',
+	'num':     'Calls',
+	'_min':     'Min SRT [ms]',
+	'_max':     'Max SRT [ms]',
+	'_avg':    'Avg SRT [ms]'
+};
+
 var webshark_voip_calls_fields =
 {
 	'start':   'Start Time',
@@ -1496,6 +1532,70 @@ function webshark_render_tap(tap)
 		});
 
 		document.getElementById('ws_tap_graph').appendChild(svg.node());
+	}
+	else if (tap['type'] == 'rtd')
+	{
+		var rtd_tables = tap['tables'];
+
+		for (var i = 0; i < rtd_tables.length; i++)
+		{
+			var stats = rtd_tables[i]['stats'];
+
+			var table = webshark_create_tap_table_common(webshark_rtd_fields);
+
+			for (var j = 0; j < stats.length; j++)
+			{
+				var row = stats[j];
+
+				row['_min'] = prec_trunc(100, row['min'] * 1000.0);
+				row['_max'] = prec_trunc(100, row['max'] * 1000.0);
+				row['_avg'] = prec_trunc(100, (row['tot'] / row['num']) * 1000.0);
+			}
+
+			webshark_create_tap_table_data_common(webshark_rtd_fields, table, stats);
+
+			var rdiv = document.createElement('div');
+			rdiv.appendChild(dom_create_label_span("Open Requests: " + rtd_tables[i]['open_req']));
+			rdiv.appendChild(dom_create_label_span(", Discarded Responses: " + rtd_tables[i]['disc_rsp']));
+			rdiv.appendChild(dom_create_label_span(", Repeated Requests: " + rtd_tables[i]['req_dup']));
+			rdiv.appendChild(dom_create_label_span(", Repeated Responses: " + rtd_tables[i]['rsp_dup']));
+
+			document.getElementById('ws_tap_table').appendChild(dom_create_label('Response Time Delay (' + tap['tap'] + ') ' + rtd_tables[i]['name']));
+			document.getElementById('ws_tap_table').appendChild(rdiv);
+			document.getElementById('ws_tap_table').appendChild(table);
+		}
+
+	}
+	else if (tap['type'] == 'srt')
+	{
+		var srt_tables = tap['tables'];
+
+		for (var i = 0; i < srt_tables.length; i++)
+		{
+			var rows = srt_tables[i]['r'];
+			var filter = srt_tables[i]['f'];
+
+			var table = webshark_create_tap_table_common(webshark_srt_fields);
+
+			for (var j = 0; j < rows.length; j++)
+			{
+				var row = rows[j];
+
+				row['_min'] = prec_trunc(100, row['min'] * 1000.0);
+				row['_max'] = prec_trunc(100, row['max'] * 1000.0);
+				row['_avg'] = prec_trunc(100, (row['tot'] / row['num']) * 1000);
+
+				if (filter)
+				{
+					row['_filter'] = filter + ' == ' + row['idx'];
+				}
+			}
+
+			webshark_create_tap_table_data_common(webshark_srt_fields, table, rows);
+
+			document.getElementById('ws_tap_table').appendChild(dom_create_label('Service Response Time (' + tap['tap'] + ') ' + srt_tables[i]['n']));
+			document.getElementById('ws_tap_table').appendChild(table);
+		}
 	}
 	else if (tap['type'] == 'eo')
 	{

@@ -22,6 +22,8 @@
 		var ws_stats = [ ];
 		var ws_eo    = [ ];
 		var ws_follow= [ ];
+		var ws_srt   = [ ];
+		var ws_rtd   = [ ];
 		var ws_convs = [ ];
 
 		var ws_pref = { };
@@ -319,6 +321,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				if (opt['hide_menu'] == undefined)
 				{
 					create_tap_menu('report_menu', ws_convs);
+					create_tap_menu('report_menu', ws_srt);
+					create_tap_menu('report_menu', ws_rtd);
 					create_tap_menu('report_menu2', ws_taps);
 					create_tap_menu('report_menu2', ws_stats);
 					create_tap_menu('report_menu2', ws_eo);
@@ -486,6 +490,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					ws_stats = data['stats'];
 					ws_eo    = data['eo'];
 					ws_follow= data['follow'];
+					ws_srt   = data['srt'];
+					ws_rtd   = data['rtd'];
 					ws_convs = data['convs'];
 					ws_ftypes = data['ftypes'];
 
