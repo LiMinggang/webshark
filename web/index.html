@@ -121,7 +121,11 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				}
 			}
 
-			webshark_json_get('req=complete&field=' + encodeURIComponent(field),
+			webshark_json_get(
+				{
+					req: 'complete',
+					field: field
+				},
 				function(data)
 				{
 					data = data['field'];
@@ -205,7 +209,11 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				return;
 			}
 
-			webshark_json_get('req=check&filter=' + encodeURIComponent(el.value),
+			webshark_json_get(
+				{
+					req: 'check',
+					filter: el.value
+				},
 				function(data)
 				{
 					if (data['filter'] == 'ok')
@@ -488,7 +496,10 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			_webshark = new Webshark();
 
-			webshark_json_get('req=info',
+			webshark_json_get(
+				{
+					req: 'info'
+				},
 				function(data)
 				{
 					ws_taps  = data['taps'];

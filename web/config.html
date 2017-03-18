@@ -166,7 +166,10 @@
 
 			/* TODO: column edit */
 
-			webshark_json_get('req=dumpconf',
+			webshark_json_get(
+				{
+					req: 'dumpconf'
+				},
 				function(data)
 				{
 					var prefs = data['prefs'];

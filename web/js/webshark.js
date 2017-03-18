@@ -157,15 +157,19 @@ Webshark.prototype.setFilter = function(new_filter)
 
 Webshark.prototype.update = function()
 {
-	var extra = "";
+	var req_intervals =
+		{
+			req: 'intervals',
+			capture: _webshark_file
+		};
 
 	if (this.filter)
-		extra += "&filter=" + encodeURIComponent(this.filter);
+		req_intervals['filter'] = this.filter;
 
 	var that = this;
 
 	/* XXX, first need to download intervals to know how many rows we have, rewrite */
-	webshark_json_get('req=intervals&capture=' + _webshark_file + extra,
+	webshark_json_get(req_intervals,
 		function(data)
 		{
 			if (that.filter)
@@ -193,16 +197,20 @@ Webshark.prototype.update = function()
 
 Webshark.prototype.fetchColumns = function(skip, load_first)
 {
-	var extra = "";
+	var req_frames =
+		{
+			req: 'frames',
+			capture: _webshark_file
+		};
 
 	if (this.fetch_columns_limit != 0)
-		extra += "&limit=" + this.fetch_columns_limit;
+		req_frames['limit'] = this.fetch_columns_limit;
 
 	if (skip != 0)
-		extra += "&skip=" + skip;
+		req_frames['skip'] = skip;
 
 	if (this.filter)
-		extra += "&filter=" + encodeURIComponent(this.filter);
+		req_frames['filter'] = this.filter;
 
 	for (var i = 0; i < this.fetch_columns_limit && skip + i < this.cached_columns.length; i++)
 	{
@@ -213,12 +221,12 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 	if (this.cols)
 	{
 		for (var i = 0; i < this.cols.length; i++)
-			extra += "&column" + i + "=" + encodeURIComponent(this.cols[i]);
+			req_frames['column' + i] = this.cols[i];
 	}
 
 	var that = this;
 
-	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
+	webshark_json_get(req_frames,
 		function(data)
 		{
 			if (data)
@@ -675,9 +683,21 @@ function dom_find_node_attr(n, attr)
 	return null;
 }
 
-function webshark_json_get(req, cb)
+function webshark_json_get(req_data, cb)
 {
 	var http = new XMLHttpRequest();
+
+	var req = null;
+
+	for (var r in req_data)
+	{
+		var creq = r + "=" + encodeURIComponent(req_data[r]);
+
+		if (req)
+			req = req + "&" + creq;
+		else
+			req = creq;
+	}
 
 	debug(3, " webshark_json_get(" + req + ") sending request");
 
@@ -1882,7 +1902,10 @@ function webshark_display_files(filter)
 
 function webshark_load_files()
 {
-	webshark_json_get('req=files',
+	webshark_json_get(
+		{
+			req: 'files'
+		},
 		function(data)
 		{
 			var files = data['files'];
@@ -1966,7 +1989,14 @@ function webshark_load_frame(framenum, cols)
 			dom_remove_class(obj, "selected");
 	}
 
-	webshark_json_get('req=frame&bytes=yes&proto=yes&capture=' + _webshark_file + '&frame=' + framenum,
+	webshark_json_get(
+		{
+			req: 'frame',
+			bytes: 'yes',
+			proto: 'yes',
+			capture: _webshark_file,
+			frame: framenum
+		},
 		function(data)
 		{
 			var bytes_data = [ ];
@@ -2055,12 +2085,16 @@ function webshark_load_frame(framenum, cols)
 
 function webshark_load_tap(taps)
 {
-	var tap_req = "";
+	var tap_req =
+		{
+			req: 'tap',
+			capture: _webshark_file
+		};
 
 	for (var i = 0; i < taps.length; i++)
-		tap_req = tap_req + "&tap" + i + "=" + taps[i];
+		tap_req["tap" + i] = taps[i];
 
-	webshark_json_get('req=tap&capture=' + _webshark_file + tap_req,
+	webshark_json_get(tap_req,
 		function(data)
 		{
 			for (var i = 0; i < data['taps'].length - 1; i++)
@@ -2070,7 +2104,13 @@ function webshark_load_tap(taps)
 
 function webshark_load_follow(follow, filter)
 {
-	webshark_json_get('req=follow&capture=' + _webshark_file + '&follow=' + follow + '&filter=' + filter,
+	webshark_json_get(
+		{
+			req: 'follow',
+			capture: _webshark_file,
+			follow: follow,
+			filter: filter
+		},
 		function(data)
 		{
 			var f = data;

@@ -84,7 +84,10 @@
 			var upl = document.getElementById('uploader');
 			upl.onsubmit = form_upload;
 
-			webshark_json_get('req=info',
+			webshark_json_get(
+				{
+					req: 'info'
+				},
 				function(data)
 				{
 					document.title = document.title.replace("${WEBSHARK_VER}", data['version']);
