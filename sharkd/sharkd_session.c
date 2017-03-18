@@ -667,7 +667,8 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
  *   (o) column0...columnXX - requested columns either number in range [0..NUM_COL_FMTS), or custom.
  *                            If column0 not specified default columns will be used.
  *   (o) filter - filter to be used
- *   (o) range  - packet range to be used [TODO]
+ *   (o) skip=N   - skip N frames
+ *   (o) limit=N  - show only N frames
  *
  * Output array of frames with attributes:
  *   (m) c   - array of column data
@@ -682,12 +683,17 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 {
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
 	const char *tok_column = json_find_attr(buf, tokens, count, "column0");
+	const char *tok_skip   = json_find_attr(buf, tokens, count, "skip");
+	const char *tok_limit  = json_find_attr(buf, tokens, count, "limit");
 
 	const guint8 *filter_data = NULL;
 
 	const char *frame_sepa = "";
-	unsigned int framenum;
 	int col;
+
+	guint32 framenum;
+	guint32 skip;
+	guint32 limit;
 
 	column_info *cinfo = &cfile.cinfo;
 	column_info user_cinfo;
@@ -707,6 +713,18 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 			return;
 	}
 
+	skip = 0;
+	if (tok_skip)
+	{
+		(void) ws_strtou32(tok_skip, NULL, &skip);
+	}
+
+	limit = 0;
+	if (tok_limit)
+	{
+		(void) ws_strtou32(tok_limit, NULL, &limit);
+	}
+
 	printf("[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
@@ -714,6 +732,12 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
+
+		if (skip)
+		{
+			skip--;
+			continue;
+		}
 
 		sharkd_dissect_columns(framenum, cinfo, (fdata->color_filter == NULL));
 
@@ -743,6 +767,9 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 		printf("}");
 		frame_sepa = ",";
+
+		if (limit && --limit == 0)
+			break;
 	}
 	printf("]\n");
 

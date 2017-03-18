@@ -15,8 +15,6 @@
 	<script src="js/webshark.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
-		var ws_columns = null;
-
 		var ws_ftypes = [ ];
 		var ws_taps  = [ ];
 		var ws_stats = [ ];
@@ -219,6 +217,11 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				});
 		}
 
+		function set_filter(filter)
+		{
+			_webshark.setFilter(filter);
+		}
+
 		function run()
 		{
 			var opt = parse_query(window.location.href.split("?")[1]);
@@ -329,7 +332,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					create_tap_menu('report_menu2', ws_follow);
 				}
 
-				webshark_load_capture(filter, ws_columns);
+				set_filter(filter);
 
 			} else {
 				document.title = "Capture files - " + document.title;
@@ -483,6 +486,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			load_preferences();
 
+			_webshark = new Webshark();
+
 			webshark_json_get('req=info',
 				function(data)
 				{
@@ -512,7 +517,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 						if (col >= columns_default.length || columns_default[col] != col_format)
 						{
-							ws_columns = columns_pref;
+							_webshark.setColumns(columns_pref);
 						}
 
 						/* map from column format to integer */
@@ -568,7 +573,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 	</div>
 
 	<div id="toolbar_capture">
-		Frame filter: <input id="capture_filter" type='text' onchange='webshark_load_capture(this.value, ws_columns);' oninput='checkfilter(this)' style='width: 800px;' />
+		Frame filter: <input id="capture_filter" type='text' onchange='set_filter(this.value);' oninput='checkfilter(this)' style='width: 800px;' />
 		<div style="float: right; border: 1px solid grey;">
 			<div id="capture_interval">
 				<svg width="620" height="100"></svg>

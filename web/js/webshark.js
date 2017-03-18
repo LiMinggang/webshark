@@ -24,8 +24,11 @@ var _webshark_files_html = null;
 var _webshark_frames_html = null;
 var _webshark_hexdump_html = null;
 
+var _webshark = null;
+
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
+var column_downloading = 42;
 
 function Hexdump(opts)
 {
@@ -128,6 +131,111 @@ Hexdump.prototype.render_hexdump = function()
 
 	this.elem.innerHTML = s;
 };
+
+function Webshark()
+{
+	this.cols = null;
+	this.filter = null;
+
+	this.fetch_columns_limit = 120;
+
+	this.cached_columns = [ ];
+}
+
+Webshark.prototype.setColumns = function(user_cols)
+{
+	this.cols = user_cols;
+};
+
+Webshark.prototype.setFilter = function(new_filter)
+{
+	this.filter = new_filter;
+	this.cached_columns = [ ];
+
+	this.update();
+};
+
+Webshark.prototype.update = function()
+{
+	var extra = "";
+
+	if (this.filter)
+		extra += "&filter=" + encodeURIComponent(this.filter);
+
+	var that = this;
+
+	/* XXX, first need to download intervals to know how many rows we have, rewrite */
+	webshark_json_get('req=intervals&capture=' + _webshark_file + extra,
+		function(data)
+		{
+			if (that.filter)
+			{
+				_webshark_interval_filter = data;
+			}
+			else
+			{
+				_webshark_interval = data;
+				_webshark_interval_filter = null; /* render only main */
+			}
+
+			/* XXX, broken */
+			try {
+				webshark_render_interval();
+			} catch(ex) { }
+
+			that.cached_columns = [ ];
+			that.cached_columns.length = data['frames'];
+			webshark_lazy_frames(that.cached_columns);
+
+			that.fetchColumns(0, true);
+		});
+};
+
+Webshark.prototype.fetchColumns = function(skip, load_first)
+{
+	var extra = "";
+
+	if (this.fetch_columns_limit != 0)
+		extra += "&limit=" + this.fetch_columns_limit;
+
+	if (skip != 0)
+		extra += "&skip=" + skip;
+
+	if (this.filter)
+		extra += "&filter=" + encodeURIComponent(this.filter);
+
+	for (var i = 0; i < this.fetch_columns_limit && skip + i < this.cached_columns.length; i++)
+	{
+		if (!this.cached_columns[skip + i])
+			this.cached_columns[skip + i] = column_downloading;
+	}
+
+	if (this.cols)
+	{
+		for (var i = 0; i < this.cols.length; i++)
+			extra += "&column" + i + "=" + encodeURIComponent(this.cols[i]);
+	}
+
+	var that = this;
+
+	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
+		function(data)
+		{
+			if (data)
+			{
+				for (var i = 0; i < data.length; i++)
+					that.cached_columns[skip + i] = data[i];
+				webshark_lazy_frames(that.cached_columns);
+			}
+
+			if (load_first && data && data[0])
+			{
+				var framenum = data[0].num;
+				webshark_load_frame(framenum);
+			}
+		});
+};
+
 
 function debug(level, str)
 {
@@ -772,7 +880,8 @@ function webshark_filter_on_click(ev)
 
 		var filter = node['data_ws_filter'];
 		document.getElementById('ws_packet_list_view').style.display = 'block';
-		webshark_load_capture(filter);
+
+		_webshark.setFilter(filter);
 	}
 }
 
@@ -875,10 +984,19 @@ function webshark_create_file_row_html(file, row_no)
 
 function webshark_create_frame_row_html(frame, row_no)
 {
+	var tr = document.createElement("tr");
+
+	if (!frame)
+	{
+		_webshark.fetchColumns(row_no, false);
+		return tr;
+	}
+
+	if (frame == column_downloading)
+		return tr;
+
 	var cols = frame['c'];
 	var fnum = frame['num'];
-
-	var tr = document.createElement("tr");
 
 	for (var j = 0; j < cols.length; j++)
 	{
@@ -1787,48 +1905,6 @@ function webshark_load_files()
 
 			_webshark_files = files;
 			webshark_display_files();
-		});
-}
-
-function webshark_load_capture(filter, cols)
-{
-	var extra = "";
-
-	if (filter)
-		extra += "&filter=" + encodeURIComponent(filter);
-
-	if (cols)
-	{
-		for (var i = 0; i < cols.length; i++)
-			extra += "&column" + i + "=" + encodeURIComponent(cols[i]);
-	}
-
-	webshark_json_get('req=frames&capture=' + _webshark_file + extra,
-		function(data)
-		{
-			webshark_lazy_frames(data);
-
-			if (data && data[0])
-			{
-				var framenum = data[0].num;
-				webshark_load_frame(framenum);
-			}
-		});
-
-	webshark_json_get('req=intervals&capture=' + _webshark_file + extra,
-		function(data)
-		{
-			if (filter)
-			{
-				_webshark_interval_filter = data;
-			}
-			else
-			{
-				_webshark_interval = data;
-				_webshark_interval_filter = null; /* render only main */
-			}
-
-			webshark_render_interval();
 		});
 }
 
