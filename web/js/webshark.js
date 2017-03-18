@@ -1526,7 +1526,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Frames Count',
-			mwidth: 500, iwidth: 25, height: 400,
+			mwidth: 500, iwidth: 220, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -1548,7 +1548,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Bytes Count',
-			mwidth: 500, iwidth: 25, height: 400,
+			mwidth: 500, iwidth: 220, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -1614,7 +1614,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Frames Count',
-			mwidth: 400, iwidth: 25, height: 400,
+			mwidth: 400, iwidth: 110, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
@@ -1636,7 +1636,7 @@ function webshark_render_tap(tap)
 		webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Bytes Count',
-			mwidth: 400, iwidth: 25, height: 400,
+			mwidth: 400, iwidth: 110, height: 400,
 
 			getX: function(d) { return d['_name']; },
 
