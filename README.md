@@ -23,7 +23,7 @@ Get wireshark sources:
 ~~~~
 	$ git clone https://code.wireshark.org/review/wireshark
 	$ cd wireshark
-	$ git reset --hard 5b9879806d293938820e657354e5e631437ce1bf   ## tested with this hash
+	$ git reset --hard 33cbeb68cb33414502e6610a6845880efd109bc6   ## tested with this hash
 
 ~~~~
 
@@ -37,11 +37,11 @@ Integrate sharkd:
 Compile sharkd static, and without optional libraries:
 ~~~~
 	$ ./autogen.sh
-	$ export CFLAGS="-O3 -pipe -w"
+	$ export CFLAGS="-O3 -pipe"
 	$ ./configure \
 		--disable-wireshark --without-extcap --without-pcap --disable-dumpcap --without-plugins \
-		--disable-shared --enable-static \
-		--without-ssl --without-gcrypt --without-gnutls
+		--disable-shared --enable-static --disable-warnings-as-errors \
+		--without-ssl --without-gnutls --without-geoip
 	$ make -j8
 	$ make sharkd
 ~~~~
