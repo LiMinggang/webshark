@@ -3,7 +3,7 @@ Webshark
 
 Web interface for wireshark.
 
-You can try demo on openshift: http://webshark-darkjames.rhcloud.com/static/webshark/
+You can try demo on openshift: http://demo.webshark.io/static/webshark/
 
 Or by running docker image with your capture library:
 	$ docker run -v ~/yours_capture_directory:/caps -p 8000:80 -it webshark/webshark:devel
