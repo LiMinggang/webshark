@@ -142,3 +142,26 @@ pre.follow_client_tag
 	color: #7f0000;            /* gui.stream.client.fg */
 	background-color: #fbeded; /* gui.stream.client.bg */
 }
+
+text.seq_ts
+{
+	font-size: 9px;
+	text-anchor: start;
+}
+
+text.seq_host
+{
+	font-size: 12px;
+	text-anchor: middle;
+}
+
+text.seq_label
+{
+	font-size: 12px;
+	text-anchor: middle;
+}
+
+line.seq_line
+{
+	stroke-width: 1.5px;
+}
