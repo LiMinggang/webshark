@@ -104,7 +104,7 @@ Hexdump.prototype.render_hexdump = function()
 				prev_class = cur_class;
 			}
 
-			str_ascii += chtoa(ch);
+			str_ascii += ch_escape(chtoa(ch));
 
 			var numpad = ch.toString(this.base);
 			while (numpad.length < padcount)
@@ -279,6 +279,18 @@ function popup_on_click_a(ev)
 
 		ev.preventDefault();
 	}
+}
+
+function ch_escape(ch)
+{
+	switch (ch)
+	{
+		case '&': return '&amp;';
+		case '<': return '&lt;';
+		case '>': return '&gt;';
+	}
+
+	return ch;
 }
 
 function chtoa(ch)
