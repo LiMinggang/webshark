@@ -1065,7 +1065,7 @@ sharkd_session_free_tap_flow_cb(void *tapdata)
 {
 	seq_analysis_info_t *graph_analysis = (seq_analysis_info_t *) tapdata;
 
-	sequence_analysis_list_free(graph_analysis);
+	sequence_analysis_info_free(graph_analysis);
 }
 
 struct sharkd_conv_tap_data
