@@ -1335,13 +1335,19 @@ var webshark_rtp_streams_fields =
 
 var webshark_rtd_fields =
 {
-	'n':       'Name',
+	'type':    'Type',
 	'num':     'Messages',
 	'_min':    'Min SRT [ms]',
 	'_max':    'Max SRT [ms]',
 	'_avg':    'AVG SRT [ms]',
 	'min_frame': 'Min in Frame',
 	'max_frame': 'Max in Frame',
+
+/* optional */
+	'open_req': 'Open Requests',
+	'disc_rsp': 'Discarded Responses',
+	'req_dup':  'Duplicated Requests',
+	'rsp_dup':  'Duplicated Responses'
 };
 
 var webshark_srt_fields =
@@ -1765,35 +1771,37 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'rtd')
 	{
-		var rtd_tables = tap['tables'];
+		var table = webshark_create_tap_table_common(webshark_rtd_fields);
 
-		for (var i = 0; i < rtd_tables.length; i++)
+		var rtd_stats = tap['stats'];
+
+		for (var i = 0; i < rtd_stats.length; i++)
 		{
-			var stats = rtd_tables[i]['stats'];
+			var row = rtd_stats[i];
 
-			var table = webshark_create_tap_table_common(webshark_rtd_fields);
+			row['_min'] = prec_trunc(100, row['min'] * 1000.0);
+			row['_max'] = prec_trunc(100, row['max'] * 1000.0);
+			row['_avg'] = prec_trunc(100, (row['tot'] / row['num']) * 1000.0);
 
-			for (var j = 0; j < stats.length; j++)
-			{
-				var row = stats[j];
-
-				row['_min'] = prec_trunc(100, row['min'] * 1000.0);
-				row['_max'] = prec_trunc(100, row['max'] * 1000.0);
-				row['_avg'] = prec_trunc(100, (row['tot'] / row['num']) * 1000.0);
-			}
-
-			webshark_create_tap_table_data_common(webshark_rtd_fields, table, stats);
-
-			var rdiv = document.createElement('div');
-			rdiv.appendChild(dom_create_label_span("Open Requests: " + rtd_tables[i]['open_req']));
-			rdiv.appendChild(dom_create_label_span(", Discarded Responses: " + rtd_tables[i]['disc_rsp']));
-			rdiv.appendChild(dom_create_label_span(", Repeated Requests: " + rtd_tables[i]['req_dup']));
-			rdiv.appendChild(dom_create_label_span(", Repeated Responses: " + rtd_tables[i]['rsp_dup']));
-
-			document.getElementById('ws_tap_table').appendChild(dom_create_label('Response Time Delay (' + tap['tap'] + ') ' + rtd_tables[i]['name']));
-			document.getElementById('ws_tap_table').appendChild(rdiv);
-			document.getElementById('ws_tap_table').appendChild(table);
+			/* TODO: calculate % if row['open_req'] */
 		}
+
+		webshark_create_tap_table_data_common(webshark_rtd_fields, table, rtd_stats);
+
+		document.getElementById('ws_tap_table').appendChild(dom_create_label('Response Time Delay (' + tap['tap'] + ') '));
+
+		if (tap['open_req'] != undefined)
+		{
+			var rdiv = document.createElement('div');
+			rdiv.appendChild(dom_create_label_span("Open Requests: " + tap['open_req']));
+			rdiv.appendChild(dom_create_label_span(", Discarded Responses: " + tap['disc_rsp']));
+			rdiv.appendChild(dom_create_label_span(", Duplicated Requests: " + tap['req_dup']));
+			rdiv.appendChild(dom_create_label_span(", Duplicated Responses: " + tap['rsp_dup']));
+
+			document.getElementById('ws_tap_table').appendChild(rdiv);
+		}
+
+		document.getElementById('ws_tap_table').appendChild(table);
 
 	}
 	else if (tap['type'] == 'srt')

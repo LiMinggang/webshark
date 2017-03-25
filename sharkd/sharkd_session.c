@@ -1377,6 +1377,22 @@ sharkd_session_free_tap_conv_cb(void *arg)
  * Output rtd tap:
  *   (m) tap        - tap name
  *   (m) type       - tap output type
+ *   (m) stats - statistics rows - array object with attributes:
+ *                  (m) type - statistic name
+ *                  (m) num - number of messages
+ *                  (m) min - minimum SRT time
+ *                  (m) max - maximum SRT time
+ *                  (m) tot - total SRT time
+ *                  (m) min_frame - minimal SRT
+ *                  (m) max_frame - maximum SRT
+ *                  (o) open_req - Open Requests
+ *                  (o) disc_rsp - Discarded Responses
+ *                  (o) req_dup  - Duplicated Requests
+ *                  (o) rsp_dup  - Duplicated Responses
+ *   (o) open_req   - Open Requests
+ *   (o) disc_rsp   - Discarded Responses
+ *   (o) req_dup    - Duplicated Requests
+ *   (o) rsp_dup    - Duplicated Responses
  */
 static void
 sharkd_session_process_tap_rtd_cb(void *arg)
@@ -1384,7 +1400,6 @@ sharkd_session_process_tap_rtd_cb(void *arg)
 	rtd_data_t *rtd_data = (rtd_data_t *) arg;
 	register_rtd_t *rtd  = (register_rtd_t *) rtd_data->user_data;
 
-	const char *top_sepa = "";
 	guint i, j;
 
 	const char *filter = proto_get_protocol_filter_name(get_rtd_proto_id(rtd));
@@ -1396,59 +1411,60 @@ sharkd_session_process_tap_rtd_cb(void *arg)
 	 * (for usage grep for: register_rtd_table)
 	 */
 	const value_string *vs = get_rtd_value_string(rtd);
+	const char *sepa = "";
 
 	printf("{\"tap\":\"rtd:%s\",\"type\":\"rtd\"", filter);
 
-	printf(",\"tables\":[");
-	for (i = 0; i < rtd_data->stat_table.num_rtds; i++)
+	if (rtd_data->stat_table.num_rtds == 1)
 	{
-		const char *sepa = "";
-		const char *vs_str = NULL;
-		rtd_timestat *ms = &rtd_data->stat_table.time_stats[i];
+		const rtd_timestat *ms = &rtd_data->stat_table.time_stats[0];
 
-		/* skip empty */
-		if (rtd_data->stat_table.num_rtds != 1 && ms->num_timestat == 1 && ms->rtd[0].num == 0)
-			continue;
-
-		printf("%s{", top_sepa);
-		printf("\"open_req\":%u", ms->open_req_num);
+		printf(",\"open_req\":%u", ms->open_req_num);
 		printf(",\"disc_rsp\":%u", ms->disc_rsp_num);
 		printf(",\"req_dup\":%u", ms->req_dup_num);
 		printf(",\"rsp_dup\":%u", ms->rsp_dup_num);
+	}
 
-		if (rtd_data->stat_table.num_rtds != 1)
-			vs_str = val_to_str_const(i, vs, "Other");
+	printf(",\"stats\":[");
+	for (i = 0; i < rtd_data->stat_table.num_rtds; i++)
+	{
+		const rtd_timestat *ms = &rtd_data->stat_table.time_stats[i];
 
-		printf(",\"name\":");
-		json_puts_string(vs_str ? vs_str : "Overall");
-
-		printf(",\"stats\":[");
 		for (j = 0; j < ms->num_timestat; j++)
 		{
-			/* nothing seen, nothing to do */
+			const char *type_str;
+
 			if (ms->rtd[j].num == 0)
 				continue;
 
 			printf("%s{", sepa);
-			printf("\"num\":%u", ms->rtd[j].num);
+
+			if (rtd_data->stat_table.num_rtds == 1)
+				type_str = val_to_str_const(j, vs, "Other"); /* 1 table - description per row */
+			else
+				type_str = val_to_str_const(i, vs, "Other"); /* multiple table - description per table */
+			printf("\"type\":");
+			json_puts_string(type_str);
+
+			printf(",\"num\":%u", ms->rtd[j].num);
 			printf(",\"min\":%.9f", nstime_to_sec(&(ms->rtd[j].min)));
 			printf(",\"max\":%.9f", nstime_to_sec(&(ms->rtd[j].max)));
 			printf(",\"tot\":%.9f", nstime_to_sec(&(ms->rtd[j].tot)));
 			printf(",\"min_frame\":%u", ms->rtd[j].min_num);
 			printf(",\"max_frame\":%u", ms->rtd[j].max_num);
 
-			if (rtd_data->stat_table.num_rtds == 1)
+			if (rtd_data->stat_table.num_rtds != 1)
 			{
-				vs_str = try_val_to_str(j, vs);
-				if (vs_str)
-					printf(",\"n\":\"%s\"", vs_str);
+				/* like in tshark, display it on every row */
+				printf(",\"open_req\":%u", ms->open_req_num);
+				printf(",\"disc_rsp\":%u", ms->disc_rsp_num);
+				printf(",\"req_dup\":%u", ms->req_dup_num);
+				printf(",\"rsp_dup\":%u", ms->rsp_dup_num);
 			}
 
 			printf("}");
 			sepa = ",";
 		}
-		printf("]}");
-		top_sepa = ",";
 	}
 	printf("]},");
 }
