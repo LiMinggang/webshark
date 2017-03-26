@@ -1917,6 +1917,8 @@ function webshark_render_tap(tap)
 			var ipstr = "ip";
 			if (stream['ipver'] == 6) ipstr = "ipv6";
 
+			stream['_download'] = 'rtp:' + stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + xtoa(stream['ssrc'], 0);
+
 			stream['_filter'] = "(" + ipstr + ".src == " + stream['saddr'] + " && udp.srcport == " + stream['sport'] + " && " +
 			                          ipstr + ".dst == " + stream['daddr'] + " && udp.dstport == " + stream['dport'] + " && " +
 			                          "rtp.ssrc == " + stream['_ssrc'] +
