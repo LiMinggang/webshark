@@ -205,3 +205,49 @@ index 92fac8f..1867eee 100644
  static void putfld(FILE* fp, void* rec, uat_field_t* f) {
      guint fld_len;
      char* fld_ptr;
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bbe3d1f..06b513a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2234,6 +2234,7 @@ if(BUILD_tshark)
+ 		ui
+ 		capchild
+ 		caputils
++		wscodecs
+ 		${LIBEPAN_LIBS}
+ 		${APPLE_CORE_FOUNDATION_LIBRARY}
+ 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+diff --git a/Makefile.am b/Makefile.am
+index ce7adf7..9e28235 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -595,6 +595,7 @@ sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+ sharkd_LDADD = \
+ 	ui/cli/libcliui.a		\
+ 	ui/libui.a			\
++	codecs/libwscodecs.la		\
+ 	wiretap/libwiretap.la		\
+ 	epan/libwireshark.la		\
+ 	wsutil/libwsutil.la		\
+diff --git a/sharkd.c b/sharkd.c
+index 6ad971b..8ff9ed0 100644
+--- a/sharkd.c
++++ b/sharkd.c
+@@ -65,6 +65,8 @@
+ #include <epan/epan_dissect.h>
+ #include <epan/tap.h>
+ 
++#include <codecs/codecs.h>
++
+ #include "log.h"
+ 
+ #include <wsutil/str_util.h>
+@@ -198,6 +200,8 @@ main(int argc, char *argv[])
+   register_all_wiretap_modules();
+ #endif
+ 
++  register_all_codecs();
++
+   /* Register all dissectors; we must do this before checking for the
+      "-G" flag, as the "-G" flag dumps information registered by the
+      dissectors, and we must do it before we read the preferences, in

@@ -25,6 +25,7 @@ var _webshark_frames_html = null;
 var _webshark_hexdump_html = null;
 
 var _webshark = null;
+var _webshark_rtps = { };
 
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
@@ -263,6 +264,66 @@ function popup(url)
 
 	if (window.focus)
 		newwindow.focus();
+}
+
+function play_on_click_a(ev)
+{
+	var node;
+	var url;
+
+	node = dom_find_node_attr(ev.target, 'href');
+	if (node != null)
+	{
+		url = node['href'];
+		if (url != null)
+		{
+			var wavesurfer = _webshark_rtps[url];
+
+			if (wavesurfer)
+			{
+				wavesurfer.play();
+				ev.preventDefault();
+				return;
+			}
+
+			var div = document.createElement('div');
+			{
+				var pdiv = document.getElementById('ws_rtp_playback');
+				var s = new Date().getTime();
+				div.id = 'wv' + s + "_" + Math.floor(Math.random() * 65535) + '_' + Math.floor(Math.random() * 255);
+				pdiv.appendChild(div);
+
+				div.style.border = '2px solid blue';
+			}
+
+			var wavesurfer = WaveSurfer.create({
+				container: '#' + div.id,
+				progressColor: '#0080FF',
+				waveColor: '#aaa'
+			});
+
+			ws_rtp_playback_control_create(div, wavesurfer);
+
+			var label = null;
+
+			if (node['ws_title'])
+				label = dom_create_label("Stream: " + node['ws_title']);
+			else
+				label = dom_create_label("URL: " + url);
+
+			div.insertBefore(label, div.firstChild);
+
+			wavesurfer.on('ready', function () {
+				wavesurfer.play();
+			});
+
+			wavesurfer.load(url);
+
+			_webshark_rtps[url] = wavesurfer;
+		}
+
+		ev.preventDefault();
+	}
 }
 
 function popup_on_click_a(ev)
@@ -1036,6 +1097,138 @@ function webshark_frame_goto(ev)
 	ev.preventDefault();
 }
 
+function ws_rtp_playback_control_play_pause(wave, x)
+{
+	for (var w in _webshark_rtps)
+	{
+		var wv = _webshark_rtps[w];
+
+		if (!wave || wave == wv)
+		{
+			if (x == 'toggle') wv.playPause();
+			if (x == 'start') wv.play(0);
+		}
+	}
+
+}
+
+function ws_rtp_playback_control_skip(wave, x)
+{
+	for (var w in _webshark_rtps)
+	{
+		var wv = _webshark_rtps[w];
+
+		if (!wave || wave == wv)
+			wv.skip(x);
+	}
+}
+
+function ws_rtp_playback_control_speed(wave, x)
+{
+	for (var w in _webshark_rtps)
+	{
+		var wv = _webshark_rtps[w];
+
+		if (!wave || wave == wv)
+			wv.setPlaybackRate(x);
+	}
+}
+
+function ws_rtp_playback_control_create(pdiv, wave)
+{
+	var control_div = document.createElement('div');
+	var btn;
+
+	if (wave == null)
+		control_div.appendChild(dom_create_label("All loaded streams"));
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Play from start";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_play_pause(wave, 'start'); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Backward 10s";
+	btn.onclick = function() { ws_rtp_playback_control_skip(wave, -10); }
+	control_div.appendChild(btn);
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Backward 5s";
+	btn.onclick = function() { ws_rtp_playback_control_skip(wave, -5); }
+	control_div.appendChild(btn);
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Play/Pause";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_play_pause(wave, 'toggle'); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Forward 5s";
+	btn.onclick = function() { ws_rtp_playback_control_skip(wave, 5); }
+	control_div.appendChild(btn);
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "Forward 10s";
+	btn.onclick = function() { ws_rtp_playback_control_skip(wave, 10); }
+	control_div.appendChild(btn);
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "0.5x";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 0.5); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "1.0x";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 1); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "1.5x";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 1.5); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "2.0x";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 2); }
+
+	btn = document.createElement("button");
+	btn.className = "btn btn-primary";
+	btn.innerHTML = "4.0x";
+	control_div.appendChild(btn);
+	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 4); }
+
+/*
+	if (wave != null)
+	{
+		var span = document.createElement("span");
+		span.innerHTML = " Loading";
+		control_div.appendChild(span);
+	}
+ */
+
+/*
+    <button class="btn btn-primary" onclick="wavesurfer.toggleMute()">
+      <i class="fa fa-volume-off"></i>
+      Toggle Mute
+    </button>
+*/
+
+	control_div.setAttribute('align', 'center');
+
+	pdiv.insertBefore(control_div, pdiv.firstChild);
+}
+
 function webshark_create_file_row_html(file, row_no)
 {
 	var tr = document.createElement("tr");
@@ -1501,6 +1694,27 @@ function webshark_create_tap_action_common(data)
 		td.appendChild(down_a);
 	}
 
+	if (data['_play'])
+	{
+		var down_a = document.createElement('a');
+
+		var descr = data['_play_descr'];
+		if (!descr)
+			descr = data['_play'];
+
+		down_a.setAttribute("target", "_blank");
+		down_a["ws_title"] = descr;
+		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_play']));
+		down_a.addEventListener("click", play_on_click_a);
+
+		var glyph = webshark_glyph_img('play', 16);
+		glyph.setAttribute('alt', 'Load and play RTP: ' + descr);
+		glyph.setAttribute('title', 'Load and play RTP: ' + descr);
+
+		down_a.appendChild(glyph);
+		td.appendChild(down_a);
+	}
+
 	td.className = "ws_border";
 
 	return td;
@@ -1918,6 +2132,8 @@ function webshark_render_tap(tap)
 			if (stream['ipver'] == 6) ipstr = "ipv6";
 
 			stream['_download'] = 'rtp:' + stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + xtoa(stream['ssrc'], 0);
+			stream['_play'] = stream['_download'];
+			stream['_play_descr'] = '[' + stream['saddr'] + ']:' + stream['sport'] + ' -> [' + stream['daddr'] + ']:' + stream['dport'] + " SSRC: " + stream['_ssrc'] + ' ' + stream['payload'];
 
 			stream['_filter'] = "(" + ipstr + ".src == " + stream['saddr'] + " && udp.srcport == " + stream['sport'] + " && " +
 			                          ipstr + ".dst == " + stream['daddr'] + " && udp.dstport == " + stream['dport'] + " && " +
@@ -1925,10 +2141,15 @@ function webshark_render_tap(tap)
 			                    ")";
 		}
 
+		var wave_div = document.createElement('div');
+		wave_div.id = 'ws_rtp_playback';
+		ws_rtp_playback_control_create(wave_div, null);
+
 		webshark_create_tap_table_data_common(webshark_rtp_streams_fields, table, streams);
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP streams (" + streams.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
+		document.getElementById('ws_tap_table').appendChild(wave_div);
 	}
 }
 
