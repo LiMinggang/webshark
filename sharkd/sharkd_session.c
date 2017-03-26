@@ -3267,6 +3267,16 @@ struct sharkd_download_rtp
 	double start_time;
 };
 
+static void
+sharkd_rtp_download_free_items(void *ptr)
+{
+	rtp_packet_t *rtp_packet = (rtp_packet_t *) ptr;
+
+	g_free(rtp_packet->info);
+	g_free(rtp_packet->payload_data);
+	g_free(rtp_packet);
+}
+
 static gboolean
 sharkd_rtp_download_match(const struct sharkd_download_rtp *req, const packet_info *pinfo, const struct _rtp_info *rtp_info)
 {
@@ -3591,6 +3601,8 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			putchar('"');
 
 			printf("}\n");
+
+			g_slist_free_full(rtp_req.packets, sharkd_rtp_download_free_items);
 		}
 	}
 }
