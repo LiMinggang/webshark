@@ -513,7 +513,7 @@ sharkd_session_process_load(const char *buf, const jsmntok_t *tokens, int count)
 static void
 sharkd_session_process_status(void)
 {
-	printf("{\"frames\":%d", cfile.count);
+	printf("{\"frames\":%u", cfile.count);
 
 	printf("}\n");
 }
@@ -583,7 +583,7 @@ sharkd_session_process_analyse(void)
 	analyser.last_time  = NULL;
 	analyser.protocols_set = g_hash_table_new(NULL /* g_direct_hash() */, NULL /* g_direct_equal */);
 
-	printf("{\"frames\":%d", cfile.count);
+	printf("{\"frames\":%u", cfile.count);
 
 	printf(",\"protocols\":[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
@@ -802,12 +802,12 @@ sharkd_session_process_tap_stats_node_cb(const stat_node *n)
 	{
 		/* code based on stats_tree_get_values_from_node() */
 		printf("%s{\"name\":\"%s\"", sepa, node->name);
-		printf(",\"count\":%u", node->counter);
+		printf(",\"count\":%d", node->counter);
 		if (node->counter && ((node->st_flags & ST_FLG_AVERAGE) || node->rng))
 		{
 			printf(",\"avg\":%.2f", ((float)node->total) / node->counter);
-			printf(",\"min\":%u", node->minvalue);
-			printf(",\"max\":%u", node->maxvalue);
+			printf(",\"min\":%d", node->minvalue);
+			printf(",\"max\":%d", node->maxvalue);
 		}
 
 		if (node->st->elapsed)
@@ -965,7 +965,7 @@ sharkd_session_free_tap_expert_cb(void *tapdata)
 {
 	struct sharkd_expert_tap *etd = (struct sharkd_expert_tap *) tapdata;
 
-	g_slist_free_full(etd->details, (GDestroyNotify) g_free);
+	g_slist_free_full(etd->details, g_free);
 	g_string_chunk_free(etd->text);
 	g_free(etd);
 }
@@ -1659,7 +1659,7 @@ sharkd_session_process_tap_eo_cb(void *tapdata)
 
 		printf(",\"_download\":\"%s_%d\"", object_list->type, i);
 
-		printf(",\"len\":%" G_GUINT64_FORMAT, eo_entry->payload_len);
+		printf(",\"len\":%" G_GINT64_FORMAT, eo_entry->payload_len);
 
 		printf("}");
 
@@ -2435,10 +2435,10 @@ sharkd_session_process_frame_cb_tree(proto_tree *tree, tvbuff_t **tvbs)
 		}
 
 		if (finfo->start >= 0 && finfo->length > 0)
-			printf(",\"h\":[%u,%u]", finfo->start, finfo->length);
+			printf(",\"h\":[%d,%d]", finfo->start, finfo->length);
 
 		if (finfo->appendix_start >= 0 && finfo->appendix_length > 0)
-			printf(",\"i\":[%u,%u]", finfo->appendix_start, finfo->appendix_length);
+			printf(",\"i\":[%d,%d]", finfo->appendix_start, finfo->appendix_length);
 
 
 		if (finfo->hfinfo)
@@ -3070,7 +3070,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 		case PREF_DECODE_AS_UINT:
 			printf("\"u\":%u", prefs_get_uint_value_real(pref, pref_current));
 			if (prefs_get_uint_base(pref) != 10)
-				printf(",\"ub\":%d", prefs_get_uint_base(pref));
+				printf(",\"ub\":%u", prefs_get_uint_base(pref));
 			break;
 
 		case PREF_BOOL:
@@ -3373,7 +3373,7 @@ sharkd_rtp_download_decode(struct sharkd_download_rtp *req)
 			memcpy(&wav_hdr[40], "\xFF\xFF\xFF\xFF", 4); /* XXX, unknown */
 
 			for (i = 0; i < (int) sizeof(wav_hdr); i++)
-				json_print_base64_char(&wav_hdr[i], &base64_state1, &base64_state2);  
+				json_print_base64_char(&wav_hdr[i], &base64_state1, &base64_state2);
 
 #if 0
 			/* Prepend silence to match our sibling streams. */
@@ -3425,7 +3425,7 @@ sharkd_rtp_download_decode(struct sharkd_download_rtp *req)
 
 		/* Write the decoded, possibly-resampled audio */
 		for (i = 0; i < write_bytes; i++)
-			json_print_base64_char(&write_buff[i], &base64_state1, &base64_state2);  
+			json_print_base64_char(&write_buff[i], &base64_state1, &base64_state2);
 
 		g_free(decode_buff);
 	}
@@ -3503,7 +3503,8 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			{
 				int row;
 
-				sscanf(&tok_token[eo_type_len + 1], "%d", &row);
+				if (sscanf(&tok_token[eo_type_len + 1], "%d", &row) != 1)
+					break;
 
 				eo_entry = (export_object_entry_t *) g_slist_nth_data(object_list->entries, row);
 				break;
