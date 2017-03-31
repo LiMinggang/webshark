@@ -168,11 +168,17 @@ json_print_base64_char(const guint8 *data, int *state1, int *state2)
 }
 
 static void
-json_print_base64(const guint8 *data, int len)
+json_print_base64(const guint8 *data, size_t len)
 {
 	int i;
 	int base64_state1 = 0;
 	int base64_state2 = 0;
+
+	if (len >= 1073741824) /* 1 GB */
+	{
+		fprintf(stderr, "json_print_base64() len is too large %zu, truncating\n", len);
+		len = 0;
+	}
 
 	putchar('"');
 
@@ -240,7 +246,7 @@ sharkd_rtp_match_init(struct sharkd_rtp_match *req, const char *init_str)
 {
 	char **arr;
 
-	arr = g_strsplit(init_str, "_", 7);
+	arr = g_strsplit(init_str, "_", 7); /* pass larger value, so we'll catch incorrect input :) */
 	if (g_strv_length(arr) != 5)
 	{
 		g_strfreev(arr);
@@ -479,8 +485,8 @@ sharkd_session_process_info(void)
 
 	printf(",\"taps\":[");
 	{
-		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "RTP streams", "rtp-streams");
+		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "RTP streams", "rtp-streams");
+		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Expert Information", "expert");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Frames Flow Graph", "frames-flow-graph");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "TCP Flow Graph", "tcp-flow-graph");
@@ -2155,6 +2161,7 @@ sharkd_session_process_tap_voip_calls_flow_cb(void *tapdata)
  *                  for type:host see sharkd_session_process_tap_conv_cb()
  *                  for type:voip-calls see sharkd_session_process_tap_voip_calls_cb()
  *                  for type:rtp-streams see sharkd_session_process_tap_rtp_cb()
+ *                  for type:rtp-analyse see sharkd_session_process_tap_rtp_analyse_cb()
  *                  for type:eo see sharkd_session_process_tap_eo_cb()
  *                  for type:expert see sharkd_session_process_tap_expert_cb()
  *                  for type:rtd see sharkd_session_process_tap_rtd_cb()
@@ -2218,7 +2225,6 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			struct sharkd_expert_tap *expert_tap;
 
 			expert_tap = g_new0(struct sharkd_expert_tap, 1);
-			expert_tap->details = NULL;
 			expert_tap->text = g_string_chunk_new(100);
 
 			tap_error = register_tap_listener("expert", expert_tap, NULL, 0, NULL, sharkd_session_packet_tap_expert_cb, sharkd_session_process_tap_expert_cb);
@@ -3736,14 +3742,14 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			printf("}\n");
 		}
 	}
-	else if (!strcmp(tok_token, "ssl-sessions"))
+	else if (!strcmp(tok_token, "ssl-secrets"))
 	{
 		char *str = ssl_export_sessions();
 
 		if (str)
 		{
 			const char *mime     = "text/plain";
-			const char *filename = tok_token;
+			const char *filename = "keylog.txt";
 
 			printf("{\"file\":");
 			json_puts_string(filename);
