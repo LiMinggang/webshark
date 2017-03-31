@@ -224,6 +224,57 @@ sharkd_session_filter_data(const char *filter)
 	}
 }
 
+struct sharkd_rtp_match
+{
+	guint32 addr_src, addr_dst; // XXX, remove.
+
+	address src_addr;
+	address dst_addr;
+	guint16 src_port;
+	guint16 dst_port;
+	guint32 ssrc;
+};
+
+static gboolean
+sharkd_rtp_match_init(struct sharkd_rtp_match *req, const char *init_str)
+{
+	char **arr;
+
+	arr = g_strsplit(init_str, "_", 7);
+	if (g_strv_length(arr) != 5)
+	{
+		g_strfreev(arr);
+		return FALSE;
+	}
+
+	/* TODO, for now only IPv4 */
+	get_host_ipaddr(arr[0], &req->addr_src);
+	set_address(&req->src_addr, AT_IPv4, 4, &req->addr_src);
+	req->src_port = atoi(arr[1]);
+	get_host_ipaddr(arr[2], &req->addr_dst);
+	set_address(&req->dst_addr, AT_IPv4, 4, &req->addr_dst);
+	req->dst_port = atoi(arr[3]);
+	req->ssrc = strtoul(arr[4], NULL, 16);
+
+	g_strfreev(arr);
+	return TRUE;
+}
+
+static gboolean
+sharkd_rtp_match_check(const struct sharkd_rtp_match *req, const packet_info *pinfo, const struct _rtp_info *rtp_info)
+{
+	if (rtp_info->info_sync_src == req->ssrc &&
+		pinfo->srcport == req->src_port &&
+		pinfo->destport == req->dst_port &&
+		addresses_equal(&pinfo->src, &req->src_addr) &&
+		addresses_equal(&pinfo->dst, &req->dst_addr))
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 static gboolean
 sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata)
 {
@@ -1207,6 +1258,166 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 #endif /* HAVE_GEOIP */
 
 	return with_geoip;
+}
+
+struct sharkd_analyse_rtp_items
+{
+	guint32 frame_num;
+	guint32 sequence_num;
+
+	double delta;
+	double jitter;
+	double skew;
+	double bandwidth;
+	gboolean marker;
+
+	double arrive_offset;
+
+	/* from tap_rtp_stat_t */
+	guint32 flags;
+	guint16 pt;
+};
+
+struct sharkd_analyse_rtp
+{
+	const char *tap_name;
+	struct sharkd_rtp_match rtp;
+
+	GSList *packets;
+	double start_time;
+	tap_rtp_stat_t statinfo;
+};
+
+static void
+sharkd_session_process_tap_rtp_free_cb(void *tapdata)
+{
+	struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
+
+	g_slist_free_full(rtp_req->packets, g_free);
+	g_free(rtp_req);
+}
+
+static gboolean
+sharkd_session_packet_tap_rtp_analyse_cb(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *pointer)
+{
+	struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
+	const struct _rtp_info *rtpinfo = (const struct _rtp_info *) pointer;
+
+	if (sharkd_rtp_match_check(&rtp_req->rtp, pinfo, rtpinfo))
+	{
+		tap_rtp_stat_t *statinfo = &(rtp_req->statinfo);
+		struct sharkd_analyse_rtp_items *item;
+
+		rtp_packet_analyse(statinfo, pinfo, rtpinfo);
+
+		item = (struct sharkd_analyse_rtp_items *) g_malloc(sizeof(struct sharkd_analyse_rtp_items));
+
+		if (!rtp_req->packets)
+			rtp_req->start_time = nstime_to_sec(&pinfo->abs_ts);
+
+		item->frame_num    = pinfo->num;
+		item->sequence_num = rtpinfo->info_seq_num;
+		item->delta        = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->delta;
+		item->jitter       = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->jitter;
+		item->skew         = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->skew;
+		item->bandwidth    = statinfo->bandwidth;
+		item->marker       = rtpinfo->info_marker_set ? TRUE : FALSE;
+		item->arrive_offset= nstime_to_sec(&pinfo->abs_ts) - rtp_req->start_time;
+
+		item->flags = statinfo->flags;
+		item->pt    = statinfo->pt;
+
+		/* XXX, O(n) optimize */
+		rtp_req->packets = g_slist_append(rtp_req->packets, item);
+	}
+
+	return TRUE;
+}
+
+/**
+ * sharkd_session_process_tap_rtp_analyse_cb()
+ *
+ * Output rtp analyse tap:
+ *   (m) tap        - tap name
+ *   (m) type       - tap output type
+ *   (m) items      - array of object with attributes:
+ *                  (m) f    - frame number
+ *                  (m) o    - arrive offset
+ *                  (m) sn   - sequence number
+ *                  (m) d    - delta
+ *                  (m) j    - jitter
+ *                  (m) sk   - skew
+ *                  (m) bw   - bandwidth
+ *                  (o) s    - status string
+ *                  (o) t    - status type
+ *                  (o) mark - rtp mark
+ */
+static void
+sharkd_session_process_tap_rtp_analyse_cb(void *tapdata)
+{
+	const int RTP_TYPE_CN       = 1;
+	const int RTP_TYPE_ERROR    = 2;
+	const int RTP_TYPE_WARN     = 3;
+	const int RTP_TYPE_PT_EVENT = 4;
+
+	struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
+	const char *sepa = "";
+	GSList *l;
+
+	printf("{\"tap\":\"%s\",\"type\":\"rtp-analyse\"", rtp_req->tap_name);
+
+	printf(",\"items\":[");
+	for (l = rtp_req->packets; l; l = l->next)
+	{
+		struct sharkd_analyse_rtp_items *item = (struct sharkd_analyse_rtp_items *) l->data;
+
+		printf("%s{", sepa);
+
+		printf("\"f\":%u", item->frame_num);
+		printf(",\"o\":%.9f", item->arrive_offset);
+		printf(",\"sn\":%u", item->sequence_num);
+		printf(",\"d\":%.2f", item->delta);
+		printf(",\"j\":%.2f", item->jitter);
+		printf(",\"sk\":%.2f", item->skew);
+		printf(",\"bw\":%.2f", item->bandwidth);
+
+		if (item->pt == PT_CN)
+			printf(",\"s\":\"%s\",\"t\":%d", "Comfort noise (PT=13, RFC 3389)", RTP_TYPE_CN);
+		else if (item->pt == PT_CN_OLD)
+			printf(",\"s\":\"%s\",\"t\":%d", "Comfort noise (PT=19, reserved)", RTP_TYPE_CN);
+		else if (item->flags & STAT_FLAG_WRONG_SEQ)
+			printf(",\"s\":\"%s\",\"t\":%d", "Wrong sequence number", RTP_TYPE_ERROR);
+		else if (item->flags & STAT_FLAG_DUP_PKT)
+			printf(",\"s\":\"%s\",\"t\":%d", "Suspected duplicate (MAC address) only delta time calculated", RTP_TYPE_WARN);
+		else if (item->flags & STAT_FLAG_REG_PT_CHANGE)
+			printf(",\"s\":\"Payload changed to PT=%u%s\",\"t\":%d",
+				item->pt,
+				(item->flags & STAT_FLAG_PT_T_EVENT) ? " telephone/event" : "",
+				RTP_TYPE_WARN);
+		else if (item->flags & STAT_FLAG_WRONG_TIMESTAMP)
+			printf(",\"s\":\"%s\",\"t\":%d", "Incorrect timestamp", RTP_TYPE_WARN);
+		else if ((item->flags & STAT_FLAG_PT_CHANGE)
+			&&  !(item->flags & STAT_FLAG_FIRST)
+			&&  !(item->flags & STAT_FLAG_PT_CN)
+			&&  (item->flags & STAT_FLAG_FOLLOW_PT_CN)
+			&&  !(item->flags & STAT_FLAG_MARKER))
+		{
+			printf(",\"s\":\"%s\",\"t\":%d", "Marker missing?", RTP_TYPE_WARN);
+		}
+		else if (item->flags & STAT_FLAG_PT_T_EVENT)
+			printf(",\"s\":\"PT=%u telephone/event\",\"t\":%d", item->pt, RTP_TYPE_PT_EVENT);
+		else if (item->flags & STAT_FLAG_MARKER)
+			printf(",\"t\":%d", RTP_TYPE_WARN);
+
+		if (item->marker)
+			printf(",\"mark\":1");
+
+		printf("}");
+		sepa = ",";
+	}
+	printf("]");
+
+	printf("},");
 }
 
 /**
@@ -2213,6 +2424,26 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			tap_data = &rtp_tapinfo;
 			tap_free = rtpstream_reset_cb;
+		}
+		else if (!strncmp(tok_tap, "rtp-analyse:", 12))
+		{
+			struct sharkd_analyse_rtp *rtp_req;
+
+			rtp_req = (struct sharkd_analyse_rtp *) g_malloc0(sizeof(*rtp_req));
+			if (!sharkd_rtp_match_init(&rtp_req->rtp, tok_tap + 12))
+			{
+				g_free(rtp_req);
+				continue;
+			}
+
+			rtp_req->tap_name = tok_tap;
+			rtp_req->statinfo.first_packet = TRUE;
+			rtp_req->statinfo.reg_pt = PT_UNDEFINED;
+
+			tap_error = register_tap_listener("rtp", rtp_req, tap_filter, 0, NULL, sharkd_session_packet_tap_rtp_analyse_cb, sharkd_session_process_tap_rtp_analyse_cb);
+
+			tap_data = rtp_req;
+			tap_free = sharkd_session_process_tap_rtp_free_cb;
 		}
 		else
 		{
@@ -3257,12 +3488,7 @@ sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
 
 struct sharkd_download_rtp
 {
-	address src_addr;
-	address dst_addr;
-	guint16 src_port;
-	guint16 dst_port;
-	guint32 ssrc;
-
+	struct sharkd_rtp_match rtp;
 	GSList *packets;
 	double start_time;
 };
@@ -3275,21 +3501,6 @@ sharkd_rtp_download_free_items(void *ptr)
 	g_free(rtp_packet->info);
 	g_free(rtp_packet->payload_data);
 	g_free(rtp_packet);
-}
-
-static gboolean
-sharkd_rtp_download_match(const struct sharkd_download_rtp *req, const packet_info *pinfo, const struct _rtp_info *rtp_info)
-{
-	if (rtp_info->info_sync_src == req->ssrc &&
-		pinfo->srcport == req->src_port &&
-		pinfo->destport == req->dst_port &&
-		addresses_equal(&pinfo->src, &req->src_addr) &&
-		addresses_equal(&pinfo->dst, &req->dst_addr))
-	{
-		return TRUE;
-	}
-
-	return FALSE;
 }
 
 static void
@@ -3446,7 +3657,7 @@ sharkd_session_packet_download_tap_rtp_cb(void *tapdata, packet_info *pinfo, epa
 	if (rtp_info->info_setup_frame_num == 0)
 		return FALSE;
 
-	if (sharkd_rtp_download_match(req_rtp, pinfo, rtp_info))
+	if (sharkd_rtp_match_check(&req_rtp->rtp, pinfo, rtp_info))
 	{
 		rtp_packet_t *rtp_packet;
 
@@ -3552,28 +3763,13 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 	{
 		struct sharkd_download_rtp rtp_req;
 		GString *tap_error;
-		char **arr;
-		guint32 addr_src, addr_dst;
 
-		arr = g_strsplit(tok_token + 4, "_", 7);
-		if (g_strv_length(arr) != 5)
+		memset(&rtp_req, 0, sizeof(rtp_req));
+		if (!sharkd_rtp_match_init(&rtp_req.rtp, tok_token + 4))
 		{
 			fprintf(stderr, "sharkd_session_process_download() rtp tokenizing error %s\n", tok_token);
 			return;
 		}
-
-		memset(&rtp_req, 0, sizeof(rtp_req));
-
-		/* TODO, for now only IPv4 */
-		get_host_ipaddr(arr[0], &addr_src);
-		set_address(&rtp_req.src_addr, AT_IPv4, 4, &addr_src);
-		rtp_req.src_port = atoi(arr[1]);
-		get_host_ipaddr(arr[2], &addr_dst);
-		set_address(&rtp_req.dst_addr, AT_IPv4, 4, &addr_dst);
-		rtp_req.dst_port = atoi(arr[3]);
-		rtp_req.ssrc = strtoul(arr[4], NULL, 16);
-
-		g_strfreev(arr);
 
 		tap_error = register_tap_listener("rtp", &rtp_req, NULL, 0, NULL, sharkd_session_packet_download_tap_rtp_cb, NULL);
 		if (tap_error)

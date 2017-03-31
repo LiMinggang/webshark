@@ -25,7 +25,9 @@ var _webshark_frames_html = null;
 var _webshark_hexdump_html = null;
 
 var _webshark = null;
-var _webshark_rtps = { };
+var _webshark_rtps_players = { };
+var _webshark_rtps_players_name = { };
+var _webshark_rtps_table = { };
 
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
@@ -266,6 +268,46 @@ function popup(url)
 		newwindow.focus();
 }
 
+function player_find_index(tap, ts)
+{
+	// TODO, optimize with binary search
+
+	for (var i = 0; i < tap.length; i++)
+	{
+		var off = tap[i]['o'];
+
+		if (off >= ts)
+			return i;
+	}
+
+	return -1;
+}
+
+function player_sync_view(x, ts)
+{
+	var t = _webshark_rtps_table[x];
+
+	if (t)
+	{
+		var items = t[0];
+		var table = t[1];
+		var prev_node = t[2];
+
+		if (prev_node)
+			dom_remove_class(prev_node, "selected");
+
+		var idx = player_find_index(items, ts);
+		if (idx != -1)
+		{
+			var current_node = table.childNodes[1 + idx];
+			dom_add_class(current_node, "selected");
+			current_node.scrollIntoView(false);
+
+			t[2] = current_node;
+		}
+	}
+}
+
 function play_on_click_a(ev)
 {
 	var node;
@@ -277,7 +319,7 @@ function play_on_click_a(ev)
 		url = node['href'];
 		if (url != null)
 		{
-			var wavesurfer = _webshark_rtps[url];
+			var wavesurfer = _webshark_rtps_players[url];
 
 			if (wavesurfer)
 			{
@@ -305,7 +347,6 @@ function play_on_click_a(ev)
 			ws_rtp_playback_control_create(div, wavesurfer);
 
 			var label = null;
-
 			if (node['ws_title'])
 				label = dom_create_label("Stream: " + node['ws_title']);
 			else
@@ -313,13 +354,30 @@ function play_on_click_a(ev)
 
 			div.insertBefore(label, div.firstChild);
 
+			if (node['ws_rtp'])
+			{
+				wavesurfer.on("audioprocess", function () {
+					var ts = wavesurfer.getCurrentTime();
+
+					player_sync_view(node['ws_rtp'], ts);
+				});
+
+				wavesurfer.on("seek", function () {
+					var ts = wavesurfer.getCurrentTime();
+
+					player_sync_view(node['ws_rtp'], ts);
+				});
+
+				_webshark_rtps_players_name[node['ws_rtp']] = wavesurfer;
+			}
+
 			wavesurfer.on('ready', function () {
 				wavesurfer.play();
 			});
 
 			wavesurfer.load(url);
 
-			_webshark_rtps[url] = wavesurfer;
+			_webshark_rtps_players[url] = wavesurfer;
 		}
 
 		ev.preventDefault();
@@ -387,6 +445,8 @@ function webshark_glyph(what)
 
 	var fa_paths =
 	{
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/eye.svg */
+		'analyse': "M1664 960q-152-236-381-353 61 104 61 225 0 185-131.5 316.5t-316.5 131.5-316.5-131.5-131.5-316.5q0-121 61-225-229 117-381 353 133 205 333.5 326.5t434.5 121.5 434.5-121.5 333.5-326.5zm-720-384q0-20-14-34t-34-14q-125 0-214.5 89.5t-89.5 214.5q0 20 14 34t34 14 34-14 14-34q0-86 61-147t147-61q20 0 34-14t14-34zm848 384q0 34-20 69-140 230-376.5 368.5t-499.5 138.5-499.5-139-376.5-368q-20-35-20-69t20-69q140-229 376.5-368t499.5-139 499.5 139 376.5 368q20 35 20 69z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-right.svg */
 		'collapsed': "M1152 896q0 26-19 45l-448 448q-19 19-45 19t-45-19-19-45v-896q0-26 19-45t45-19 45 19l448 448q19 19 19 45z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-down.svg */
@@ -404,6 +464,7 @@ function webshark_glyph(what)
 	var svg;
 	switch (what)
 	{
+		case 'analyse':
 		case 'collapsed':
 		case 'expanded':
 		case 'filter':
@@ -1036,25 +1097,92 @@ function webshark_tree_on_click(ev)
 	}
 }
 
-var _prev_filter_on_click = null;
+var _prev_tap_selected_on_click = null;
 
-function webshark_filter_on_click(ev)
+function webshark_tap_row_on_click(ev)
 {
 	var node;
+	var action = null;
 
-	node = dom_find_node_attr(ev.target, 'data_ws_filter');
+	node = dom_find_node_attr(ev.target, 'data_ws_analyse');
+	if (node != null)
+		action = 'data_ws_analyse';
+
+	if (action == null)
+	{
+		node = dom_find_node_attr(ev.target, 'data_ws_filter');
+		if (node != null)
+			action = 'data_ws_filter';
+	}
+
+	if (action == null)
+	{
+		var node_rtp = dom_find_node_attr(ev.target, 'data_ws_rtp_name');
+		node = dom_find_node_attr(ev.target, 'data_ws_rtp_pos');
+
+		if (node && node_rtp)
+		{
+			var rtp_str = node_rtp['data_ws_rtp_name'];
+
+			var wave = _webshark_rtps_players_name[rtp_str];
+			if (wave)
+			{
+				var pos = node['data_ws_rtp_pos'] / wave.getDuration();
+				wave.seekAndCenter(pos);
+			}
+
+			/* wavesurfer seek callback will take care about highlighting */
+			return;
+		}
+	}
+
 	if (node != null)
 	{
-		if (_prev_filter_on_click)
-			dom_remove_class(_prev_filter_on_click, "selected");
+		if (_prev_tap_selected_on_click)
+			dom_remove_class(_prev_tap_selected_on_click, "selected");
 
 		dom_add_class(node, "selected");
-		_prev_filter_on_click = node;
+		_prev_tap_selected_on_click = node;
 
-		var filter = node['data_ws_filter'];
-		document.getElementById('ws_packet_list_view').style.display = 'block';
+		if (action == 'data_ws_analyse')
+		{
+			var anal = node['data_ws_analyse'];
 
-		_webshark.setFilter(filter);
+			var tap_req =
+				{
+					req: 'tap',
+					capture: _webshark_file,
+					tap0: anal
+				};
+
+			webshark_json_get(tap_req,
+				function(data)
+				{
+					var tap_table = document.getElementById('ws_tap_table');
+					var tap_extra = document.getElementById('ws_tap_details');
+
+					tap_extra.style.display = 'block';
+					tap_extra.innerHTML = "";
+
+					/* XXX< hacky, add parameters to webshark_render_tap() */
+					tap_table.id = '';
+					tap_extra.id = 'ws_tap_table';
+
+					for (var i = 0; i < data['taps'].length - 1; i++)
+						webshark_render_tap(data['taps'][i]);
+
+					tap_table.id = 'ws_tap_table';
+					tap_extra.id = 'ws_tap_details';
+				});
+		}
+
+		if (action == 'data_ws_filter')
+		{
+			var filter = node['data_ws_filter'];
+			document.getElementById('ws_packet_list_view').style.display = 'block';
+
+			_webshark.setFilter(filter);
+		}
 	}
 }
 
@@ -1099,9 +1227,9 @@ function webshark_frame_goto(ev)
 
 function ws_rtp_playback_control_play_pause(wave, x)
 {
-	for (var w in _webshark_rtps)
+	for (var w in _webshark_rtps_players)
 	{
-		var wv = _webshark_rtps[w];
+		var wv = _webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 		{
@@ -1114,9 +1242,9 @@ function ws_rtp_playback_control_play_pause(wave, x)
 
 function ws_rtp_playback_control_skip(wave, x)
 {
-	for (var w in _webshark_rtps)
+	for (var w in _webshark_rtps_players)
 	{
-		var wv = _webshark_rtps[w];
+		var wv = _webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 			wv.skip(x);
@@ -1125,9 +1253,9 @@ function ws_rtp_playback_control_skip(wave, x)
 
 function ws_rtp_playback_control_speed(wave, x)
 {
-	for (var w in _webshark_rtps)
+	for (var w in _webshark_rtps_players)
 	{
-		var wv = _webshark_rtps[w];
+		var wv = _webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 			wv.setPlaybackRate(x);
@@ -1537,6 +1665,17 @@ var webshark_rtp_streams_fields =
 	'_pb': 'Pb?'
 };
 
+var webshark_rtp_analyse_fields =
+{
+	'_frame_time': 'Packet (Time)',
+	'sn': 'Sequence',
+	'd': 'Delta (ms)',
+	'j': 'Filtered jitter (ms)',
+	'sk': 'Skew (ms)',
+	'bw': 'IP BW (kbps)',
+	'_marker_str': 'Marker',
+	'_status': 'Status'
+};
 
 var webshark_rtd_fields =
 {
@@ -1647,10 +1786,20 @@ function webshark_create_tap_table_data_common(fields, table, data)
 			tr.className = val['_css_class'];
 		}
 
-		if (val['_filter'])
+		if (val['_rtp_goto'] != undefined)
+		{
+			tr.data_ws_rtp_pos = val['_rtp_goto'];
+			tr.addEventListener("click", webshark_tap_row_on_click);
+		}
+		else if (val['_analyse'])
+		{
+			tr.data_ws_analyse = val['_analyse'];
+			tr.addEventListener("click", webshark_tap_row_on_click);
+		}
+		else if (val['_filter'])
 		{
 			tr.data_ws_filter = val['_filter'];
-			tr.addEventListener("click", webshark_filter_on_click);
+			tr.addEventListener("click", webshark_tap_row_on_click);
 		}
 
 		table.appendChild(tr);
@@ -1660,6 +1809,22 @@ function webshark_create_tap_table_data_common(fields, table, data)
 function webshark_create_tap_action_common(data)
 {
 	var td = document.createElement('td');
+
+	if (data['_analyse'])
+	{
+		var anal_a = document.createElement('a');
+
+		anal_a.setAttribute("target", "_blank");
+		anal_a.setAttribute("href", webshark_get_url()+ "&tap=" + encodeURIComponent(data['_analyse']));
+		anal_a.addEventListener("click", popup_on_click_a);
+
+		var glyph = webshark_glyph_img('analyse', 16);
+		glyph.setAttribute('alt', 'Details: ' + data['_analyse']);
+		glyph.setAttribute('title', 'Details: ' + data['_analyse']);
+
+		anal_a.appendChild(glyph);
+		td.appendChild(anal_a);
+	}
 
 	if (data['_filter'])
 	{
@@ -1677,12 +1842,27 @@ function webshark_create_tap_action_common(data)
 		td.appendChild(filter_a);
 	}
 
+	if (data['_goto_frame'])
+	{
+		var show_a = document.createElement('a');
+
+		show_a.setAttribute("target", "_blank");
+		show_a.setAttribute("href", webshark_get_url()+ "&frame=" + data['_goto_frame']);
+		show_a.addEventListener("click", popup_on_click_a);
+
+		var glyph = webshark_glyph_img('analyse', 16);
+		glyph.setAttribute('alt', 'Load frame: ' + data['_filter']);
+		glyph.setAttribute('title', 'Load frame: ' + data['_filter']);
+
+		show_a.appendChild(glyph);
+		td.appendChild(show_a);
+	}
+
 	if (data['_download'])
 	{
 		var down_a = document.createElement('a');
 
 		down_a.setAttribute("target", "_blank");
-
 		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_download']));
 		down_a.addEventListener("click", popup_on_click_a);
 
@@ -1704,6 +1884,7 @@ function webshark_create_tap_action_common(data)
 
 		down_a.setAttribute("target", "_blank");
 		down_a["ws_title"] = descr;
+		down_a["ws_rtp"] = data['_play'];
 		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_play']));
 		down_a.addEventListener("click", play_on_click_a);
 
@@ -2104,7 +2285,7 @@ function webshark_render_tap(tap)
 				item['_css_class'] = 'ws_cell_expert_color_' + item['s'];
 			}
 
-			item['_filter'] = 'frame.number == ' + item['f'];
+			item['_goto_frame'] = item['f'];
 		}
 
 		webshark_create_tap_table_data_common(webshark_expert_fields, table, details);
@@ -2131,7 +2312,10 @@ function webshark_render_tap(tap)
 			var ipstr = "ip";
 			if (stream['ipver'] == 6) ipstr = "ipv6";
 
-			stream['_download'] = 'rtp:' + stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + xtoa(stream['ssrc'], 0);
+			var rtp_str = stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + xtoa(stream['ssrc'], 0);
+
+			stream['_analyse'] = 'rtp-analyse:' + rtp_str;
+			stream['_download'] = 'rtp:' + rtp_str;
 			stream['_play'] = stream['_download'];
 			stream['_play_descr'] = '[' + stream['saddr'] + ']:' + stream['sport'] + ' -> [' + stream['daddr'] + ']:' + stream['dport'] + " SSRC: " + stream['_ssrc'] + ' ' + stream['payload'];
 
@@ -2150,6 +2334,37 @@ function webshark_render_tap(tap)
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP streams (" + streams.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 		document.getElementById('ws_tap_table').appendChild(wave_div);
+	}
+	else if (tap['type'] == 'rtp-analyse')
+	{
+		var table = webshark_create_tap_table_common(webshark_rtp_analyse_fields);
+		var items = tap['items'];
+
+		var rtp_str = "rtp:" + tap['tap'].slice(12);
+
+		for (var i = 0; i < items.length; i++)
+		{
+			var item = items[i];
+
+			item['_frame_time'] = item['f'] + ' (' + item['o'] + ')';
+			item['_marker_str'] = (item['mark'] == 1) ? "Set" : "";
+
+			if (item['s'])
+				item['_status'] = item['s'];
+			else
+				item['_status'] = '[ OK ]';
+
+			item['_rtp_goto'] = item['o'];
+			item['_goto_frame'] = item['f'];
+		}
+
+		table['data_ws_rtp_name'] = rtp_str;
+
+		_webshark_rtps_table[rtp_str] = [ items, table, null ];
+		webshark_create_tap_table_data_common(webshark_rtp_analyse_fields, table, items);
+
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP analysis"));
+		document.getElementById('ws_tap_table').appendChild(table);
 	}
 }
 
