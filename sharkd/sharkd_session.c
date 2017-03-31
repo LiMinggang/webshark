@@ -170,7 +170,7 @@ json_print_base64_char(const guint8 *data, int *state1, int *state2)
 static void
 json_print_base64(const guint8 *data, size_t len)
 {
-	int i;
+	size_t i;
 	int base64_state1 = 0;
 	int base64_state2 = 0;
 
@@ -3738,7 +3738,7 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			printf(",\"mime\":");
 			json_puts_string(mime);
 			printf(",\"data\":");
-			json_print_base64(eo_entry->payload_data, (int) eo_entry->payload_len); /* XXX, export object will be truncated if >= 2^31 */
+			json_print_base64(eo_entry->payload_data, eo_entry->payload_len);
 			printf("}\n");
 		}
 	}
