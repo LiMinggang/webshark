@@ -2420,6 +2420,7 @@ function webshark_render_interval()
 	var intervals_filter = _webshark_interval_filter ? _webshark_interval_filter['intervals'] : null;
 	var intervals_full = [ ];
 
+	var last_one  = _webshark_interval ? _webshark_interval['last'] : _webshark_interval_filter['last'];
 	var color_arr = [ 'steelblue' ];
 
 	var count_idx =
@@ -2430,7 +2431,7 @@ function webshark_render_interval()
 	if (count_idx == -1)
 		return;
 
-	for (var i = 0; i <= _webshark_interval['last']; i++)
+	for (var i = 0; i <= last_one; i++)
 		intervals_full[i] = [ (i * _webshark_interval_scale), 0, 0 ];
 
 	if (intervals_data)
@@ -2462,7 +2463,7 @@ function webshark_render_interval()
 		width: 620, height: 100,
 		margin: {top: 0, right: 10, bottom: 20, left: 40},
 
-		xrange: [ 0, (_webshark_interval['last'] * _webshark_interval_scale) ],
+		xrange: [ 0, (last_one * _webshark_interval_scale) ],
 
 		getX: function(d) { return d[0]; },
 
