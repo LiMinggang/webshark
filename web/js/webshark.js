@@ -2364,6 +2364,20 @@ function webshark_render_tap(tap)
 		webshark_create_tap_table_data_common(webshark_rtp_analyse_fields, table, items);
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP analysis"));
+		{
+			var rdiv = document.createElement('div');
+
+			rdiv.appendChild(dom_create_label_span("SSRC: 0x" + xtoa(tap['ssrc'], 0)));
+
+			rdiv.appendChild(dom_create_label_span(", Max Delta: " + tap['max_delta'] + ' ms @ ' + tap['max_delta_nr']));
+			rdiv.appendChild(dom_create_label_span(", Max Jitter: " + tap['max_jitter'] + " ms"));
+			rdiv.appendChild(dom_create_label_span(", Mean Jitter: " + tap['mean_jitter'] + " ms"));
+			rdiv.appendChild(dom_create_label_span(", Max Skew: " + tap['max_skew'] + " ms"));
+			rdiv.appendChild(dom_create_label_span(", RTP Packets: " + tap['total_nr']));
+			rdiv.appendChild(dom_create_label_span(", Seq Errs: " + tap['seq_err']));
+			rdiv.appendChild(dom_create_label_span(", Duration: " + prec_trunc(1000, tap['duration'] / 1000) + " s"));
+			document.getElementById('ws_tap_table').appendChild(rdiv);
+		}
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 }

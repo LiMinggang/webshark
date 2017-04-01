@@ -244,26 +244,36 @@ struct sharkd_rtp_match
 static gboolean
 sharkd_rtp_match_init(struct sharkd_rtp_match *req, const char *init_str)
 {
+	gboolean ret = FALSE;
 	char **arr;
 
 	arr = g_strsplit(init_str, "_", 7); /* pass larger value, so we'll catch incorrect input :) */
 	if (g_strv_length(arr) != 5)
-	{
-		g_strfreev(arr);
-		return FALSE;
-	}
+		goto fail;
 
 	/* TODO, for now only IPv4 */
-	get_host_ipaddr(arr[0], &req->addr_src);
-	set_address(&req->src_addr, AT_IPv4, 4, &req->addr_src);
-	req->src_port = atoi(arr[1]);
-	get_host_ipaddr(arr[2], &req->addr_dst);
-	set_address(&req->dst_addr, AT_IPv4, 4, &req->addr_dst);
-	req->dst_port = atoi(arr[3]);
-	req->ssrc = strtoul(arr[4], NULL, 16);
+	if (!get_host_ipaddr(arr[0], &req->addr_src))
+		goto fail;
 
+	if (!ws_strtou16(arr[1], NULL, &req->src_port))
+		goto fail;
+
+	if (!get_host_ipaddr(arr[2], &req->addr_dst))
+		goto fail;
+
+	if (!ws_strtou16(arr[3], NULL, &req->dst_port))
+		goto fail;
+
+	if (!ws_hexstrtou32(arr[4], NULL, &req->ssrc))
+		goto fail;
+
+	set_address(&req->src_addr, AT_IPv4, 4, &req->addr_src);
+	set_address(&req->dst_addr, AT_IPv4, 4, &req->addr_dst);
+	ret = TRUE;
+
+fail:
 	g_strfreev(arr);
-	return TRUE;
+	return ret;
 }
 
 static gboolean
@@ -1344,8 +1354,17 @@ sharkd_session_packet_tap_rtp_analyse_cb(void *tapdata, packet_info *pinfo, epan
  * sharkd_session_process_tap_rtp_analyse_cb()
  *
  * Output rtp analyse tap:
- *   (m) tap        - tap name
- *   (m) type       - tap output type
+ *   (m) tap   - tap name
+ *   (m) type  - tap output type
+ *   (m) ssrc         - RTP SSRC
+ *   (m) max_delta    - Max delta (ms)
+ *   (m) max_delta_nr - Max delta packet #
+ *   (m) max_jitter   - Max jitter (ms)
+ *   (m) mean_jitter  - Mean jitter (ms)
+ *   (m) max_skew     - Max skew (ms)
+ *   (m) total_nr     - Total number of RTP packets
+ *   (m) seq_err      - Number of sequence errors
+ *   (m) duration     - Duration (ms)
  *   (m) items      - array of object with attributes:
  *                  (m) f    - frame number
  *                  (m) o    - arrive offset
@@ -1366,11 +1385,24 @@ sharkd_session_process_tap_rtp_analyse_cb(void *tapdata)
 	const int RTP_TYPE_WARN     = 3;
 	const int RTP_TYPE_PT_EVENT = 4;
 
-	struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
+	const struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
+	const tap_rtp_stat_t *statinfo = &rtp_req->statinfo;
+
 	const char *sepa = "";
 	GSList *l;
 
 	printf("{\"tap\":\"%s\",\"type\":\"rtp-analyse\"", rtp_req->tap_name);
+
+	printf(",\"ssrc\":%u", rtp_req->rtp.ssrc);
+
+	printf(",\"max_delta\":%f", statinfo->max_delta);
+	printf(",\"max_delta_nr\":%u", statinfo->max_nr);
+	printf(",\"max_jitter\":%f", statinfo->max_jitter);
+	printf(",\"mean_jitter\":%f", statinfo->mean_jitter);
+	printf(",\"max_skew\":%f", statinfo->max_skew);
+	printf(",\"total_nr\":%u", statinfo->total_nr);
+	printf(",\"seq_err\":%u", statinfo->sequence);
+	printf(",\"duration\":%f", statinfo->time - statinfo->start_time);
 
 	printf(",\"items\":[");
 	for (l = rtp_req->packets; l; l = l->next)
