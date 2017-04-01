@@ -1,21 +1,8 @@
 diff --git a/epan/frame_data.h b/epan/frame_data.h
-index dd443ca..7201404 100644
+index 7dd6cce..7201404 100644
 --- a/epan/frame_data.h
 +++ b/epan/frame_data.h
-@@ -69,6 +69,7 @@ typedef struct _frame_data {
-   guint32      cum_bytes;    /**< Cumulative bytes into the capture */
-   gint64       file_off;     /**< File offset */
-   guint16      subnum;       /**< subframe number, for protocols that require this */
-+  gint16       tsprec;       /**< Time stamp precision */
-   struct {
-     unsigned int passed_dfilter : 1; /**< 1 = display, 0 = no display */
-     unsigned int dependent_of_displayed : 1; /**< 1 if a displayed frame depends on this frame */
-@@ -83,12 +84,10 @@ typedef struct _frame_data {
-     unsigned int has_user_comment : 1; /** 1 = user set (also deleted) comment for this packet */
-     unsigned int need_colorize  : 1; /**< 1 = need to (re-)calculate packet color */
-   } flags;
--  gint16       tsprec;       /**< Time stamp precision */
- 
+@@ -88,7 +88,6 @@ typedef struct _frame_data {
    const struct _color_filter *color_filter;  /**< Per-packet matching color_filter_t object */
  
    nstime_t     abs_ts;       /**< Absolute timestamp */
@@ -24,10 +11,10 @@ index dd443ca..7201404 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index 52592d5..ff6aed5 100644
+index aa9d1f4..c01d511 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
-@@ -54,7 +54,6 @@ static int proto_pkt_comment = -1;
+@@ -55,7 +55,6 @@ static int proto_pkt_comment = -1;
  static int proto_syscall = -1;
  
  static int hf_frame_arrival_time = -1;
@@ -35,7 +22,7 @@ index 52592d5..ff6aed5 100644
  static int hf_frame_arrival_time_epoch = -1;
  static int hf_frame_time_delta = -1;
  static int hf_frame_time_delta_displayed = -1;
-@@ -383,9 +382,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
+@@ -401,9 +400,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
  								  " the valid range is 0-1000000000",
  								  (long) pinfo->abs_ts.nsecs);
  			}
@@ -45,7 +32,7 @@ index 52592d5..ff6aed5 100644
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -704,11 +700,6 @@ proto_register_frame(void)
+@@ -718,11 +714,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
