@@ -142,6 +142,7 @@ function Webshark()
 	this.filter = null;
 
 	this.fetch_columns_limit = 120;
+	this.interval_count = 620; /* XXX, number of probes - currently size of svg */
 
 	this.cached_columns = [ ];
 }
@@ -189,6 +190,11 @@ Webshark.prototype.update = function()
 
 	if (this.filter)
 		req_intervals['filter'] = this.filter;
+
+	_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
+	if (_webshark_interval_scale < 1)
+		_webshark_interval_scale = 1;
+	req_intervals['interval'] = 1000 * _webshark_interval_scale;
 
 	var that = this;
 
@@ -2404,6 +2410,7 @@ function webshark_render_tap(tap)
 }
 
 var _webshark_interval = null;
+var _webshark_interval_scale = null;
 var _webshark_interval_filter = null;
 var _webshark_interval_mode = "";
 
@@ -2424,7 +2431,7 @@ function webshark_render_interval()
 		return;
 
 	for (var i = 0; i <= _webshark_interval['last']; i++)
-		intervals_full[i] = [ i, 0, 0 ];
+		intervals_full[i] = [ (i * _webshark_interval_scale), 0, 0 ];
 
 	if (intervals_data)
 	{
@@ -2455,7 +2462,7 @@ function webshark_render_interval()
 		width: 620, height: 100,
 		margin: {top: 0, right: 10, bottom: 20, left: 40},
 
-		xrange: [ 0, _webshark_interval['last'] ],
+		xrange: [ 0, (_webshark_interval['last'] * _webshark_interval_scale) ],
 
 		getX: function(d) { return d[0]; },
 
