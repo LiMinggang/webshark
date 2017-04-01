@@ -302,7 +302,13 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				document.getElementById('toolbar_frame').style.display = 'block';
 
 			} else if (_webshark_file) {
-				document.title = _webshark_file + " - " + document.title;
+				var new_title = _webshark_file + " - " + document.title;
+
+				document.title = "Loading: " + new_title;
+
+				_webshark.load(_webshark_file, function(data)
+				{
+				document.title = new_title;
 
 				if (filter)
 				{
@@ -327,7 +333,11 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 					down_a.appendChild(glyph);
 
+					var label_str = " " + data['filename'] + " (" + data['frames'] + " frames, " + data['duration'] + ' seconds, ' + data['filesize'] + " bytes)";
+
 					var toolbar = document.getElementById('toolbar_capture');
+					toolbar.insertBefore(dom_create_label(""), toolbar.childNodes[0]);
+					toolbar.insertBefore(dom_create_label_span(label_str), toolbar.childNodes[0]);
 					toolbar.insertBefore(down_a, toolbar.childNodes[0]);
 				}
 
@@ -345,6 +355,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				}
 
 				set_filter(filter);
+
+				});
 
 			} else {
 				document.title = "Capture files - " + document.title;

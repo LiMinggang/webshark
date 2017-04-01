@@ -137,6 +137,7 @@ Hexdump.prototype.render_hexdump = function()
 
 function Webshark()
 {
+	this.status = null;
 	this.cols = null;
 	this.filter = null;
 
@@ -144,6 +145,26 @@ function Webshark()
 
 	this.cached_columns = [ ];
 }
+
+Webshark.prototype.load = function(filename, cb)
+{
+	var req_status =
+		{
+			req: 'status',
+			capture: filename
+		};
+
+	var that = this;
+
+	webshark_json_get(req_status,
+		function(data)
+		{
+			data['filename'] = filename; /* we know better */
+
+			that.status = data;
+			cb(data);
+		});
+};
 
 Webshark.prototype.setColumns = function(user_cols)
 {
