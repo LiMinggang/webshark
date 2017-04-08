@@ -206,19 +206,19 @@ index 92fac8f..1867eee 100644
      guint fld_len;
      char* fld_ptr;
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index bbe3d1f..06b513a 100644
+index e669c46..e447609 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -2234,6 +2234,7 @@ if(BUILD_tshark)
+@@ -2300,6 +2300,7 @@ endif()
+ if(BUILD_sharkd)
+ 	set(sharkd_LIBS
  		ui
- 		capchild
- 		caputils
 +		wscodecs
  		${LIBEPAN_LIBS}
  		${APPLE_CORE_FOUNDATION_LIBRARY}
  		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 diff --git a/Makefile.am b/Makefile.am
-index ce7adf7..9e28235 100644
+index ab43234..a6a86fa 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -595,6 +595,7 @@ sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
@@ -229,6 +229,41 @@ index ce7adf7..9e28235 100644
  	wiretap/libwiretap.la		\
  	epan/libwireshark.la		\
  	wsutil/libwsutil.la		\
+@@ -910,6 +911,7 @@ SUBDIRS = \
+ 	packaging		\
+ 	help			\
+ 	ui			\
++	codecs			\
+ 	@wireshark_SUBDIRS@	\
+ 	ui/cli			\
+ 	randpkt_core		\
+diff --git a/configure.ac b/configure.ac
+index 166c507..96e33a0 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1432,19 +1432,19 @@ if test "$have_gtk" = "yes" -a "$have_qt" = "yes" ; then
+ 
+ 	wireshark_bin="wireshark\$(EXEEXT) wireshark-gtk\$(EXEEXT)"
+ 	wireshark_man="wireshark.1"
+-	wireshark_SUBDIRS="codecs ui/qt ui/gtk"
++	wireshark_SUBDIRS="ui/qt ui/gtk"
+ elif test "$have_gtk" = "no" -a "$have_qt" = "yes" ; then
+ 	# We don't have GTK+ but we have Qt.
+ 
+ 	wireshark_bin="wireshark\$(EXEEXT)"
+ 	wireshark_man="wireshark.1"
+-	wireshark_SUBDIRS="codecs ui/qt"
++	wireshark_SUBDIRS="ui/qt"
+ elif test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
+ 	# We have GTK+ but not Qt.
+ 
+ 	wireshark_bin="wireshark-gtk\$(EXEEXT)"
+ 	wireshark_man="wireshark.1"
+-	wireshark_SUBDIRS="codecs ui/gtk"
++	wireshark_SUBDIRS="ui/gtk"
+ 	OSX_APP_FLAGS="$OSX_APP_FLAGS -gtk"
+ 	OSX_DMG_FLAGS="-gtk"
+ elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 diff --git a/sharkd.c b/sharkd.c
 index 6ad971b..8ff9ed0 100644
 --- a/sharkd.c

@@ -150,7 +150,7 @@ json_puts_string(const char *str)
 }
 
 static void
-json_print_base64_char(const guint8 *data, int *state1, int *state2)
+json_print_base64_step(const guint8 *data, int *state1, int *state2)
 {
 	gchar buf[(1 / 3 + 1) * 4 + 4 + 1];
 	gsize wrote;
@@ -183,9 +183,9 @@ json_print_base64(const guint8 *data, size_t len)
 	putchar('"');
 
 	for (i = 0; i < len; i++)
-		json_print_base64_char(&data[i], &base64_state1, &base64_state2);
+		json_print_base64_step(&data[i], &base64_state1, &base64_state2);
 
-	json_print_base64_char(NULL, &base64_state1, &base64_state2);
+	json_print_base64_step(NULL, &base64_state1, &base64_state2);
 
 	putchar('"');
 }
@@ -3644,7 +3644,7 @@ sharkd_rtp_download_decode(struct sharkd_download_rtp *req)
 			memcpy(&wav_hdr[40], "\xFF\xFF\xFF\xFF", 4); /* XXX, unknown */
 
 			for (i = 0; i < (int) sizeof(wav_hdr); i++)
-				json_print_base64_char(&wav_hdr[i], &base64_state1, &base64_state2);
+				json_print_base64_step(&wav_hdr[i], &base64_state1, &base64_state2);
 
 #if 0
 			/* Prepend silence to match our sibling streams. */
@@ -3696,12 +3696,12 @@ sharkd_rtp_download_decode(struct sharkd_download_rtp *req)
 
 		/* Write the decoded, possibly-resampled audio */
 		for (i = 0; i < write_bytes; i++)
-			json_print_base64_char(&write_buff[i], &base64_state1, &base64_state2);
+			json_print_base64_step(&write_buff[i], &base64_state1, &base64_state2);
 
 		g_free(decode_buff);
 	}
 
-	json_print_base64_char(NULL, &base64_state1, &base64_state2);
+	json_print_base64_step(NULL, &base64_state1, &base64_state2);
 
 	g_free(resample_buff);
 	g_hash_table_destroy(decoders_hash_);
