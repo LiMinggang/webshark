@@ -834,7 +834,7 @@ function webshark_d3_sequence_diagram(svg, nodes, flows)
 		  .attr("x2", 100 + nn[1] * 300)
 		  .attr("y2", posY + 50)
 		  .attr("marker-end", 'url(#arr)')
-		  .attr("stroke", color[nn[0]]);
+		  .attr("stroke", (color != null) ? color[nn[0]] : 'black');
 	}
 
 	for (var i = 0; i < nodes.length; i++)
