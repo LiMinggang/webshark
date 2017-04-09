@@ -38,6 +38,7 @@
 #include <epan/color_filters.h>
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
+#include <epan/strutil.h>
 #include <epan/uat-int.h>
 #include <wiretap/wtap.h>
 
@@ -53,6 +54,7 @@
 #include <epan/follow.h>
 #include <epan/rtd_table.h>
 #include <epan/srt_table.h>
+#include <epan/dissectors/packet-ieee80211.h>
 
 #include <epan/dissectors/packet-h225.h>
 #include <epan/rtp_pt.h>
@@ -501,6 +503,7 @@ sharkd_session_process_info(void)
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Frames Flow Graph", "frames-flow-graph");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "TCP Flow Graph", "tcp-flow-graph");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP Flow Graph", "voip-flow-graph");
+		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Wireless LAN Statistics", "wlan");
 	}
 	printf("]");
 
@@ -1057,6 +1060,378 @@ sharkd_session_free_tap_expert_cb(void *tapdata)
 	g_slist_free_full(etd->details, g_free);
 	g_string_chunk_free(etd->text);
 	g_free(etd);
+}
+
+typedef struct wlan_details_ep
+{
+	struct wlan_details_ep *next;
+	address     addr;
+	guint32     probe_req;
+	guint32     probe_rsp;
+	guint32     auth;
+	guint32     deauth;
+	guint32     data_sent;
+	guint32     data_received;
+	guint32     other;
+	guint32     number_of_packets;
+} wlan_details_ep_t;
+
+typedef struct wlan_ep
+{
+	struct wlan_ep     *next;
+	address             bssid;
+	struct _wlan_stats  stats;
+	guint32             type[256];
+	guint32             number_of_packets;
+	gboolean            probe_req_searched;
+	gboolean            is_broadcast;
+	struct wlan_details_ep *details;
+} wlan_ep_t;
+
+struct sharkd_wlan_tap
+{
+	guint32      number_of_packets;
+	gboolean     resolve_names;
+	gboolean     show_only_existing;
+	wlan_ep_t   *ep_list;
+};
+
+static wlan_details_ep_t *
+get_details_ep(wlan_ep_t *te, const address *addr)
+{
+	wlan_details_ep_t *tmp, *d_te = NULL;
+
+	for (tmp = te->details; tmp; tmp = tmp->next)
+		if (!cmp_address(&tmp->addr, addr))
+			return tmp;
+
+	d_te = (wlan_details_ep_t *) g_malloc0(sizeof(wlan_details_ep_t));
+	copy_address(&d_te->addr, addr);
+
+	d_te->next = te->details;
+	te->details = d_te;
+
+	return d_te;
+}
+
+static gboolean
+ssid_equal(const struct _wlan_stats *st1, const struct _wlan_stats *st2 )
+{
+	return ((st1->ssid_len <= sizeof(st1->ssid)) && st1->ssid_len == st2->ssid_len) && (memcmp(st1->ssid, st2->ssid, st1->ssid_len) == 0);
+}
+
+static void
+wlanstat_packet_details (wlan_ep_t *te, guint32 type, const address *addr, gboolean src)
+{
+	wlan_details_ep_t *d_te = get_details_ep (te, addr);
+
+	switch (type) {
+		case MGT_PROBE_REQ:
+		d_te->probe_req++;
+		break;
+	case MGT_PROBE_RESP:
+		d_te->probe_rsp++;
+		break;
+	case MGT_BEACON:
+		/* No counting for beacons */
+		break;
+	case MGT_AUTHENTICATION:
+		d_te->auth++;
+		break;
+	case MGT_DEAUTHENTICATION:
+		d_te->deauth++;
+		break;
+	case DATA:
+	case DATA_CF_ACK:
+	case DATA_CF_POLL:
+	case DATA_CF_ACK_POLL:
+	case DATA_QOS_DATA:
+	case DATA_QOS_DATA_CF_ACK:
+	case DATA_QOS_DATA_CF_POLL:
+	case DATA_QOS_DATA_CF_ACK_POLL:
+		if (src)
+			d_te->data_sent++;
+		else
+			d_te->data_received++;
+		break;
+	default:
+		d_te->other++;
+		break;
+	}
+
+	if (type != MGT_BEACON)
+	{
+		/* Do not count beacons in details */
+		d_te->number_of_packets++;
+	}
+}
+
+static void
+dealloc_wlan_details_ep(wlan_details_ep_t *details)
+{
+	while (details)
+	{
+		wlan_details_ep_t *tmp = details;
+
+		details = details->next;
+		free_address(&tmp->addr);
+		g_free(tmp);
+	}
+}
+
+static gboolean
+sharkd_session_packet_tap_wlan_cb(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *pointer)
+{
+	struct sharkd_wlan_tap *hs  = (struct sharkd_wlan_tap *) tapdata;
+	wlan_hdr_t *si              = (wlan_hdr_t *) pointer;
+
+	wlan_ep_t *te;
+	guint16 frame_type;
+
+	frame_type = si->type & 0xff0;
+	if (!((frame_type == 0x0) || (frame_type == 0x20) || (frame_type == 0x30)) || ((frame_type == 0x20) && DATA_FRAME_IS_NULL(si->type)))
+	{
+		/* Not a management or non null data or extension frame; let's skip it */
+		return FALSE;
+	}
+
+	hs->number_of_packets++;
+
+	for (te = hs->ep_list; te; te = te->next)
+	{
+		if (si->type == MGT_PROBE_REQ)
+		{
+			if ((te->stats.ssid_len == 0) && (si->stats.ssid_len == 0) && te->is_broadcast)
+				break;
+
+			if ((si->stats.ssid_len != 0) && (ssid_equal(&te->stats, &si->stats)))
+				break;
+		}
+		else
+		{
+			if (!cmp_address(&te->bssid, &si->bssid))
+				break;
+		}
+	}
+
+	if (!te)
+	{
+		te = (wlan_ep_t *) g_malloc0(sizeof(wlan_ep_t));
+
+		te->is_broadcast = is_broadcast_bssid(&si->bssid);
+		copy_address(&te->bssid, &si->bssid);
+
+		te->next = hs->ep_list;
+		hs->ep_list = te;
+	}
+
+	if (te->stats.channel == 0 && si->stats.channel != 0)
+		te->stats.channel = si->stats.channel;
+
+	if (te->stats.ssid[0] == 0 && si->stats.ssid_len != 0)
+	{
+		memcpy(te->stats.ssid, si->stats.ssid, MAX_SSID_LEN);
+		te->stats.ssid_len = si->stats.ssid_len;
+	}
+
+	if (te->stats.protection[0] == 0 && si->stats.protection[0] != 0)
+		g_strlcpy(te->stats.protection, si->stats.protection, MAX_PROTECT_LEN);
+
+
+	if (!te->probe_req_searched && (si->type != MGT_PROBE_REQ) && (te->type[MGT_PROBE_REQ] == 0) &&
+	   (si->stats.ssid_len > 1 || si->stats.ssid[0] != 0))
+	{
+		wlan_ep_t *prev = NULL;
+		wlan_ep_t *tmp;
+		/*
+		 * We have found a matching entry without Probe Requests.
+		 * Search the rest of the entries for a corresponding entry
+		 * matching the SSID and BSSID == Broadcast.
+		 *
+		 * This is because we can have a hidden SSID or Probe Request
+		 * before we have a Beacon, Association Request, etc.
+		 */
+		te->probe_req_searched = TRUE;
+		for (tmp = hs->ep_list; tmp; tmp = tmp->next)
+		{
+			if (tmp != te && tmp->is_broadcast && ssid_equal (&si->stats, &tmp->stats))
+			{
+				/*
+				 * Found a matching entry. Merge with the previous
+				 * found entry and remove from list.
+				 */
+				te->type[MGT_PROBE_REQ] += tmp->type[MGT_PROBE_REQ];
+				te->number_of_packets += tmp->number_of_packets;
+
+				if (tmp->details && tmp->details->next)
+				{
+					/* Adjust received probe requests */
+					wlan_details_ep_t *d_te;
+
+					d_te = get_details_ep(te, &tmp->details->addr);
+					d_te->probe_req += tmp->type[MGT_PROBE_REQ];
+					d_te->number_of_packets += tmp->type[MGT_PROBE_REQ];
+
+					d_te = get_details_ep(te, &tmp->details->next->addr);
+					d_te->probe_req += tmp->type[MGT_PROBE_REQ];
+					d_te->number_of_packets += tmp->type[MGT_PROBE_REQ];
+				}
+
+				if (prev)
+					prev->next = tmp->next;
+				else
+					hs->ep_list = tmp->next;
+
+				dealloc_wlan_details_ep(tmp->details);
+				free_address(&tmp->bssid);
+				g_free(tmp);
+				break;
+			}
+			prev = tmp;
+		}
+	}
+
+	te->type[si->type]++;
+	te->number_of_packets++;
+
+	wlanstat_packet_details(te, si->type, &si->src, TRUE);  /* Register source */
+	wlanstat_packet_details(te, si->type, &si->dst, FALSE); /* Register destination */
+
+	return TRUE;
+}
+
+static void
+sharkd_session_free_tap_wlan_cb(void *tapdata)
+{
+	struct sharkd_wlan_tap *wtd = (struct sharkd_wlan_tap *) tapdata;
+	wlan_ep_t *te;
+
+	for (te = wtd->ep_list; te;)
+	{
+		wlan_ep_t *cur = te;
+
+		te = te->next;
+
+		free_address(&cur->bssid);
+		dealloc_wlan_details_ep(cur->details);
+		g_free(cur);
+	}
+
+	g_free(wtd);
+}
+
+/**
+ * sharkd_session_process_tap_wlan_cb()
+ *
+ * Output wlan tap:
+ */
+static void
+sharkd_session_process_tap_wlan_cb(void *tapdata)
+{
+	struct sharkd_wlan_tap *wtd = (struct sharkd_wlan_tap *) tapdata;
+	wlan_ep_t *l;
+	const char *sepa = "";
+
+	printf("{\"tap\":\"%s\",\"type\":\"%s\"", "wlan", "wlan");
+
+	printf(",\"packets\":%u", wtd->number_of_packets);
+
+	printf(",\"list\":[");
+	for (l = wtd->ep_list; l; l = l->next)
+	{
+		guint32 data, other;
+		char *tmp;
+
+		const char *item_sepa = "";
+		wlan_details_ep_t *d;
+
+		if (wtd->show_only_existing && l->is_broadcast)
+			continue;
+
+		printf("%s{", sepa);
+
+		/* BSSID */
+		tmp = get_conversation_address(NULL, &l->bssid, FALSE);
+		printf("\"braw\":");
+		json_puts_string(tmp);
+		wmem_free(NULL, tmp);
+		if (wtd->resolve_names == TRUE)
+		{
+			tmp = get_conversation_address(NULL, &l->bssid, TRUE);
+			printf(",\"bname\":");
+			json_puts_string(tmp);
+			wmem_free(NULL, tmp);
+		}
+
+		/* channel */
+		if (l->stats.channel)
+			printf(",\"chan\":%u", l->stats.channel);
+
+		if (l->stats.protection[0])
+		{
+			printf(",\"protection\":");
+			json_puts_string(l->stats.protection);
+		}
+
+		/* SSID */
+		printf(",\"ssid\":");
+		if (l->stats.ssid_len == 0)
+			json_puts_string("<Broadcast>");
+		else if (l->stats.ssid_len == 1 && l->stats.ssid[0] == 0)
+			json_puts_string("<Hidden>");
+		else
+		{
+			tmp = format_text(NULL, l->stats.ssid, l->stats.ssid_len);
+			json_puts_string(tmp);
+			wmem_free(NULL, tmp);
+		}
+
+		data = l->type[DATA] + l->type[DATA_CF_ACK] + l->type[DATA_CF_POLL] + l->type[DATA_CF_ACK_POLL] +
+		       l->type[DATA_QOS_DATA] + l->type[DATA_QOS_DATA_CF_ACK] + l->type[DATA_QOS_DATA_CF_POLL] + l->type[DATA_QOS_DATA_CF_ACK_POLL];
+
+		other = l->number_of_packets - data - l->type[MGT_BEACON] - l->type[MGT_PROBE_REQ] - l->type[MGT_PROBE_RESP] - l->type[MGT_AUTHENTICATION] - l->type[MGT_DEAUTHENTICATION];
+
+		printf(",\"packets\":%u", l->number_of_packets);
+		printf(",\"t_beacon\":%u", l->type[MGT_BEACON]);
+		printf(",\"t_probe_req\":%u", l->type[MGT_PROBE_REQ]);
+		printf(",\"t_probe_resp\":%u", l->type[MGT_PROBE_RESP]);
+		printf(",\"t_auth\":%u", l->type[MGT_AUTHENTICATION]);
+		printf(",\"t_deauth\":%u", l->type[MGT_DEAUTHENTICATION]);
+		printf(",\"t_data\":%u", data);
+		printf(",\"t_other\":%u", other);
+
+		printf(",\"details\":[");
+
+		for (d = l->details; d; d = d->next)
+		{
+			printf("%s{", item_sepa);
+
+			/* addr */
+			tmp = get_conversation_address(NULL, &d->addr, FALSE);
+			printf("\"araw\":");
+			json_puts_string(tmp);
+			wmem_free(NULL, tmp);
+
+			printf(",\"packets\":%u", d->number_of_packets);
+			printf(",\"t_probe_req\":%u", d->probe_req);
+			printf(",\"t_probe_rsp\":%u", d->probe_rsp);
+			printf(",\"t_auth\":%u", d->auth);
+			printf(",\"t_deauth\":%u", d->deauth);
+			printf(",\"t_data_sent\":%u", d->data_sent);
+			printf(",\"t_data_recv\":%u", d->data_received);
+			printf(",\"t_other\":%u", d->other);
+
+			printf("}");
+			item_sepa = ",";
+		}
+		printf("]");
+
+		printf("}");
+		sepa = ",";
+	}
+	printf("]");
+
+	printf("},");
 }
 
 /**
@@ -2218,6 +2593,7 @@ sharkd_session_process_tap_voip_calls_flow_cb(void *tapdata)
  *                  for type:rtp-analyse see sharkd_session_process_tap_rtp_analyse_cb()
  *                  for type:eo see sharkd_session_process_tap_eo_cb()
  *                  for type:expert see sharkd_session_process_tap_expert_cb()
+ *                  for type:wlan see sharkd_session_process_tap_wlan_cb()
  *                  for type:rtd see sharkd_session_process_tap_rtd_cb()
  *                  for type:srt see sharkd_session_process_tap_srt_cb()
  *                  for type:flow see sharkd_session_process_tap_flow_cb()
@@ -2285,6 +2661,21 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			tap_data = expert_tap;
 			tap_free = sharkd_session_free_tap_expert_cb;
+		}
+		else if (!strcmp(tok_tap, "wlan"))
+		{
+			struct sharkd_wlan_tap *wlan_tap;
+
+			wlan_tap = g_new0(struct sharkd_wlan_tap, 1);
+
+			/* TODO, make configurable */
+			wlan_tap->resolve_names = TRUE;
+			wlan_tap->show_only_existing = FALSE;
+
+			tap_error = register_tap_listener("wlan", wlan_tap, tap_filter, 0, NULL, sharkd_session_packet_tap_wlan_cb, sharkd_session_process_tap_wlan_cb);
+
+			tap_data = wlan_tap;
+			tap_free = sharkd_session_free_tap_wlan_cb;
 		}
 		else if (!strcmp(tok_tap, "frames-flow-graph") || !strcmp(tok_tap, "tcp-flow-graph"))
 		{

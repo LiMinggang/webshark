@@ -191,10 +191,14 @@ Webshark.prototype.update = function()
 	if (this.filter)
 		req_intervals['filter'] = this.filter;
 
-	_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
-	if (_webshark_interval_scale < 1)
-		_webshark_interval_scale = 1;
-	req_intervals['interval'] = 1000 * _webshark_interval_scale;
+	/* XXX, webshark.load() is not called for taps/ single frames/ ... */
+	if (this.status)
+	{
+		_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
+		if (_webshark_interval_scale < 1)
+			_webshark_interval_scale = 1;
+		req_intervals['interval'] = 1000 * _webshark_interval_scale;
+	}
 
 	var that = this;
 
@@ -1131,9 +1135,16 @@ function webshark_tap_row_on_click(ev)
 	var node;
 	var action = null;
 
-	node = dom_find_node_attr(ev.target, 'data_ws_analyse');
+	node = dom_find_node_attr(ev.target, 'data_wlan_details');
 	if (node != null)
-		action = 'data_ws_analyse';
+		action = 'data_wlan_details';
+
+	if (action == null)
+	{
+		node = dom_find_node_attr(ev.target, 'data_ws_analyse');
+		if (node != null)
+			action = 'data_ws_analyse';
+	}
 
 	if (action == null)
 	{
@@ -1170,6 +1181,33 @@ function webshark_tap_row_on_click(ev)
 
 		dom_add_class(node, "selected");
 		_prev_tap_selected_on_click = node;
+
+		if (action == 'data_wlan_details')
+		{
+			var details = node['data_wlan_details'][0];
+			var item    = node['data_wlan_details'][1];
+
+			var tap_table = document.getElementById('ws_tap_table');
+			var tap_extra = document.getElementById('ws_tap_details');
+
+			tap_extra.style.display = 'block';
+			tap_extra.innerHTML = "";
+
+			/* XXX< hacky, add parameters to webshark_render_tap() */
+			tap_table.id = '';
+			tap_extra.id = 'ws_tap_table';
+
+			data =
+				{
+					type: 'fake-wlan-details',
+					items: details,
+					orig_item: item
+				};
+			webshark_render_tap(data);
+
+			tap_table.id = 'ws_tap_table';
+			tap_extra.id = 'ws_tap_details';
+		}
 
 		if (action == 'data_ws_analyse')
 		{
@@ -1752,6 +1790,36 @@ var webshark_expert_fields =
 	'm': 'Summary'
 };
 
+var webshark_wlan_fields =
+{
+	'_bssid': "BSSID",
+	'chan':  "Ch.",
+	'ssid':  "SSID",
+	'_perc':  "% Packets",
+	't_beacon': "Beacons",
+	't_data':    "Data Packets",
+	't_probe_req': "Probe Req",
+	't_probe_resp': "Probe Resp",
+	't_auth': "Auth",
+	't_deauth': "Deauth",
+	't_other': "Other",
+	'protection': "Protection"
+};
+
+var webshark_wlan_details_fields =
+{
+	'araw': 'Address',
+	'_perc': '% Packets',
+	't_data_sent': 'Data Sent',
+	't_data_recv': 'Data Received',
+	't_probe_req': 'Probe Req',
+	't_probe_rsp': 'Probe Resp',
+	't_auth': 'Auth',
+	't_deauth': 'Deauth',
+	't_other': 'Other',
+	'_comment': 'Comment'
+};
+
 function webshark_create_tap_table_common(fields)
 {
 	var table = document.createElement('table');
@@ -1813,7 +1881,12 @@ function webshark_create_tap_table_data_common(fields, table, data)
 			tr.className = val['_css_class'];
 		}
 
-		if (val['_rtp_goto'] != undefined)
+		if (val['_wlan_extra_data'] != undefined)
+		{
+			tr.data_wlan_details = val['_wlan_extra_data'];
+			tr.addEventListener("click", webshark_tap_row_on_click);
+		}
+		else if (val['_rtp_goto'] != undefined)
 		{
 			tr.data_ws_rtp_pos = val['_rtp_goto'];
 			tr.addEventListener("click", webshark_tap_row_on_click);
@@ -2318,6 +2391,71 @@ function webshark_render_tap(tap)
 		webshark_create_tap_table_data_common(webshark_expert_fields, table, details);
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("Expert information (" + details.length + ')'));
+		document.getElementById('ws_tap_table').appendChild(table);
+	}
+	else if (tap['type'] == 'wlan')
+	{
+		var table = webshark_create_tap_table_common(webshark_wlan_fields);
+		var list = tap['list'];
+
+		list.sort(function(a, b)
+		{
+			var pkta = a['packets'], pktb = b['packets'];
+
+			return pkta < pktb ? 1 : -1;
+		});
+
+		for (var i = 0; i < list.length; i++)
+		{
+			var item = list[i];
+
+			item['_bssid']  = (item['bname'] ? item['bname'] : item['braw']);
+			item['_filter'] = "wlan.bssid == " + item['braw'];
+			item['_perc']  = prec_trunc(100, 100 * (item['packets'] / tap['packets'])) + '%';
+
+			item['_wlan_extra_data'] = [ item['details'], item ];
+		}
+
+		webshark_create_tap_table_data_common(webshark_wlan_fields, table, list);
+
+		document.getElementById('ws_tap_table').appendChild(dom_create_label("WLAN Traffic Statistics"));
+		document.getElementById('ws_tap_table').appendChild(table);
+	}
+	else if (tap['type'] == 'fake-wlan-details')
+	{
+		var list = tap['items'];
+		var orig_item = tap['orig_item'];
+
+		var orig_item_packet_total = orig_item['packets'] - orig_item['t_beacon'];
+
+		list.sort(function(a, b)
+		{
+			var pkta = a['packets'], pktb = b['packets'];
+
+			return pkta < pktb ? 1 : -1;
+		});
+
+		for (var i = 0; i < list.length; i++)
+		{
+			var item = list[i];
+
+			if (orig_item_packet_total)
+				item['_perc']  = prec_trunc(100, 100 * (item['packets'] / orig_item_packet_total)) + '%';
+			else
+				item['_perc'] = prec_trunc(100, 0) + '%';
+
+			if (item['araw'] == 'ff:ff:ff:ff:ff:ff')
+				item['_comment'] = 'Broadcast';
+			else if (orig_item['braw'] == item['araw'])
+				item['_comment'] = 'Base station';
+			else
+				item['_comment'] = '';
+		}
+
+		var table = webshark_create_tap_table_common(webshark_wlan_details_fields);
+
+		webshark_create_tap_table_data_common(webshark_wlan_details_fields, table, list);
+
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'rtp-streams')
