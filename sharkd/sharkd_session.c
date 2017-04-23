@@ -822,13 +822,15 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 	skip = 0;
 	if (tok_skip)
 	{
-		(void) ws_strtou32(tok_skip, NULL, &skip);
+		if (!ws_strtou32(tok_skip, NULL, &skip))
+			return;
 	}
 
 	limit = 0;
 	if (tok_limit)
 	{
-		(void) ws_strtou32(tok_limit, NULL, &limit);
+		if (!ws_strtou32(tok_limit, NULL, &limit))
+			return;
 	}
 
 	printf("[");
@@ -4358,7 +4360,7 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 int
 sharkd_session_main(void)
 {
-	char buf[16 * 1024];
+	char buf[2 * 1024];
 	jsmntok_t *tokens = NULL;
 	int tokens_max = -1;
 
