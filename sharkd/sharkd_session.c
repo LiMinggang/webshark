@@ -2064,7 +2064,7 @@ sharkd_session_process_tap_rtd_cb(void *arg)
 	/* XXX, some dissectors are having single table and multiple timestats (mgcp, megaco),
 	 *      some multiple table and single timestat (radius, h225)
 	 *      and it seems that value_string is used one for timestamp-ID, other one for table-ID
-	 *      I wonder how it will gonna work with multiple timestats and multiple timestat...
+	 *      I wonder how it will gonna work with multiple timestats and multiple tables...
 	 * (for usage grep for: register_rtd_table)
 	 */
 	const value_string *vs = get_rtd_value_string(rtd);
