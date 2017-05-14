@@ -223,8 +223,6 @@ Webshark.prototype.update = function()
 
 			that.cached_columns = [ ];
 			that.cached_columns.length = data['frames'];
-			webshark_lazy_frames(that.cached_columns);
-
 			that.fetchColumns(0, true);
 		});
 };
