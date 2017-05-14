@@ -486,6 +486,8 @@ function webshark_glyph(what)
 		'play': "M1576 927l-1328 738q-23 13-39.5 3t-16.5-36v-1472q0-26 16.5-36t39.5 3l1328 738q23 13 23 31t-23 31z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/stop.svg */
 		'stop': "M1664 192v1408q0 26-19 45t-45 19h-1408q-26 0-45-19t-19-45v-1408q0-26 19-45t45-19h1408q26 0 45 19t19 45z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/upload.svg */
+		'upload': "M1344 1472q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm256 0q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm128-224v320q0 40-28 68t-68 28h-1472q-40 0-68-28t-28-68v-320q0-40 28-68t68-28h427q21 56 70.5 92t110.5 36h256q61 0 110.5-36t70.5-92h427q40 0 68 28t28 68zm-325-648q-17 40-59 40h-256v448q0 26-19 45t-45 19h-256q-26 0-45-19t-19-45v-448h-256q-42 0-59-40-17-39 14-69l448-448q18-19 45-19t45 19l448 448q31 30 14 69z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/download.svg */
 		'download': "M1344 1344q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm256 0q0-26-19-45t-45-19-45 19-19 45 19 45 45 19 45-19 19-45zm128-224v320q0 40-28 68t-68 28h-1472q-40 0-68-28t-28-68v-320q0-40 28-68t68-28h465l135 136q58 56 136 56t136-56l136-136h464q40 0 68 28t28 68zm-325-569q17 41-14 70l-448 448q-18 19-45 19t-45-19l-448-448q-31-29-14-70 17-39 59-39h256v-448q0-26 19-45t45-19h256q26 0 45 19t19 45v448h256q42 0 59 39z"
 	};
@@ -499,6 +501,7 @@ function webshark_glyph(what)
 		case 'filter':
 		case 'play':
 		case 'stop':
+		case 'upload':
 		case 'download':
 		{
 			svg = d3.select("body").append("svg").remove()

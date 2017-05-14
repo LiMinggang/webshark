@@ -322,9 +322,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				/* Link to download capture file */
 				{
 					var down_a = document.createElement('a');
-
 					down_a.setAttribute("target", "_blank");
-
 					down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=self");
 					down_a.addEventListener("click", popup_on_click_a);
 
@@ -362,6 +360,23 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			} else {
 				document.title = "Capture files - " + document.title;
+
+				/* Link to upload capture file */
+				{
+					var upload_a = document.createElement('a');
+					upload_a.setAttribute("target", "_blank");
+					upload_a.setAttribute("href", 'upload.html');
+					upload_a.addEventListener("click", popup_on_click_a);
+
+					var glyph = webshark_glyph_img('upload', 16);
+					glyph.setAttribute('alt', 'Upload capture file');
+					glyph.setAttribute('title', 'Upload capture file');
+
+					upload_a.appendChild(glyph);
+
+					var toolbar = document.getElementById('files_view');
+					toolbar.insertBefore(upload_a, toolbar.childNodes[0]);
+				}
 
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
