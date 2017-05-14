@@ -205,3 +205,32 @@ index 92fac8f..1867eee 100644
  static void putfld(FILE* fp, void* rec, uat_field_t* f) {
      guint fld_len;
      char* fld_ptr;
+diff --git a/epan/stat_tap_ui.c b/epan/stat_tap_ui.c
+index 4f7895b..e6338d3 100644
+--- a/epan/stat_tap_ui.c
++++ b/epan/stat_tap_ui.c
+@@ -155,6 +155,11 @@ void register_stat_tap_table_ui(stat_tap_table_ui *ui)
+     wmem_tree_insert_string(registered_stat_tables, ui->cli_string, ui, 0);
+ }
+ 
++stat_tap_table_ui *new_stat_tap_by_name(const char *name)
++{
++    return (stat_tap_table_ui *) wmem_tree_lookup_string(registered_stat_tables, name, 0);
++}
++
+ void new_stat_tap_iterate_tables(wmem_foreach_func func, gpointer user_data)
+ {
+     wmem_tree_foreach(registered_stat_tables, func, user_data);
+diff --git a/epan/stat_tap_ui.h b/epan/stat_tap_ui.h
+index b30c089..39220df 100644
+--- a/epan/stat_tap_ui.h
++++ b/epan/stat_tap_ui.h
+@@ -181,6 +181,8 @@ WS_DLL_PUBLIC stat_tap_table_item_type* new_stat_tap_get_field_data(const stat_t
+ WS_DLL_PUBLIC void new_stat_tap_set_field_data(stat_tap_table *stat_table, guint table_index, guint field_index, stat_tap_table_item_type* field_data);
+ WS_DLL_PUBLIC void reset_stat_table(stat_tap_table_ui* new_stat, new_stat_tap_gui_reset_cb gui_callback, void *callback_data);
+ 
++WS_DLL_PUBLIC stat_tap_table_ui *new_stat_tap_by_name(const char *name);
++
+ /** Free all of the tables associated with a stat_tap_table_ui.
+  *
+  * Frees data created by stat_tap_ui.stat_tap_init_cb.

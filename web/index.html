@@ -20,6 +20,7 @@
 		var ws_ftypes = [ ];
 		var ws_taps  = [ ];
 		var ws_stats = [ ];
+		var ws_nstat = [ ];
 		var ws_eo    = [ ];
 		var ws_follow= [ ];
 		var ws_srt   = [ ];
@@ -289,7 +290,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				document.getElementById('toolbar_tap').style.display = 'block';
 
-				webshark_load_tap(tap.split(","));
+				webshark_load_tap(tap.split(";"));
 
 			} else if (frame) {
 				document.title = _webshark_file + " #" + frame + " - " + document.title;
@@ -350,6 +351,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					create_tap_menu('report_menu', ws_rtd);
 					create_tap_menu('report_menu2', ws_taps);
 					create_tap_menu('report_menu2', ws_stats);
+					create_tap_menu('report_menu2', ws_nstat);
 					create_tap_menu('report_menu2', ws_eo);
 					create_tap_menu('report_menu2', ws_follow);
 				}
@@ -520,6 +522,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				{
 					ws_taps  = data['taps'];
 					ws_stats = data['stats'];
+					ws_nstat = data['nstat'];
 					ws_eo    = data['eo'];
 					ws_follow= data['follow'];
 					ws_srt   = data['srt'];

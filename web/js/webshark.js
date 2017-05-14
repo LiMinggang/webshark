@@ -2276,6 +2276,32 @@ function webshark_render_tap(tap)
 
 		document.getElementById('ws_tap_graph').appendChild(svg.node());
 	}
+	else if (tap['type'] == 'nstat')
+	{
+		var nstat_fields = tap['fields'];
+		var nstat_tables = tap['tables'];
+
+		var fields = { };
+
+		for (var i = 0; i < nstat_fields.length; i++)
+		{
+			fields['' + i] = nstat_fields[i]['c'];
+		}
+
+		for (var i = 0; i < nstat_tables.length; i++)
+		{
+			var nstat_table = tap['tables'][i];
+
+			var table = webshark_create_tap_table_common(fields);
+
+			webshark_create_tap_table_data_common(fields, table, nstat_table['i']);
+
+			document.getElementById('ws_tap_table').appendChild(dom_create_label('Statistics (' + nstat_table['t'] + ') '));
+
+			document.getElementById('ws_tap_table').appendChild(table);
+		}
+
+	}
 	else if (tap['type'] == 'rtd')
 	{
 		var table = webshark_create_tap_table_common(webshark_rtd_fields);
