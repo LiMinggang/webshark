@@ -3973,7 +3973,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
 				printf("[");
 				for (colnum = 0; colnum < uat->ncols; colnum++)
 				{
-					char *str = uat_strfld(rec, &(uat->fields[colnum]));
+					char *str = uat_fld_tostr(rec, &(uat->fields[colnum]));
 
 					if (colnum)
 						printf(",");
