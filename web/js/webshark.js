@@ -271,7 +271,7 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 			if (load_first && data && data[0])
 			{
 				var framenum = data[0].num;
-				webshark_load_frame(framenum);
+				webshark_load_frame(framenum, false);
 			}
 		});
 };
@@ -986,7 +986,7 @@ function webshark_frame_row_on_click(ev)
 
 	frame_node = dom_find_node_attr(ev.target, 'data_ws_frame');
 	if (frame_node != null)
-		webshark_load_frame(frame_node.data_ws_frame);
+		webshark_load_frame(frame_node.data_ws_frame, false);
 }
 
 var _webshark_selected_file = null;
@@ -1284,8 +1284,7 @@ function webshark_frame_goto(ev)
 	node = dom_find_node_attr(ev.target, 'data_ws_frame');
 	if (node != null)
 	{
-		webshark_load_frame(node.data_ws_frame);
-		// TODO: also scroll table to that position.
+		webshark_load_frame(node.data_ws_frame, true);
 	}
 
 	ev.preventDefault();
@@ -1529,6 +1528,9 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 	if (frame['fg'])
 		tr.style['color'] = '#' + frame['fg'];
+
+	if (fnum == _webshark_current_frame)
+		dom_add_class(tr, 'selected');
 
 	tr.id = 'packet-list-frame-' + fnum;
 	tr.data_ws_frame = fnum;
@@ -2733,7 +2735,7 @@ function webshark_node_highlight_bytes(obj, node)
 
 var _webshark_current_frame = null;
 
-function webshark_load_frame(framenum, cols)
+function webshark_load_frame(framenum, scroll_to, cols)
 {
 	/* frame content should not change -> skip requests for frame like current one */
 	if (framenum == _webshark_current_frame)
@@ -2837,7 +2839,12 @@ function webshark_load_frame(framenum, cols)
 			/* select new */
 			var obj = document.getElementById('packet-list-frame-' + framenum);
 			if (obj)
+			{
 				dom_add_class(obj, 'selected');
+				if (scroll_to)
+					obj.scrollIntoView(false);
+			}
+
 		});
 }
 
@@ -2872,8 +2879,11 @@ function webshark_load_follow(follow, filter)
 		function(data)
 		{
 			var f = data;
-			var server_to_client_string = f['shost'] + ':' + f['sport'] + ' --> ' + f['chost'] + ':' + f['cport'] + ' (' + f['sbytes'] + ' bytes)';
-			var client_to_server_string = f['chost'] + ':' + f['cport'] + ' --> ' + f['shost'] + ':' + f['sport'] + ' (' + f['cbytes'] + ' bytes)';
+			var server_to_client_string_tag = f['shost'] + ':' + f['sport'] + ' --> ' + f['chost'] + ':' + f['cport'];
+			var client_to_server_string_tag = f['chost'] + ':' + f['cport'] + ' --> ' + f['shost'] + ':' + f['sport'];
+
+			var server_to_client_string = server_to_client_string_tag + ' (' + f['sbytes'] + ' bytes)';
+			var client_to_server_string = client_to_server_string_tag + ' (' + f['cbytes'] + ' bytes)';
 
 			var div = document.createElement('div');
 
@@ -2883,17 +2893,30 @@ function webshark_load_follow(follow, filter)
 
 				for (var i = 0; i < p.length; i++)
 				{
+					var f_txt = window.atob(p[i]['d']);
+					var f_no = p[i]['n'];
+					var f_server = (p[i]['s'] != undefined);
+
 					var pre = document.createElement('pre');
+					pre.appendChild(document.createTextNode('Frame #' + f_no + ': ' + (f_server ? server_to_client_string_tag : client_to_server_string_tag) +' (' + f_txt.length+ ' bytes)'));
+					pre.className = 'follow_frame_no';
+					pre.data_ws_frame = f_no;
+					pre.addEventListener("click", webshark_frame_goto);
+					div.appendChild(pre);
 
-					pre.className = (p[i]['s'] != undefined) ? 'follow_server_tag' : 'follow_client_tag';
-
-					pre.innerHTML = window.atob(p[i]['d']);
-
+					var pre = document.createElement('pre');
+					pre.appendChild(document.createTextNode(f_txt));
+					pre.className = f_server ? 'follow_server_tag' : 'follow_client_tag';
+					pre.data_ws_frame = f_no;
+					pre.addEventListener("click", webshark_frame_goto);
 					div.appendChild(pre);
 				}
 			}
 
 			document.getElementById('ws_tap_table').appendChild(div);
+
+			document.getElementById('ws_packet_list_view').style.display = 'block';
+			_webshark.setFilter(filter);
 
 		});
 }
