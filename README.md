@@ -23,7 +23,7 @@ Get wireshark sources:
 ~~~~
 	$ git clone https://code.wireshark.org/review/wireshark
 	$ cd wireshark
-	$ git reset --hard b1225fec997a17d6a7a758389da40d2282c31581   ## tested with this hash
+	$ git reset --hard 0831becc1a650399b5cc417f65f5649a9cd76270   ## tested with this hash
 
 ~~~~
 
@@ -59,6 +59,6 @@ Generate binary tarball:
 
 Build and run docker image:
 ~~~~
-	$ docker build .
-	$ docker run -v ~/pcaps:/caps -p 8000:80 -it <build image>
+	$ docker build -t webshark:latest .
+	$ docker run -v ~/pcaps:/caps -p 8000:80 -it webshark:latest
 ~~~~

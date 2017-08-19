@@ -66,7 +66,11 @@
 #include <epan/addr_resolv.h>
 #include <epan/dissectors/packet-rtp.h>
 #include <ui/rtp_media.h>
+#ifdef HAVE_SPEEXDSP
+#include <speex/speex_resampler.h>
+#else
 #include <codecs/speex/speex_resampler.h>
+#endif /* HAVE_SPEEXDSP */
 
 #ifdef HAVE_GEOIP
 # include <GeoIP.h>
@@ -2883,22 +2887,22 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		}
 		else if (!strncmp(tok_tap, "nstat:", 6))
 		{
-			stat_tap_table_ui *stat = new_stat_tap_by_name(tok_tap + 6);
+			stat_tap_table_ui *stat_tap = new_stat_tap_by_name(tok_tap + 6);
 			new_stat_data_t *stat_data;
 
-			if (!stat)
+			if (!stat_tap)
 			{
 				fprintf(stderr, "sharkd_session_process_tap() nstat=%s not found\n", tok_tap + 6);
 				continue;
 			}
 
-			stat->stat_tap_init_cb(stat, NULL, NULL);
+			stat_tap->stat_tap_init_cb(stat_tap, NULL, NULL);
 
 			stat_data = g_new0(new_stat_data_t, 1);
-			stat_data->stat_tap_data = stat;
+			stat_data->stat_tap_data = stat_tap;
 			stat_data->user_data = NULL;
 
-			tap_error = register_tap_listener(stat->tap_name, stat_data, tap_filter, 0, NULL, stat->packet_func, sharkd_session_process_tap_nstat_cb);
+			tap_error = register_tap_listener(stat_tap->tap_name, stat_data, tap_filter, 0, NULL, stat_tap->packet_func, sharkd_session_process_tap_nstat_cb);
 
 			tap_data = stat_data;
 			tap_free = sharkd_session_free_tap_nstat_cb;
@@ -3880,6 +3884,7 @@ sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
 	const char *tok_name = json_find_attr(buf, tokens, count, "name");
 	const char *tok_value = json_find_attr(buf, tokens, count, "value");
 	char pref[4096];
+	char *errmsg = NULL;
 
 	prefs_set_pref_e ret;
 
@@ -3888,8 +3893,16 @@ sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
 
 	ws_snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
 
-	ret = prefs_set_pref(pref);
-	printf("{\"err\":%d}\n", ret);
+	ret = prefs_set_pref(pref, &errmsg);
+	printf("{\"err\":%d", ret);
+	if (errmsg)
+	{
+		/* Add error message for some syntax errors. */
+		printf(",\"errmsg\":");
+		json_puts_string(errmsg);
+	}
+	printf("}\n");
+	g_free(errmsg);
 }
 
 struct sharkd_session_process_dumpconf_data
