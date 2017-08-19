@@ -1,5 +1,5 @@
 ## example: docker run -v ~/pcaps:/caps -p 8000:80 -it webshark/webshark:devel
-FROM ubuntu:16.10
+FROM ubuntu:17.04
 MAINTAINER Jakub Zawadzki <darkjames-ws@darkjames.pl>
 RUN apt-get update && apt-get install -y \
 	python3-django libglib2.0-0 \
@@ -17,7 +17,8 @@ RUN mkdir -p ./webshark/static/webshark/
 COPY web/ ./webshark/static/webshark/
 
 RUN echo "INSTALLED_APPS += ('webshark',)" >> web/settings.py && \
-    echo "SHARKD_CAP_DIR = '/caps/'" >> web/settings.py
+    echo "SHARKD_CAP_DIR = '/caps/'" >> web/settings.py && \
+    echo "ALLOWED_HOSTS = ['*']" >> web/settings.py
 RUN echo "urlpatterns += [ url(r'^webshark/', include('webshark.urls')), ]" >> web/urls.py
 
 COPY web-server/django/urls.py web-server/django/views.py web-server/django/models.py web-server/django/forms.py webshark/
@@ -27,7 +28,7 @@ COPY sharkd_cli.py webshark/sharkd_cli.py
 RUN ./manage.py makemigrations
 RUN ./manage.py migrate
 
-## TODO, push to http, with build instructions
+## See README.md for sharkd.tar.gz build instructions.
 ADD sharkd.tar.gz /
 
 EXPOSE 80
