@@ -42,6 +42,8 @@
 				{ "Info":         "%i" },
 //				{ "tcp.stream": "tcp.stream:0" },
 			],
+
+			layout_optimize_height: true
 		};
 
 		var capture_filter_complete = null;
@@ -306,6 +308,14 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				var new_title = _webshark_file + " - " + document.title;
 
 				document.title = "Loading: " + new_title;
+
+				if (ws_pref['layout_optimize_height'] == true)
+				{
+					document.getElementById('ws_packet_detail_view').style.width = '57%';
+					document.getElementById('ws_packet_bytes_view').style.width = '42%';
+					document.getElementById('ws_packet_bytes_view').style.height =
+						document.getElementById('ws_packet_detail_view').style.height;
+				}
 
 				_webshark.load(_webshark_file, function(data)
 				{
@@ -698,12 +708,12 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		</table>
 	</div>
 
-	<div id="ws_packet_detail_view" style='overflow: auto; width: 100%; height: 250px; border: 2px solid grey;'>
+	<div id="ws_packet_detail_view" style='overflow: auto; width: 100%; height: 250px; border: 2px solid grey; float: left;'>
 Select frame
 	</div>
 
-	<div id="ws_packet_bytes_view" style='overflow: auto; width: 100%; height: 200px; border: 2px solid grey;'>
-		<div id="ws_packet_pane"></div>
+	<div id="ws_packet_bytes_view" style='overflow: auto; width: 100%; height: 200px; border: 2px solid grey; float: right;'>
+		<div id="ws_packet_pane" style="float: right;"></div>
 		<input type="radio" name="bytes_mode" onchange="bytes_display_base(16)" value="16" checked="checked"> Hex view
 		<input type="radio" name="bytes_mode" onchange="bytes_display_base(2)" value="2"> Bits view
 		<pre id='ws_bytes_dump'>Select frame</pre>
