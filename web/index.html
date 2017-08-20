@@ -319,9 +319,20 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					checkfilter(el_filter);
 				}
 
+				/* Back to file list */
+				{
+					var back_a = document.getElementById('toolbar_capture_files');
+					back_a.setAttribute("href", "index.html");
+
+					var glyph = webshark_glyph_img('files', 16);
+					glyph.setAttribute('alt', 'Back to file list');
+					glyph.setAttribute('title', 'Back to file list');
+					dom_set_child(back_a, glyph);
+				}
+
 				/* Link to download capture file */
 				{
-					var down_a = document.createElement('a');
+					var down_a = document.getElementById('toolbar_capture_down');
 					down_a.setAttribute("target", "_blank");
 					down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=self");
 					down_a.addEventListener("click", popup_on_click_a);
@@ -329,15 +340,14 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					var glyph = webshark_glyph_img('download', 16);
 					glyph.setAttribute('alt', 'Download capture file');
 					glyph.setAttribute('title', 'Download capture file');
+					dom_set_child(down_a, glyph);
+				}
 
-					down_a.appendChild(glyph);
-
+				/* Capture file description */
+				{
+					var label_span = document.getElementById('toolbar_capture_description');
 					var label_str = " " + data['filename'] + " (" + data['frames'] + " frames, " + data['duration'] + ' seconds, ' + data['filesize'] + " bytes)";
-
-					var toolbar = document.getElementById('toolbar_capture');
-					toolbar.insertBefore(dom_create_label(""), toolbar.childNodes[0]);
-					toolbar.insertBefore(dom_create_label_span(label_str), toolbar.childNodes[0]);
-					toolbar.insertBefore(down_a, toolbar.childNodes[0]);
+					dom_set_child(label_span, document.createTextNode(label_str));
 				}
 
 				/* TODO: link to download ssl-sessions  */
@@ -631,13 +641,19 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 	</div>
 
 	<div id="toolbar_capture">
-		Frame filter: <input id="capture_filter" type='text' onchange='set_filter(this.value);' oninput='checkfilter(this)' style='width: 800px;' />
+		<div style="float: left;">
+			<a id="toolbar_capture_files"></a>
+			<a id="toolbar_capture_down"></a>
+			<span id="toolbar_capture_description"></span>
+			<p />
+			Frame filter: <input id="capture_filter" type='text' onchange='set_filter(this.value);' oninput='checkfilter(this)' style='width: 550px;' />
+		</div>
 		<div style="float: right; border: 1px solid grey;">
-			<div id="capture_interval">
-				<svg width="620" height="100"></svg>
-			</div>
 			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
 			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
+			<div id="capture_interval" style="margin-top: 2px;">
+				<svg width="620" height="100"></svg>
+			</div>
 		</div>
 		<ul class="menu" style="float: right; margin-top: 0px; height: 130px;">
 			<li>
