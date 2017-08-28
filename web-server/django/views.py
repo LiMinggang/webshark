@@ -125,8 +125,10 @@ def json_handle_request(request):
     if req == 'files':
         return json.dumps(dict(files=sharkd_file_list()))
 
-    # internal request
+    # internal requests
     if req == 'load':
+        return json.dumps(dict(err=1, errstr="Nope"))
+    if req == 'setconf':
         return json.dumps(dict(err=1, errstr="Nope"))
 
     if '..' in cap_file:
