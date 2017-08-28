@@ -1,5 +1,5 @@
 diff --git a/epan/frame_data.h b/epan/frame_data.h
-index 7dd6cce..7201404 100644
+index 7dd6cce1a6..7201404c57 100644
 --- a/epan/frame_data.h
 +++ b/epan/frame_data.h
 @@ -88,7 +88,6 @@ typedef struct _frame_data {
@@ -11,7 +11,7 @@ index 7dd6cce..7201404 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index aa9d1f4..c01d511 100644
+index aa9d1f443a..c01d511427 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
 @@ -55,7 +55,6 @@ static int proto_pkt_comment = -1;
@@ -45,7 +45,7 @@ index aa9d1f4..c01d511 100644
  		  { "Epoch Time", "frame.time_epoch",
  		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 diff --git a/epan/frame_data.c b/epan/frame_data.c
-index f9bb8b4..48d522b 100644
+index f9bb8b47b5..48d522b981 100644
 --- a/epan/frame_data.c
 +++ b/epan/frame_data.c
 @@ -190,8 +190,6 @@ frame_data_init(frame_data *fdata, guint32 num,
@@ -58,10 +58,10 @@ index f9bb8b4..48d522b 100644
    fdata->prev_dis_num = 0;
  }
 diff --git a/ui/Makefile.am b/ui/Makefile.am
-index 3507f9a..1e15c6f 100644
+index 49699c6615..56e86fe7ce 100644
 --- a/ui/Makefile.am
 +++ b/ui/Makefile.am
-@@ -82,7 +82,6 @@ WIRESHARK_UI_SRC = \
+@@ -86,7 +86,6 @@ WIRESHARK_UI_SRC = \
  	tap-sequence-analysis.c	\
  	tap-tcp-stream.c	\
  	text_import.c		\

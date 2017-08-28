@@ -1,8 +1,8 @@
 diff --git a/epan/proto.c b/epan/proto.c
-index 42689a3..0cd6e19 100644
+index f57e4873f5..671671c35e 100644
 --- a/epan/proto.c
 +++ b/epan/proto.c
-@@ -6392,7 +6392,7 @@ static void
+@@ -6970,7 +6970,7 @@ static void
  tmp_fld_check_assert(header_field_info *hfinfo)
  {
  	gchar* tmp_str;
@@ -11,7 +11,7 @@ index 42689a3..0cd6e19 100644
  	/* The field must have a name (with length > 0) */
  	if (!hfinfo->name || !hfinfo->name[0]) {
  		if (hfinfo->abbrev)
-@@ -6840,7 +6840,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
+@@ -7506,7 +7506,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
  
  		/* Check that the filter name (abbreviation) is legal;
  		 * it must contain only alphanumerics, '-', "_", and ".". */
@@ -21,10 +21,10 @@ index 42689a3..0cd6e19 100644
  			if (g_ascii_isprint(c))
  				fprintf(stderr, "Invalid character '%c' in filter name '%s'\n", c, hfinfo->abbrev);
 diff --git a/epan/uat_load.l b/epan/uat_load.l
-index ae8443d..8b1bde9 100644
+index 8c8af5452f..60891cee42 100644
 --- a/epan/uat_load.l
 +++ b/epan/uat_load.l
-@@ -369,6 +369,7 @@ uat_load(uat_t *uat, char **errx)
+@@ -372,6 +372,7 @@ uat_load(uat_t *uat, char **errx)
  		return TRUE;
  	}
  
@@ -33,10 +33,10 @@ index ae8443d..8b1bde9 100644
  	if (!(in = ws_fopen(fname,"r"))) {
  		*errx = g_strdup(g_strerror(errno));
 diff --git a/epan/geoip_db.c b/epan/geoip_db.c
-index d22c439..1382006 100644
+index d4de2ccb99..4570f423d1 100644
 --- a/epan/geoip_db.c
 +++ b/epan/geoip_db.c
-@@ -116,7 +116,7 @@ geoip_dat_scan_dir(const char *dirname) {
+@@ -120,7 +120,7 @@ geoip_dat_scan_dir(const char *dirname) {
              name = ws_dir_get_name(file);
              if (g_str_has_prefix(file, "Geo") && g_str_has_suffix(file, ".dat")) {
                  datname = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dirname, name);
@@ -46,10 +46,10 @@ index d22c439..1382006 100644
                      g_array_append_val(geoip_dat_arr, gi);
                  }
 diff --git a/sharkd.c b/sharkd.c
-index a31efdf..2c6b16a 100644
+index 8ca9ff328f..f3e435737e 100644
 --- a/sharkd.c
 +++ b/sharkd.c
-@@ -1614,6 +1614,9 @@ const char *sharkd_version(void)
+@@ -792,6 +792,9 @@ const char *sharkd_version(void)
  #endif
  }
  
@@ -60,7 +60,7 @@ index a31efdf..2c6b16a 100644
   * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
   *
 diff --git a/ui/tap-sequence-analysis.c b/ui/tap-sequence-analysis.c
-index eda3b04..3a23dbf1 100644
+index eda3b049f8..27c4442b8b 100644
 --- a/ui/tap-sequence-analysis.c
 +++ b/ui/tap-sequence-analysis.c
 @@ -344,7 +344,7 @@ sequence_analysis_list_free(seq_analysis_info_t *sainfo)

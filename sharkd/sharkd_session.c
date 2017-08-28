@@ -67,9 +67,9 @@
 #include <epan/dissectors/packet-rtp.h>
 #include <ui/rtp_media.h>
 #ifdef HAVE_SPEEXDSP
-#include <speex/speex_resampler.h>
+# include <speex/speex_resampler.h>
 #else
-#include <codecs/speex/speex_resampler.h>
+# include <codecs/speex/speex_resampler.h>
 #endif /* HAVE_SPEEXDSP */
 
 #ifdef HAVE_GEOIP
