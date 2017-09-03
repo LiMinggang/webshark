@@ -1,3 +1,5 @@
+body { background-color: #F8F8F8; }
+
 tr.selected
 {
 	background-color: #0080FF !important;
