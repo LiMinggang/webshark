@@ -245,6 +245,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			var tap = opt['tap'];
 			var follow = opt['follow'];
 			var filter = opt['filter'];
+			var dir = opt['dir'];
 
 			capture_filter_complete = new Awesomplete(document.getElementById("capture_filter"),
 				{
@@ -405,7 +406,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				document.getElementById('files_view').style.display = 'block';
 
-				webshark_load_files();
+				webshark_load_files(dir);
 			}
 
 			document.getElementById("ws_div").style.display = "block";
@@ -445,14 +446,17 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				var anal = file['analysis'];
 
 				// TODO, what to do if there are no analysis?
-				if (frames_count_min && anal['frames'] <= frames_count_min)
+				if (frames_count_min && (!anal || anal['frames'] <= frames_count_min))
 					return false;
 
-				if (frames_count_max && anal['frames'] >= frames_count_max)
+				if (frames_count_max && (!anal || anal['frames'] >= frames_count_max))
 					return false;
 
 				if (duration_time_min || duration_time_max)
 				{
+					if (!anal)
+						return false;
+
 					// TODO, what to do if there are no time analysis?
 					var dura = anal['last'] - anal['first'];
 
@@ -474,7 +478,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					var found = false;
 					var proto = protocols[i];
 
-					for (var j = 0; found == false && j < anal['protocols'].length; j++)
+					for (var j = 0; found == false && j < (anal ? anal['protocols'].length : 0); j++)
 					{
 						if (proto == anal['protocols'][j])
 							found = true;
@@ -632,7 +636,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			<span class="example">proto:tcp</span>
 			<span class="example">proto:wlan proto:eap</span>
 		</p>
-		<div id="capture_files_view" style="height:800px; overflow: auto; width: 70%; float: left;">
+		<div id="capture_files_view" style="max-height: 800px; overflow: auto; width: 70%; float: left;">
 			<table style="width: 100%;">
 				<thead id="capture_files_header">
 					<tr>
@@ -645,7 +649,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				</tbody>
 			</table>
 		</div>
-		<div id="capture_files_view_details" style="height:700px; overflow: auto; width: 20%; float: left;">
+		<div id="capture_files_view_details" style="max-height:700px; overflow: auto; width: 20%; float: left;">
 			Click file to get details
 		</div>
 	</div>

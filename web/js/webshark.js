@@ -456,6 +456,13 @@ function xtoa(hex, pad)
 	return str;
 }
 
+function webshark_get_base_url()
+{
+	var base_url = window.location.href.split("?")[0];
+
+	return base_url;
+}
+
 function webshark_get_url()
 {
 	var base_url = window.location.href.split("?")[0];
@@ -484,6 +491,10 @@ function webshark_glyph(what)
 		'filter': "M1595 295q17 41-14 70l-493 493v742q0 42-39 59-13 5-25 5-27 0-45-19l-256-256q-19-19-19-45v-486l-493-493q-31-29-14-70 17-39 59-39h1280q42 0 59 39z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/files-o.svg */
 		'files': "M1696 384q40 0 68 28t28 68v1216q0 40-28 68t-68 28h-960q-40 0-68-28t-28-68v-288h-544q-40 0-68-28t-28-68v-672q0-40 20-88t48-76l408-408q28-28 76-48t88-20h416q40 0 68 28t28 68v328q68-40 128-40h416zm-544 213l-299 299h299v-299zm-640-384l-299 299h299v-299zm196 647l316-316v-416h-384v416q0 40-28 68t-68 28h-416v640h512v-256q0-40 20-88t48-76zm956 804v-1152h-384v416q0 40-28 68t-68 28h-416v640h896z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/folder-o.svg */
+		'folder': "M1600 1312v-704q0-40-28-68t-68-28h-704q-40 0-68-28t-28-68v-64q0-40-28-68t-68-28h-320q-40 0-68 28t-28 68v960q0 40 28 68t68 28h1216q40 0 68-28t28-68zm128-704v704q0 92-66 158t-158 66h-1216q-92 0-158-66t-66-158v-960q0-92 66-158t158-66h320q92 0 158 66t66 158v32h672q92 0 158 66t66 158z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/folder-open-o.svg */
+		'pfolder': "M1845 931q0-35-53-35h-1088q-40 0-85.5 21.5t-71.5 52.5l-294 363q-18 24-18 40 0 35 53 35h1088q40 0 86-22t71-53l294-363q18-22 18-39zm-1141-163h768v-160q0-40-28-68t-68-28h-576q-40 0-68-28t-28-68v-64q0-40-28-68t-68-28h-320q-40 0-68 28t-28 68v853l256-315q44-53 116-87.5t140-34.5zm1269 163q0 62-46 120l-295 363q-43 53-116 87.5t-140 34.5h-1088q-92 0-158-66t-66-158v-960q0-92 66-158t158-66h320q92 0 158 66t66 158v32h544q92 0 158 66t66 158v160h192q54 0 99 24.5t67 70.5q15 32 15 68z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/play.svg */
 		'play': "M1576 927l-1328 738q-23 13-39.5 3t-16.5-36v-1472q0-26 16.5-36t39.5 3l1328 738q23 13 23 31t-23 31z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/stop.svg */
@@ -502,6 +513,8 @@ function webshark_glyph(what)
 		case 'expanded':
 		case 'filter':
 		case 'files':
+		case 'folder':
+		case 'pfolder':
 		case 'play':
 		case 'stop':
 		case 'upload':
@@ -1006,12 +1019,15 @@ function webshark_create_file_details(file)
 	div.appendChild(a);
 
 	p = document.createElement('p');
-	p.appendChild(document.createTextNode('File: ' + file['name']));
+	p.appendChild(document.createTextNode('File: ' + file['_path']));
 	div.appendChild(p);
 
-	p = document.createElement('p');
-	p.appendChild(document.createTextNode('Size: ' + file['size']));
-	div.appendChild(p);
+	if (file['size'])
+	{
+		p = document.createElement('p');
+		p.appendChild(document.createTextNode('Size: ' + file['size']));
+		div.appendChild(p);
+	}
 
 	if (file['analysis'])
 	{
@@ -1082,7 +1098,7 @@ function webshark_file_row_on_click(ev)
 	{
 		var file = file_node['ws_file_data'];
 
-		file['url'] = window.location.href + '?file=' + file['name'];
+		file['url'] = webshark_get_base_url() + '?file=' + file['_path'];
 
 		var div = webshark_create_file_details(file);
 
@@ -1425,6 +1441,17 @@ function ws_rtp_playback_control_create(pdiv, wave)
 	pdiv.insertBefore(control_div, pdiv.firstChild);
 }
 
+function webshark_dir_on_click(ev)
+{
+	var node = dom_find_node_attr(ev.target, 'data_ws_dir');
+	if (node != null)
+	{
+		var dir = node['data_ws_dir'];
+		webshark_load_files(dir);
+		ev.preventDefault();
+	}
+}
+
 function webshark_create_file_row_html(file, row_no)
 {
 	var tr = document.createElement("tr");
@@ -1435,9 +1462,24 @@ function webshark_create_file_row_html(file, row_no)
 
 	var data = [
 		file['name'],
-		si_format(file['size']) + "B",
-		file['desc'],
+		file['dir'] ? "[DIR]" : (si_format(file['size']) + "B"),
+		file['desc'] ? file['desc'] : "",
 	];
+
+	var a_href = document.createElement("a");
+	if (file['dir'])
+	{
+		data[0] = file['_path'];
+
+		a_href.setAttribute("href", webshark_get_base_url() + "?dir=" + file['_path']);
+		a_href['data_ws_dir'] = file['_path'];
+		a_href.addEventListener("click", webshark_dir_on_click);
+	}
+	else
+	{
+		a_href.setAttribute("href", webshark_get_base_url() + "?file=" + file['_path']);
+	}
+	a_href.appendChild(document.createTextNode(data[0]));
 
 	for (var j = 0; j < data.length; j++)
 	{
@@ -1445,30 +1487,49 @@ function webshark_create_file_row_html(file, row_no)
 
 		if (j == 0) /* before filename */
 		{
-			if (stat && stat['online'])
+			var glyph = null;
+
+			if (file['pdir'])
 			{
-				var glyph = webshark_glyph_img('play', 16);
+				glyph = webshark_glyph_img('pfolder', 16);
+				glyph.setAttribute('alt', 'Open Directory');
+				glyph.setAttribute('title', 'Open Directory');
+			}
+			else if (file['dir'])
+			{
+				glyph = webshark_glyph_img('folder', 16);
+				glyph.setAttribute('alt', 'Directory');
+				glyph.setAttribute('title', 'Directory');
+			}
+			else if (stat && stat['online'])
+			{
+				glyph = webshark_glyph_img('play', 16);
 				glyph.setAttribute('alt', 'Running');
 				glyph.setAttribute('title', 'Running ...');
-
-				td.appendChild(glyph);
 			}
 			else
 			{
-				var glyph = webshark_glyph_img('stop', 16);
+				glyph = webshark_glyph_img('stop', 16);
 				glyph.setAttribute('alt', 'Stopped');
 				glyph.setAttribute('title', 'Stopped');
-
-				td.appendChild(glyph);
 			}
+			if (glyph)
+				td.appendChild(glyph);
 			td.appendChild(document.createTextNode(' '));
 		}
 
-		td.appendChild(document.createTextNode(data[j]));
+		if (j == 0)
+			td.appendChild(a_href);
+		else
+			td.appendChild(document.createTextNode(data[j]));
 		tr.appendChild(td);
 	}
 
-	if (stat && stat['online'] == true)
+	if (file['cdir'] == true)
+	{
+		tr.style['background-color'] = '#ffffb0';
+	}
+	else if (stat && stat['online'] == true)
 	{
 		tr.style['background-color'] = 'lightblue';
 	}
@@ -2663,31 +2724,77 @@ function webshark_display_files(filter)
 	_webshark_files_html.setData(files);
 }
 
-function webshark_load_files()
+function webshark_load_files(dir)
 {
-	webshark_json_get(
+	var files_req =
 		{
 			req: 'files'
-		},
+		};
+
+	if (dir)
+		files_req['dir'] = dir;
+
+	webshark_json_get(files_req,
 		function(data)
 		{
+			var pwd = data['pwd'];
+			var fullpwd;
 			var files = data['files'];
+
+			if (pwd == '.' || pwd == '/')
+			{
+				pwd = '/';
+				fullpwd = '/';
+			}
+			else
+			{
+				pwd = '/' + pwd;
+				fullpwd = pwd + '/';
+			}
+
+			for (var i = 0; i < files.length; i++)
+			{
+				var item = files[i];
+
+				item['_path'] = fullpwd + item['name'];
+			}
 
 			files.sort(function(a, b)
 			{
 				var sta = a['status'], stb = b['status'];
 				var ona, onb;
 
+				/* first directory */
+				ona = (a['dir'] == true) ? 1 : 0;
+				onb = (b['dir'] == true) ? 1 : 0;
+				if (ona != onb)
+					return ona < onb ? 1 : -1;
+
+				/* than online */
 				ona = (sta && sta['online'] == true) ? 1 : 0;
 				onb = (stb && stb['online'] == true) ? 1 : 0;
-
-				/* first online */
 				if (ona != onb)
 					return ona < onb ? 1 : -1;
 
 				/* and than by filename */
 				return a['name'] > b['name'] ? 1 : -1;
 			});
+
+			/* some extra directories always on top */
+			files.unshift({ cdir: true, pdir: true, name: fullpwd, _path: fullpwd, 'dir': true, 'desc': '' });
+
+			while (pwd != '/' && pwd != '')
+			{
+				var parentdir = pwd.substring(0, pwd.lastIndexOf('/'));
+
+				if (parentdir.length != 0)
+					files.unshift({ pdir: true, name: parentdir, _path: parentdir, 'dir': true, 'desc': '' });
+
+				pwd = parentdir;
+			}
+
+			if (fullpwd != '/')
+				files.unshift({ pdir: true, name: '/', _path: '/', 'dir': true, 'desc': '' });
 
 			_webshark_files = files;
 			webshark_display_files();

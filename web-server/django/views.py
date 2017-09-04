@@ -88,29 +88,38 @@ def sharkd_file_list_refresh_db():
 
     return ''
 
-def sharkd_file_list():
+def sharkd_file_list(directory):
     result = list()
-    for root, dirs, files in os.walk(cap_dir):
-        for name in files:
-            full_filename = os.path.join(root, name)
+
+    thisdir = cap_dir + directory
+    names = os.listdir(thisdir)
+    if names:
+        for name in names:
+            full_filename = os.path.join(thisdir, name)
+
             filename = os.path.relpath(full_filename, cap_dir)
 
             cap = dict()
-            cap['name'] = filename
-            cap['size'] = os.stat(full_filename).st_size
-            if captures.get(filename, False):
-                cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
+            cap['name'] = name
+            if os.path.isdir(full_filename):
+                cap['dir'] = True
+            else:
+                cap['size'] = os.stat(full_filename).st_size
+                if captures.get(filename, False):
+                    cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
 
-            try:
-                obj = Capture.objects.get(filename=filename)
-                cap['analysis'] = json.loads(obj.analysis)
-                cap['desc'] = obj.description
-            except Capture.DoesNotExist:
-                pass
+                try:
+                    obj = Capture.objects.get(filename=filename)
+                    cap['analysis'] = json.loads(obj.analysis)
+                    cap['desc'] = obj.description
+                except Capture.DoesNotExist:
+                    pass
 
             result.append(cap)
 
-    return result
+    reldir = os.path.relpath(thisdir, cap_dir)
+
+    return dict(files=result, pwd=reldir)
 
 def json_handle_request(request):
     cap_file = request.GET.get('capture', '')
@@ -123,7 +132,10 @@ def json_handle_request(request):
         return sharkd_file_list_refresh_db()
 
     if req == 'files':
-        return json.dumps(dict(files=sharkd_file_list()))
+        directory = request.GET.get('dir', '')
+        if '..' in directory:
+            return json.dumps(dict(err=1, errstr="Nope"))
+        return json.dumps(sharkd_file_list(directory))
 
     # internal requests
     if req == 'load':
@@ -137,6 +149,7 @@ def json_handle_request(request):
     if cap_file != '':
         if os.path.isfile(cap_dir + cap_file) == False:
             return json.dumps(dict(err=1, errstr="No such capture file"))
+        cap_file = os.path.relpath(cap_dir + cap_file, cap_dir)
 
     if req == 'download':
         ## FIXME
