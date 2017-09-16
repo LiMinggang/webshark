@@ -20,6 +20,8 @@
 var _webshark_file = "";
 var _webshark_url = "/webshark/api?";
 
+var _webshark_on_frame_change = null;
+
 var _webshark_files_html = null;
 var _webshark_frames_html = null;
 var _webshark_hexdump_html = null;
@@ -276,6 +278,65 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 		});
 };
 
+Webshark.prototype.invalidCacheFrame = function(framenum)
+{
+	for (var i = 0; i < this.cached_columns.length; i++)
+	{
+		if (this.cached_columns[i])
+		{
+			var cur_framenum = this.cached_columns[i].num;
+
+			if (framenum == cur_framenum)
+			{
+				this.cached_columns[i] = null;
+				this.fetchColumns(i, false);
+				return;
+			}
+		}
+	}
+};
+
+Webshark.prototype.getComment = function(framenum, func)
+{
+	webshark_json_get(
+		{
+			req: 'frame',
+			capture: _webshark_file,
+			frame: framenum
+		},
+		func);
+};
+
+Webshark.prototype.setComment = function(framenum, new_comment)
+{
+	var set_req =
+		{
+			req: 'setcomment',
+			capture: _webshark_file,
+			frame: framenum
+		};
+
+	if (new_comment != null && new_comment != "")
+	{
+		/* NULL or empty comment, means delete comment */
+		set_req['comment'] = new_comment;
+	}
+
+	var that = this;
+
+	webshark_json_get(set_req,
+		function(data)
+		{
+			/* XXX, lazy, need invalidate cache, to show comment symbol, FIX (notifications?) */
+			that.invalidCacheFrame(framenum);
+
+			if (_webshark_current_frame == framenum)
+			{
+				_webshark_current_frame = null;
+				webshark_load_frame(framenum, false);
+			}
+		});
+};
 
 function debug(level, str)
 {
@@ -483,6 +544,8 @@ function webshark_glyph(what)
 	{
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/eye.svg */
 		'analyse': "M1664 960q-152-236-381-353 61 104 61 225 0 185-131.5 316.5t-316.5 131.5-316.5-131.5-131.5-316.5q0-121 61-225-229 117-381 353 133 205 333.5 326.5t434.5 121.5 434.5-121.5 333.5-326.5zm-720-384q0-20-14-34t-34-14q-125 0-214.5 89.5t-89.5 214.5q0 20 14 34t34 14 34-14 14-34q0-86 61-147t147-61q20 0 34-14t14-34zm848 384q0 34-20 69-140 230-376.5 368.5t-499.5 138.5-499.5-139-376.5-368q-20-35-20-69t20-69q140-229 376.5-368t499.5-139 499.5 139 376.5 368q20 35 20 69z",
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/comment-o.svg */
+		'comment': 'M896 384q-204 0-381.5 69.5t-282 187.5-104.5 255q0 112 71.5 213.5t201.5 175.5l87 50-27 96q-24 91-70 172 152-63 275-171l43-38 57 6q69 8 130 8 204 0 381.5-69.5t282-187.5 104.5-255-104.5-255-282-187.5-381.5-69.5zm896 512q0 174-120 321.5t-326 233-450 85.5q-70 0-145-8-198 175-460 242-49 14-114 22h-5q-15 0-27-10.5t-16-27.5v-1q-3-4-.5-12t2-10 4.5-9.5l6-9 7-8.5 8-9q7-8 31-34.5t34.5-38 31-39.5 32.5-51 27-59 26-76q-157-89-247.5-220t-90.5-281q0-174 120-321.5t326-233 450-85.5 450 85.5 326 233 120 321.5z',
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-right.svg */
 		'collapsed': "M1152 896q0 26-19 45l-448 448q-19 19-45 19t-45-19-19-45v-896q0-26 19-45t45-19 45 19l448 448q19 19 19 45z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-down.svg */
@@ -509,6 +572,7 @@ function webshark_glyph(what)
 	switch (what)
 	{
 		case 'analyse':
+		case 'comment':
 		case 'collapsed':
 		case 'expanded':
 		case 'filter':
@@ -1285,6 +1349,63 @@ function webshark_node_on_click(ev)
 	}
 }
 
+function webshark_frame_comment_on_over(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_frame');
+	if (node != null)
+	{
+		var framenum = node.data_ws_frame;
+
+		_webshark.getComment(framenum,
+			function(data)
+			{
+				var tgt = ev.target;
+				if (tgt)
+				{
+					var frame_comment = data['comment'];
+
+					if (frame_comment)
+					{
+						tgt.setAttribute('alt', 'Edit Comment: ' + frame_comment);
+						tgt.setAttribute('title', 'Edit Comment: ' + frame_comment);
+					}
+					else
+					{
+						tgt.setAttribute('alt', 'New Comment');
+						tgt.setAttribute('title', 'New Comment');
+					}
+				}
+			});
+	}
+
+	ev.preventDefault();
+}
+
+function webshark_frame_comment_on_click(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_frame');
+	if (node != null)
+	{
+		var framenum = node.data_ws_frame;
+
+		_webshark.getComment(framenum,
+			function(data)
+			{
+				var prev_comment = data['comment'];
+
+				var comment = window.prompt("Please enter new comment for frame #" + framenum, prev_comment);
+				if (comment != null)
+					_webshark.setComment(framenum, comment);
+			});
+	}
+
+	ev.preventDefault();
+}
+
 function webshark_frame_on_click(ev)
 {
 	var node;
@@ -1566,18 +1687,38 @@ function webshark_create_frame_row_html(frame, row_no)
 
 td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
-		/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
-		if (j == 0 && cols[j] == fnum)
+		if (j == 0)
 		{
-			var a = document.createElement('a');
+			/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
+			if (cols[0] == fnum)
+			{
+				var a = document.createElement('a');
 
-			a.appendChild(document.createTextNode(cols[j]))
+				a.appendChild(document.createTextNode(cols[j]))
 
-			a.setAttribute("target", "_blank");
-			a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
-			a.addEventListener("click", webshark_frame_on_click);
+				a.setAttribute("target", "_blank");
+				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
+				a.addEventListener("click", webshark_frame_on_click);
 
-			td.appendChild(a);
+				td.appendChild(a);
+			}
+
+			if (frame['ct'])
+			{
+				var a = document.createElement('a');
+
+				var comment_glyph = webshark_glyph_img('comment', 16);
+				comment_glyph.setAttribute('alt', 'Comment');
+				comment_glyph.setAttribute('title', 'Comment');
+
+				a.setAttribute("target", "_blank");
+				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
+				a.addEventListener("click", webshark_frame_comment_on_click);
+				a.addEventListener("mouseover", webshark_frame_comment_on_over);
+
+				a.appendChild(comment_glyph);
+				td.appendChild(a);
+			}
 		}
 		else
 		{
@@ -2943,6 +3084,11 @@ function webshark_load_frame(framenum, scroll_to, cols)
 			_webshark_hexdump_html.active = 0;
 			_webshark_hexdump_html.highlights = [ ];
 			_webshark_hexdump_html.render_hexdump();
+
+			if (_webshark_on_frame_change != null)
+			{
+				_webshark_on_frame_change(framenum, data);
+			}
 
 			_webshark_current_frame = framenum;
 

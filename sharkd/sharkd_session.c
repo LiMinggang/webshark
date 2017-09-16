@@ -787,10 +787,11 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
  * Output array of frames with attributes:
  *   (m) c   - array of column data
  *   (m) num - frame number
- *   (m) i   - if frame is ignored
- *   (m) m   - if frame is marked
- *   (m) bg  - color filter - background color in hex
- *   (m) fg  - color filter - foreground color in hex
+ *   (o) i   - if frame is ignored
+ *   (o) m   - if frame is marked
+ *   (o) ct  - if frame have commented
+ *   (o) bg  - color filter - background color in hex
+ *   (o) fg  - color filter - foreground color in hex
  */
 static void
 sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int count)
@@ -868,6 +869,12 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 			json_puts_string(col_item->col_data);
 		}
 		printf("],\"num\":%u", framenum);
+
+		if (fdata->flags.has_user_comment || fdata->flags.has_phdr_comment)
+		{
+			if (!fdata->flags.has_user_comment || sharkd_get_comment(fdata) != NULL)
+				printf(",\"ct\":true");
+		}
 
 		if (fdata->flags.ignored)
 			printf(",\"i\":true");
@@ -3343,12 +3350,25 @@ sharkd_follower_visit_layers_cb(const void *key _U_, void *value, void *user_dat
 static void
 sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src, void *data)
 {
-	(void) pi;
+	frame_data *fdata = pi->fd;
+	const char *pkt_comment = NULL;
+
 	(void) data;
 
 	printf("{");
 
 	printf("\"err\":0");
+
+	if (fdata->flags.has_user_comment)
+		pkt_comment = sharkd_get_comment(fdata);
+	else if (fdata->flags.has_user_comment)
+		pkt_comment = pi->phdr->opt_comment;
+
+	if (pkt_comment)
+	{
+		printf(",\"comment\":");
+		json_puts_string(pkt_comment);
+	}
 
 	if (tree)
 	{
@@ -3614,6 +3634,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *   (o) col   - array of column data
  *   (o) bytes - base64 of frame bytes
  *   (o) ds    - array of other data srcs
+ *   (o) comment - frame comment
  *   (o) fol   - array of follow filters:
  *                  [0] - protocol
  *                  [1] - filter string
@@ -3848,6 +3869,27 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 
 	printf("}\n");
 	return 0;
+}
+
+static void
+sharkd_session_process_setcomment(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_frame   = json_find_attr(buf, tokens, count, "frame");
+	const char *tok_comment = json_find_attr(buf, tokens, count, "comment");
+
+	guint32 framenum;
+	frame_data *fdata;
+	int ret;
+
+	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
+		return;
+
+	fdata = frame_data_sequence_find(cfile.frames, framenum);
+	if (!fdata)
+		return;
+
+	ret = sharkd_set_comment(fdata, tok_comment);
+	printf("{\"err\":%d}\n", ret);
 }
 
 /**
@@ -4487,6 +4529,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
+		else if (!strcmp(tok_req, "setcomment"))
+			sharkd_session_process_setcomment(buf, tokens, count);
 		else if (!strcmp(tok_req, "setconf"))
 			sharkd_session_process_setconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "dumpconf"))

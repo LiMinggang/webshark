@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 
 from .forms import UploadFileForm
-from .models import Capture, CaptureSettings
+from .models import Capture, CaptureSettings, CaptureComments
 from .sharkd_cli import SharkdClient
 
 captures = dict()
@@ -59,6 +59,7 @@ def sharkd_instance(cap_file):
         captures[cap_file] = shark
         if cap_file != '':
             settings = CaptureSettings.objects.filter(capture__filename=cap_file).all()
+            comments = CaptureComments.objects.filter(capture__filename=cap_file).all()
             for s in settings:
                 shark.send_req(dict(req='setconf', name=s.var, value=s.value))
 
@@ -66,7 +67,28 @@ def sharkd_instance(cap_file):
             cap = cap_dir + cap_file
             shark.send_req(dict(req='load', file=cap))
 
+            for c in comments:
+                commenter = dict(req='setcomment', frame=c.framenum)
+                if c.comment != '':
+                    commenter['comment'] = c.comment
+                shark.send_req(commenter)
+
     return shark
+
+def sharkd_capture_get_or_create(filename):
+    try:
+        obj = Capture.objects.get(filename=filename)
+    except Capture.DoesNotExist:
+        full_filename = cap_dir + filename
+
+        shark = SharkdClient('@sharkd-socket')
+        shark.send_req(dict(req='load', file=full_filename))
+        analysis = shark.send_req(dict(req='analyse'))
+        shark.send_req(dict(req='bye'))
+
+        obj = Capture(filename=filename, description='', analysis=analysis)
+        obj.save()
+    return obj
 
 def sharkd_file_list_refresh_db():
     for root, dirs, files in os.walk(cap_dir):
@@ -74,17 +96,7 @@ def sharkd_file_list_refresh_db():
             full_filename = os.path.join(root, name)
             filename = os.path.relpath(full_filename, cap_dir)
 
-            try:
-                obj = Capture.objects.get(filename=filename)
-            except Capture.DoesNotExist:
-
-                shark = SharkdClient('@sharkd-socket')
-                shark.send_req(dict(req='load', file=full_filename))
-                analysis = shark.send_req(dict(req='analyse'))
-                shark.send_req(dict(req='bye'))
-
-                obj = Capture(filename=filename, description='', analysis=analysis)
-                obj.save()
+            sharkd_capture_get_or_create(filename)
 
     return ''
 
@@ -150,6 +162,16 @@ def json_handle_request(request):
         if os.path.isfile(cap_dir + cap_file) == False:
             return json.dumps(dict(err=1, errstr="No such capture file"))
         cap_file = os.path.relpath(cap_dir + cap_file, cap_dir)
+
+    if req == 'setcomment':
+        # TODO: check permissions, when ready...
+        frame = request.GET.get("frame")
+        comment = request.GET.get("comment", '')
+
+        cap_obj = sharkd_capture_get_or_create(cap_file)
+        obj, created = CaptureComments.objects.update_or_create(capture=cap_obj, framenum=frame, defaults={'comment': comment})
+        obj.save()
+        # TODO, send notification to other clients, when ready...
 
     if req == 'download':
         ## FIXME

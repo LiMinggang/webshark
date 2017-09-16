@@ -48,6 +48,29 @@
 
 		var capture_filter_complete = null;
 
+		function setup_frame_toolbar()
+		{
+			document.getElementById('toolbar_frame').style.display = 'block';
+
+			var comment_a = document.getElementById('toolbar_frame_comment');
+
+			/* Edit comment */
+			{
+				comment_a.addEventListener("click", webshark_frame_comment_on_click);
+				comment_a.addEventListener("mouseover", webshark_frame_comment_on_over);
+
+				var glyph = webshark_glyph_img('comment', 32);
+				glyph.setAttribute('alt', 'Comment');
+				glyph.setAttribute('title', 'Comment');
+				dom_set_child(comment_a, glyph);
+			}
+
+			_webshark_on_frame_change = function (framenum, data)
+			{
+				comment_a['data_ws_frame'] = framenum;
+			};
+		}
+
 		function create_tap_menu(id, taps)
 		{
 			var node = document.getElementById(id);
@@ -303,12 +326,14 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
 
-				document.getElementById('toolbar_frame').style.display = 'block';
+				setup_frame_toolbar();
 
 			} else if (_webshark_file) {
 				var new_title = _webshark_file + " - " + document.title;
 
 				document.title = "Loading: " + new_title;
+
+				setup_frame_toolbar();
 
 				if (ws_pref['layout_optimize_height'] == true)
 				{
@@ -689,10 +714,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		<div style="clear: both;"></div>
 	</div>
 
-	<div id="toolbar_frame" style="display: none;">
-		Placeholder for frame toolbar
-	</div>
-
 	<div id="toolbar_tap" style="display: none;">
 		Placeholder for taps toolbar
 		<div id="ws_tap_graph" style="width: 2000px; overflow-x: auto;"></div>
@@ -710,6 +731,10 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				<!--- <tr><td>1</td><td>2h</td></tr> -->
 			</tbody>
 		</table>
+	</div>
+
+	<div id="toolbar_frame" style="display: none;">
+		<a id="toolbar_frame_comment"></a>
 	</div>
 
 	<div id="ws_packet_detail_view" style='overflow: auto; width: 100%; height: 250px; border: 2px solid grey; float: left;'>
