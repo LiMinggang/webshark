@@ -327,6 +327,21 @@ sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata
 }
 
 static gboolean
+sharkd_session_seq_analysis_cb(const void *key, void *value, void *userdata)
+{
+	register_analysis_t *analysis = (register_analysis_t*) value;
+	int *pi = (int *) userdata;
+
+	printf("%s{", (*pi) ? "," : "");
+		printf("\"name\":\"%s\"", sequence_analysis_get_ui_name(analysis));
+		printf(",\"tap\":\"seqa:%s\"", (const char *) key);
+	printf("}");
+
+	*pi = *pi + 1;
+	return FALSE;
+}
+
+static gboolean
 sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
 {
 	register_eo_t *eo = (register_eo_t*)value;
@@ -432,6 +447,10 @@ sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
  *                  'name' - response time delay name
  *                  'tap'  - sharkd tap-name for rtd
  *
+ *   (m) seqa    - available sequence analysis (flow) list, array of object with attributes:
+ *                  'name' - sequence analysis name
+ *                  'tap'  - sharkd tap-name
+ *
  *   (m) taps - available taps, array of object with attributes:
  *                  'name' - tap name
  *                  'tap'  - sharkd tap-name
@@ -503,13 +522,16 @@ sharkd_session_process_info(void)
 	conversation_table_iterate_tables(sharkd_session_process_info_conv_cb, &i);
 	printf("]");
 
+	printf(",\"seqa\":[");
+	i = 0;
+	sequence_analysis_table_iterate_tables(sharkd_session_seq_analysis_cb, &i);
+	printf("]");
+
 	printf(",\"taps\":[");
 	{
 		printf("{\"name\":\"%s\",\"tap\":\"%s\"}", "RTP streams", "rtp-streams");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Expert Information", "expert");
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Frames Flow Graph", "frames-flow-graph");
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "TCP Flow Graph", "tcp-flow-graph");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP Flow Graph", "voip-flow-graph");
 		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Wireless LAN Statistics", "wlan");
 	}
@@ -1455,6 +1477,15 @@ sharkd_session_process_tap_wlan_cb(void *tapdata)
  * sharkd_session_process_tap_flow_cb()
  *
  * Output flow tap:
+ *   (m) tap         - tap name
+ *   (m) type:flow   - tap output type
+ *   (m) nodes       - array of strings with node address
+ *   (m) flows       - array of object with attributes:
+ *                  (m) t  - frame time string
+ *                  (m) n  - array of two numbers with source node index and destination node index
+ *                  (m) pn - array of two numbers with source and destination port
+ *                  (o) p  - protocol
+ *                  (o) c  - comment
  */
 static void
 sharkd_session_process_tap_flow_cb(void *tapdata)
@@ -1466,25 +1497,12 @@ sharkd_session_process_tap_flow_cb(void *tapdata)
 	char time_str[COL_MAX_LEN];
 	const char *sepa = "";
 
-	const char *tap_name = "";
-
-	switch (graph_analysis->type)
-	{
-		case SEQ_ANALYSIS_ANY:
-			tap_name = "frames-flow-graph";
-			break;
-		case SEQ_ANALYSIS_TCP:
-			tap_name = "tcp-flow-graph";
-			break;
-		case SEQ_ANALYSIS_VOIP:
-			tap_name = "voip-flow-graph";
-			break;
-	}
-
-	/* XXX, sequence_analysis_item_set_timestamp not called */
 	sequence_analysis_get_nodes(graph_analysis);
 
-	printf("{\"tap\":\"%s\",\"type\":\"%s\"", tap_name, "flow");
+	if (!strcmp(graph_analysis->name, "voip"))
+		printf("{\"tap\":\"%s\",\"type\":\"%s\"", "voip-flow-graph", "flow");
+	else
+		printf("{\"tap\":\"seqa:%s\",\"type\":\"%s\"", graph_analysis->name, "flow");
 
 	printf(",\"nodes\":[");
 	for (i = 0; i < graph_analysis->num_nodes; i++)
@@ -1517,7 +1535,7 @@ sharkd_session_process_tap_flow_cb(void *tapdata)
 
 		fdata = frame_data_sequence_find(cfile.frames, sai->frame_number);
 
-		/* Write the time, using the same format as in the time col */
+		/* XXX, sequence_analysis_item_set_timestamp not called, do it manually */
 		set_fd_time(cfile.epan, fdata, time_str);
 		printf("\"t\":\"%s\"", time_str);
 
@@ -2810,20 +2828,32 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_data = wlan_tap;
 			tap_free = sharkd_session_free_tap_wlan_cb;
 		}
-		else if (!strcmp(tok_tap, "frames-flow-graph") || !strcmp(tok_tap, "tcp-flow-graph"))
+		else if (!strncmp(tok_tap, "seqa:", 5))
 		{
 			seq_analysis_info_t *graph_analysis;
+			register_analysis_t *analysis;
+			const char *tap_name;
+			tap_packet_cb tap_func;
+			guint tap_flags;
+
+			analysis = sequence_analysis_find_by_name(tok_tap + 5);
+			if (!analysis)
+			{
+				fprintf(stderr, "sharkd_session_process_tap() seq analysis %s not found\n", tok_tap + 5);
+				continue;
+			}
 
 			graph_analysis = sequence_analysis_info_new();
-			graph_analysis->type = !strcmp(tok_tap, "frames-flow-graph") ? SEQ_ANALYSIS_ANY : SEQ_ANALYSIS_TCP;
+			graph_analysis->name = tok_tap + 5;
 			graph_analysis->all_packets = TRUE;
 			/* TODO, make configurable */
 			graph_analysis->any_addr = FALSE;
 
-			if (graph_analysis->type == SEQ_ANALYSIS_ANY)
-				tap_error = register_tap_listener("frame", graph_analysis, NULL, TL_REQUIRES_COLUMNS, NULL, seq_analysis_frame_packet, sharkd_session_process_tap_flow_cb);
-			else
-				tap_error = register_tap_listener("tcp", graph_analysis, NULL, 0, NULL, seq_analysis_tcp_packet, sharkd_session_process_tap_flow_cb);
+			tap_name  = sequence_analysis_get_tap_listener_name(analysis);
+			tap_flags = sequence_analysis_get_tap_flags(analysis);
+			tap_func  = sequence_analysis_get_packet_func(analysis);
+
+			tap_error = register_tap_listener(tap_name, graph_analysis, NULL, tap_flags, NULL, tap_func, sharkd_session_process_tap_flow_cb);
 
 			tap_data = graph_analysis;
 			tap_free = sharkd_session_free_tap_flow_cb;
@@ -3011,7 +3041,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			voip_tapinfo.h225_cstype = H225_OTHER;
 			voip_tapinfo.fs_option = /* all_flows ? FLOW_ALL : */ FLOW_ONLY_INVITES; /* flow show option */
 			voip_tapinfo.graph_analysis = sequence_analysis_info_new();
-			voip_tapinfo.graph_analysis->type = SEQ_ANALYSIS_VOIP;
+			voip_tapinfo.graph_analysis->name = "voip";
 
 			voip_tapinfo.session = cfile.epan;
 
@@ -4136,7 +4166,7 @@ sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
 		printf("{\"prefs\":{");
 		prefs_pref_foreach(pref_mod, sharkd_session_process_dumpconf_cb, &data);
 		printf("}}\n");
-    }
+	}
 }
 
 struct sharkd_download_rtp

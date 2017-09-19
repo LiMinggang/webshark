@@ -23,6 +23,7 @@
 		var ws_nstat = [ ];
 		var ws_eo    = [ ];
 		var ws_follow= [ ];
+		var ws_seqa  = [ ];
 		var ws_srt   = [ ];
 		var ws_rtd   = [ ];
 		var ws_convs = [ ];
@@ -398,6 +399,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					create_tap_menu('report_menu_stat2', ws_nstat);
 					create_tap_menu('report_menu_eo', ws_eo);
 					create_tap_menu('report_menu', ws_follow);
+					create_tap_menu('report_menu', ws_seqa);
 				}
 
 				set_filter(filter);
@@ -602,6 +604,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					ws_nstat = data['nstat'];
 					ws_eo    = data['eo'];
 					ws_follow= data['follow'];
+					ws_seqa  = data['seqa'];
 					ws_srt   = data['srt'];
 					ws_rtd   = data['rtd'];
 					ws_convs = data['convs'];
