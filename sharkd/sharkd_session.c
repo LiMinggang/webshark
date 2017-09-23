@@ -49,6 +49,7 @@
 #include <epan/stats_tree_priv.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
+#include <epan/sequence_analysis.h>
 #include <epan/expert.h>
 #include <epan/export_object.h>
 #include <epan/follow.h>
@@ -1484,7 +1485,6 @@ sharkd_session_process_tap_wlan_cb(void *tapdata)
  *                  (m) t  - frame time string
  *                  (m) n  - array of two numbers with source node index and destination node index
  *                  (m) pn - array of two numbers with source and destination port
- *                  (o) p  - protocol
  *                  (o) c  - comment
  */
 static void
@@ -1546,12 +1546,6 @@ sharkd_session_process_tap_flow_cb(void *tapdata)
 		if (sai->conv_num)
 			printf(",\"c\":%u", sai->conv_num);
 #endif
-
-		if (sai->protocol)
-		{
-			printf(",\"p\":");
-			json_puts_string(sai->protocol);
-		}
 
 		if (sai->comment)
 		{
@@ -2845,7 +2839,6 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			graph_analysis = sequence_analysis_info_new();
 			graph_analysis->name = tok_tap + 5;
-			graph_analysis->all_packets = TRUE;
 			/* TODO, make configurable */
 			graph_analysis->any_addr = FALSE;
 
