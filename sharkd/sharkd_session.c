@@ -3377,7 +3377,7 @@ sharkd_session_process_frame_cb(packet_info *pi, proto_tree *tree, struct epan_c
 
 	if (fdata->flags.has_user_comment)
 		pkt_comment = sharkd_get_comment(fdata);
-	else if (fdata->flags.has_user_comment)
+	else if (fdata->flags.has_phdr_comment)
 		pkt_comment = pi->phdr->opt_comment;
 
 	if (pkt_comment)
