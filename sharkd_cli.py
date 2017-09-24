@@ -50,7 +50,7 @@ class SharkdClient:
 
 	def _recv_bytes(self, dest):
 		if self.buf == None:
-			self.buf = self.fd.recv(4096)
+			self.buf = self.fd.recv(8192)
 			self.bufpos = 0
 			if len(self.buf) == 0:
 				self.buf = None
@@ -64,16 +64,13 @@ class SharkdClient:
 			pos = self.buf.find('\n', start)
 
 		if pos != -1:
+			chunk = self.buf[start:pos]
 			nl = True
 			pos = pos + 1
 		else:
+			chunk = self.buf[start:]
 			nl = False
 			pos = len(self.buf)
-
-		if nl:
-			chunk = self.buf[start:pos-1]
-		else:
-			chunk = self.buf[start:]
 
 		dest.extend(chunk)
 
