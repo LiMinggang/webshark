@@ -729,8 +729,9 @@ extern void col_finalize(column_info *cinfo);
 static column_info *
 sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok_t *tokens, int count)
 {
-	int columns_fmt[32];
-	const char *custom_field[32];
+	const char *columns_custom[32];
+	guint16 columns_fmt[32];
+	gint16 columns_occur[32];
 
 	int i, cols;
 
@@ -738,25 +739,32 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
 	{
 		const char *tok_column;
 		char tok_column_name[64];
-		const char *custom_sepa;
+		char *custom_sepa;
 
-		snprintf(tok_column_name, sizeof(tok_column_name), "column%d", i);
+		ws_snprintf(tok_column_name, sizeof(tok_column_name), "column%d", i);
 		tok_column = json_find_attr(buf, tokens, count, tok_column_name);
-
 		if (tok_column == NULL)
 			break;
 
 		if ((custom_sepa = strchr(tok_column, ':')))
 		{
-			columns_fmt[i] = COL_CUSTOM;
-			custom_field[i] = tok_column;
+			*custom_sepa = '\0'; /* XXX, C abuse: discarding-const */
 
-			/* TODO, verify */
+			columns_fmt[i] = COL_CUSTOM;
+			columns_custom[i] = tok_column;
+			columns_occur[i] = 0;
+
+			if (!ws_strtoi16(custom_sepa + 1, NULL, &columns_occur[i]))
+				return NULL;
+
+			/* TODO, verify with dfilter */
 		}
 		else
 		{
-			columns_fmt[i] = atoi(tok_column);
-			if (columns_fmt[i] < 0 || columns_fmt[i] >= NUM_COL_FMTS)
+			if (!ws_strtou16(tok_column, NULL, &columns_fmt[i]))
+				return NULL;
+
+			if (columns_fmt[i] >= NUM_COL_FMTS)
 				return NULL;
 
 			/* if custom, that it shouldn't be just custom number -> error */
@@ -778,13 +786,8 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
 
 		if (col_item->col_fmt == COL_CUSTOM)
 		{
-			char *tmp = g_strdup(custom_field[i]);
-			char *sepa = strchr(tmp, ':');
-
-			col_item->col_custom_fields = tmp;
-			col_item->col_custom_occurrence = atoi(sepa + 1);
-
-			*sepa = '\0';
+			col_item->col_custom_fields = g_strdup(columns_custom[i]);
+			col_item->col_custom_occurrence = columns_occur[i];
 		}
 
 		col_item->col_fence = 0;
@@ -801,8 +804,8 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
  * Process frames request
  *
  * Input:
- *   (o) column0...columnXX - requested columns either number in range [0..NUM_COL_FMTS), or custom.
- *                            If column0 not specified default columns will be used.
+ *   (o) column0...columnXX - requested columns either number in range [0..NUM_COL_FMTS), or custom (syntax <dfilter>:<occurence>).
+ *                            If column0 is not specified default column set will be used.
  *   (o) filter - filter to be used
  *   (o) skip=N   - skip N frames
  *   (o) limit=N  - show only N frames
@@ -812,7 +815,7 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
  *   (m) num - frame number
  *   (o) i   - if frame is ignored
  *   (o) m   - if frame is marked
- *   (o) ct  - if frame have commented
+ *   (o) ct  - if frame is commented
  *   (o) bg  - color filter - background color in hex
  *   (o) fg  - color filter - foreground color in hex
  */
@@ -1161,11 +1164,12 @@ ssid_equal(const struct _wlan_stats *st1, const struct _wlan_stats *st2 )
 }
 
 static void
-wlanstat_packet_details (wlan_ep_t *te, guint32 type, const address *addr, gboolean src)
+wlanstat_packet_details(wlan_ep_t *te, guint32 type, const address *addr, gboolean src)
 {
-	wlan_details_ep_t *d_te = get_details_ep (te, addr);
+	wlan_details_ep_t *d_te = get_details_ep(te, addr);
 
-	switch (type) {
+	switch (type)
+	{
 		case MGT_PROBE_REQ:
 		d_te->probe_req++;
 		break;
