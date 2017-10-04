@@ -16,7 +16,7 @@ index 6cd70d7..f54c6aa 100644
  const char *voip_call_state_name[8]={
      "",
 diff --git a/sharkd.c b/sharkd.c
-index 8ca9ff328f..f4870ffb37 100644
+index c575224531..130f4f24eb 100644
 --- a/sharkd.c
 +++ b/sharkd.c
 @@ -258,6 +258,17 @@ sharkd_get_frame_ts(void *data, guint32 frame_num)
@@ -89,7 +89,7 @@ index feef76a795..e0eca3fc1a 100644
 @@ -34,6 +34,8 @@ int sharkd_retap(void);
  int sharkd_filter(const char *dftext, guint8 **result);
  int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
- int sharkd_dissect_request(unsigned int framenum, void (*cb)(packet_info *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data);
+ int sharkd_dissect_request(unsigned int framenum, void (*cb)(epan_dissect_t *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data);
 +const char *sharkd_get_comment(const frame_data *fd);
 +int sharkd_set_comment(frame_data *fd, const gchar *new_comment);
  const char *sharkd_version(void);

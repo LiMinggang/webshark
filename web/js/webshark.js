@@ -142,6 +142,7 @@ function Webshark()
 	this.status = null;
 	this.cols = null;
 	this.filter = null;
+	this.field_filter = null;
 
 	this.fetch_columns_limit = 120;
 	this.interval_count = 620; /* XXX, number of probes - currently size of svg */
@@ -336,6 +337,36 @@ Webshark.prototype.setComment = function(framenum, new_comment)
 				webshark_load_frame(framenum, false);
 			}
 		});
+};
+
+Webshark.prototype.checkFieldFilter = function(finfo)
+{
+	if (this.field_filter == null)
+		return true;
+
+	var x = this.field_filter;
+	if (finfo['f'] && finfo['f'].indexOf(x) != -1)
+		return true;
+
+	if (finfo['l'] && finfo['l'].indexOf(x) != -1)
+		return true;
+
+	var subtree = finfo['n'];
+	if (subtree)
+	{
+		for (var i = 0; i < subtree.length; i++)
+			if (this.checkFieldFilter(subtree[i]))
+				return true;
+	}
+
+	return false;
+};
+
+Webshark.prototype.setFieldFilter = function(new_filter)
+{
+	this.field_filter = new_filter;
+
+	webshark_render_proto_tree(_webshark_current_frame_tree);
 };
 
 function debug(level, str)
@@ -1760,6 +1791,9 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 	{
 		var finfo = tree[i];
 
+		if (_webshark.checkFieldFilter(finfo) == false)
+			continue;
+
 		var li = document.createElement("li");
 		var txt_node = document.createTextNode(finfo['l']);
 
@@ -1801,6 +1835,28 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 
 		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
 
+		if (finfo['f'])
+		{
+			var filter_a = document.createElement('a');
+
+			filter_a.setAttribute("target", "_blank");
+			filter_a.setAttribute("style", "float: right;");
+			filter_a.setAttribute("href", webshark_get_url()+ "&filter=" + encodeURIComponent(finfo['f']));
+			filter_a.addEventListener("click", popup_on_click_a);
+			/*
+			filter_a.data_ws_filter = finfo['f'];
+			filter_a.addEventListener("click", webshark_tap_row_on_click);
+			*/
+
+			var glyph = webshark_glyph_img('filter', 12);
+			glyph.setAttribute('alt', 'Filter: ' + finfo['f']);
+			glyph.setAttribute('title', 'Filter: ' + finfo['f']);
+
+			filter_a.appendChild(glyph);
+
+			li.appendChild(filter_a);
+		}
+
 		if (finfo['n'])
 		{
 			var expander = document.createElement("span");
@@ -1826,6 +1882,8 @@ function webshark_create_proto_tree(tree, proto_tree, level)
 
 			var ett_expanded = false;
 			if (finfo['e'] && sessionStorage.getItem("ett-" + finfo['e']) == '1')
+				ett_expanded = true;
+			if (_webshark.field_filter)
 				ett_expanded = true;
 
 			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: g_expanded, col: g_collapsed };
@@ -2985,6 +3043,7 @@ function webshark_node_highlight_bytes(obj, node)
 }
 
 var _webshark_current_frame = null;
+var _webshark_current_frame_tree = null;
 
 function webshark_load_frame(framenum, scroll_to, cols)
 {
@@ -3012,6 +3071,7 @@ function webshark_load_frame(framenum, scroll_to, cols)
 		{
 			var bytes_data = [ ];
 
+			_webshark_current_frame_tree = data['tree'];
 			webshark_render_proto_tree(data['tree']);
 
 			var fol = data['fol'];
