@@ -24,6 +24,7 @@ var _webshark_on_frame_change = null;
 
 var _webshark_files_html = null;
 var _webshark_frames_html = null;
+var _webshark_prototree_html = null;
 var _webshark_hexdump_html = null;
 
 var _webshark = null;
@@ -34,6 +35,168 @@ var _webshark_rtps_table = { };
 var PROTO_TREE_PADDING_PER_LEVEL = 20;
 
 var column_downloading = 42;
+
+function ProtocolTree(opts)
+{
+	this.tree = null;
+	this.field_filter = null;
+	this.elem = document.getElementById(opts.contentId);
+}
+
+ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
+{
+	var ul = document.createElement("ul");
+
+	for (var i = 0; i < tree.length; i++)
+	{
+		var finfo = tree[i];
+
+		if (this.checkFieldFilter(finfo) == false)
+			continue;
+
+		var li = document.createElement("li");
+		var txt_node = document.createTextNode(finfo['l']);
+
+		if (finfo['s'])
+			li.className = 'ws_cell_expert_color_' + finfo['s'];
+		else if (finfo['t'] == "proto")
+			li.className = 'ws_cell_protocol';
+		else if (finfo['t'] == "url")
+		{
+			// TODO: url in finfo['url'] but not trusted, so don't generate link.
+			li.className = 'ws_cell_link';
+		}
+		else if (finfo['t'] == "framenum")
+		{
+			var a = document.createElement('a');
+
+			a.appendChild(txt_node);
+
+			a.setAttribute("target", "_blank");
+			a.setAttribute("href", webshark_get_url() + "&frame=" + finfo['fnum']);
+			a.addEventListener("click", webshark_frame_goto);
+
+			a.data_ws_frame = finfo['fnum'];
+
+			txt_node = a;
+		}
+
+		li.appendChild(txt_node);
+		ul.appendChild(li);
+
+		if (level > 1 && proto_tree['h'] != undefined)
+		{
+			finfo['p'] = proto_tree['h'];
+			finfo['p_ds'] = proto_tree['ds'];
+		}
+
+		li.data_ws_node = finfo;
+		li.addEventListener("click", webshark_node_on_click);
+
+		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
+
+		if (finfo['f'])
+		{
+			var filter_a = document.createElement('a');
+
+			filter_a.setAttribute("target", "_blank");
+			filter_a.setAttribute("style", "float: right;");
+			filter_a.setAttribute("href", webshark_get_url()+ "&filter=" + encodeURIComponent(finfo['f']));
+			filter_a.addEventListener("click", popup_on_click_a);
+			/*
+			filter_a.data_ws_filter = finfo['f'];
+			filter_a.addEventListener("click", webshark_tap_row_on_click);
+			*/
+
+			var glyph = webshark_glyph_img('filter', 12);
+			glyph.setAttribute('alt', 'Filter: ' + finfo['f']);
+			glyph.setAttribute('title', 'Filter: ' + finfo['f']);
+
+			filter_a.appendChild(glyph);
+
+			li.appendChild(filter_a);
+		}
+
+		if (finfo['n'])
+		{
+			var expander = document.createElement("span");
+			expander.className = "tree_expander";
+
+			var g_collapsed = webshark_glyph_img('collapsed', 16);
+			g_collapsed.setAttribute('alt', 'Expand');
+			g_collapsed.setAttribute('title', 'Click to expand');
+			expander.appendChild(g_collapsed);
+
+			var g_expanded = webshark_glyph_img('expanded', 16);
+			g_expanded.setAttribute('alt', 'Collapse');
+			g_expanded.setAttribute('title', 'Click to collapse');
+			expander.appendChild(g_expanded);
+
+			if (level == 1)
+				proto_tree = finfo; /* XXX, verify */
+
+			var subtree = this.create_subtree(finfo['n'], proto_tree, level + 1);
+			ul.appendChild(subtree);
+
+			li.insertBefore(expander, li.firstChild);
+
+			var ett_expanded = false;
+			if (finfo['e'] && sessionStorage.getItem("ett-" + finfo['e']) == '1')
+				ett_expanded = true;
+			if (this.field_filter)
+				ett_expanded = true;
+
+			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: g_expanded, col: g_collapsed };
+
+			webshark_tree_sync(li.data_ws_subtree);
+			expander.addEventListener("click", webshark_tree_on_click);
+		}
+	}
+
+	/* TODO: it could be set to expand by user */
+	if (level > 1)
+		ul.style.display = 'none';
+
+	return ul;
+};
+
+ProtocolTree.prototype.checkFieldFilter = function(finfo)
+{
+	if (this.field_filter == null)
+		return true;
+
+	var x = this.field_filter;
+	if (finfo['f'] && finfo['f'].indexOf(x) != -1)
+		return true;
+
+	if (finfo['l'] && finfo['l'].indexOf(x) != -1)
+		return true;
+
+	var subtree = finfo['n'];
+	if (subtree)
+	{
+		for (var i = 0; i < subtree.length; i++)
+			if (this.checkFieldFilter(subtree[i]))
+				return true;
+	}
+
+	return false;
+};
+
+ProtocolTree.prototype.setFieldFilter = function(new_filter)
+{
+	this.field_filter = new_filter;
+
+	this.render_tree();
+};
+
+ProtocolTree.prototype.render_tree = function()
+{
+	var d = this.create_subtree(this.tree, null, 1);
+
+	dom_set_child(this.elem, d);
+};
+
 
 function Hexdump(opts)
 {
@@ -142,7 +305,6 @@ function Webshark()
 	this.status = null;
 	this.cols = null;
 	this.filter = null;
-	this.field_filter = null;
 
 	this.fetch_columns_limit = 120;
 	this.interval_count = 620; /* XXX, number of probes - currently size of svg */
@@ -337,36 +499,6 @@ Webshark.prototype.setComment = function(framenum, new_comment)
 				webshark_load_frame(framenum, false);
 			}
 		});
-};
-
-Webshark.prototype.checkFieldFilter = function(finfo)
-{
-	if (this.field_filter == null)
-		return true;
-
-	var x = this.field_filter;
-	if (finfo['f'] && finfo['f'].indexOf(x) != -1)
-		return true;
-
-	if (finfo['l'] && finfo['l'].indexOf(x) != -1)
-		return true;
-
-	var subtree = finfo['n'];
-	if (subtree)
-	{
-		for (var i = 0; i < subtree.length; i++)
-			if (this.checkFieldFilter(subtree[i]))
-				return true;
-	}
-
-	return false;
-};
-
-Webshark.prototype.setFieldFilter = function(new_filter)
-{
-	this.field_filter = new_filter;
-
-	webshark_render_proto_tree(_webshark_current_frame_tree);
 };
 
 function debug(level, str)
@@ -1783,131 +1915,6 @@ function webshark_lazy_frames(frames)
 	_webshark_frames_html.setData(frames);
 }
 
-function webshark_create_proto_tree(tree, proto_tree, level)
-{
-	var ul = document.createElement("ul");
-
-	for (var i = 0; i < tree.length; i++)
-	{
-		var finfo = tree[i];
-
-		if (_webshark.checkFieldFilter(finfo) == false)
-			continue;
-
-		var li = document.createElement("li");
-		var txt_node = document.createTextNode(finfo['l']);
-
-		if (finfo['s'])
-			li.className = 'ws_cell_expert_color_' + finfo['s'];
-		else if (finfo['t'] == "proto")
-			li.className = 'ws_cell_protocol';
-		else if (finfo['t'] == "url")
-		{
-			// TODO: url in finfo['url'] but not trusted, so don't generate link.
-			li.className = 'ws_cell_link';
-		}
-		else if (finfo['t'] == "framenum")
-		{
-			var a = document.createElement('a');
-
-			a.appendChild(txt_node);
-
-			a.setAttribute("target", "_blank");
-			a.setAttribute("href", webshark_get_url() + "&frame=" + finfo['fnum']);
-			a.addEventListener("click", webshark_frame_goto);
-
-			a.data_ws_frame = finfo['fnum'];
-
-			txt_node = a;
-		}
-
-		li.appendChild(txt_node);
-		ul.appendChild(li);
-
-		if (level > 1 && proto_tree['h'] != undefined)
-		{
-			finfo['p'] = proto_tree['h'];
-			finfo['p_ds'] = proto_tree['ds'];
-		}
-
-		li.data_ws_node = finfo;
-		li.addEventListener("click", webshark_node_on_click);
-
-		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
-
-		if (finfo['f'])
-		{
-			var filter_a = document.createElement('a');
-
-			filter_a.setAttribute("target", "_blank");
-			filter_a.setAttribute("style", "float: right;");
-			filter_a.setAttribute("href", webshark_get_url()+ "&filter=" + encodeURIComponent(finfo['f']));
-			filter_a.addEventListener("click", popup_on_click_a);
-			/*
-			filter_a.data_ws_filter = finfo['f'];
-			filter_a.addEventListener("click", webshark_tap_row_on_click);
-			*/
-
-			var glyph = webshark_glyph_img('filter', 12);
-			glyph.setAttribute('alt', 'Filter: ' + finfo['f']);
-			glyph.setAttribute('title', 'Filter: ' + finfo['f']);
-
-			filter_a.appendChild(glyph);
-
-			li.appendChild(filter_a);
-		}
-
-		if (finfo['n'])
-		{
-			var expander = document.createElement("span");
-			expander.className = "tree_expander";
-
-			var g_collapsed = webshark_glyph_img('collapsed', 16);
-			g_collapsed.setAttribute('alt', 'Expand');
-			g_collapsed.setAttribute('title', 'Click to expand');
-			expander.appendChild(g_collapsed);
-
-			var g_expanded = webshark_glyph_img('expanded', 16);
-			g_expanded.setAttribute('alt', 'Collapse');
-			g_expanded.setAttribute('title', 'Click to collapse');
-			expander.appendChild(g_expanded);
-
-			if (level == 1)
-				proto_tree = finfo; /* XXX, verify */
-
-			var subtree = webshark_create_proto_tree(finfo['n'], proto_tree, level + 1);
-			ul.appendChild(subtree);
-
-			li.insertBefore(expander, li.firstChild);
-
-			var ett_expanded = false;
-			if (finfo['e'] && sessionStorage.getItem("ett-" + finfo['e']) == '1')
-				ett_expanded = true;
-			if (_webshark.field_filter)
-				ett_expanded = true;
-
-			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: g_expanded, col: g_collapsed };
-
-			webshark_tree_sync(li.data_ws_subtree);
-			expander.addEventListener("click", webshark_tree_on_click);
-		}
-	}
-
-	/* TODO: it could be set to expand by user */
-	if (level > 1)
-		ul.style.display = 'none';
-
-	return ul;
-}
-
-
-function webshark_render_proto_tree(tree)
-{
-	var d = webshark_create_proto_tree(tree, null, 1);
-
-	dom_set_child(document.getElementById('ws_packet_detail_view'), d);
-}
-
 var webshark_stat_fields =
 {
 	'name': 'Topic / Item',
@@ -3043,7 +3050,6 @@ function webshark_node_highlight_bytes(obj, node)
 }
 
 var _webshark_current_frame = null;
-var _webshark_current_frame_tree = null;
 
 function webshark_load_frame(framenum, scroll_to, cols)
 {
@@ -3071,8 +3077,8 @@ function webshark_load_frame(framenum, scroll_to, cols)
 		{
 			var bytes_data = [ ];
 
-			_webshark_current_frame_tree = data['tree'];
-			webshark_render_proto_tree(data['tree']);
+			_webshark_prototree_html.tree = data['tree'];
+			_webshark_prototree_html.render_tree();
 
 			var fol = data['fol'];
 

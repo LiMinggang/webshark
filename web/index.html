@@ -261,7 +261,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function set_field_filter(filter)
 		{
-			_webshark.setFieldFilter(filter);
+			_webshark_prototree_html.setFieldFilter(filter);
 		}
 
 		function run()
@@ -587,6 +587,10 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				tag: 'tr',
 				scrollId: 'ws_packet_list_view',
 				contentId: 'packet_list_frames'
+			});
+
+			_webshark_prototree_html = new ProtocolTree({
+				contentId: 'ws_packet_detail_view'
 			});
 
 			_webshark_hexdump_html = new Hexdump({
