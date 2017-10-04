@@ -59,16 +59,16 @@ index 8ca9ff328f..f3e435737e 100644
  /*
   * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
   *
-diff --git a/ui/tap-sequence-analysis.c b/ui/tap-sequence-analysis.c
-index eda3b049f8..27c4442b8b 100644
---- a/ui/tap-sequence-analysis.c
-+++ b/ui/tap-sequence-analysis.c
-@@ -344,7 +344,7 @@ sequence_analysis_list_free(seq_analysis_info_t *sainfo)
+diff --git a/epan/sequence_analysis.c b/epan/sequence_analysis.c
+index 7978637427..54d8f60d8b 100644
+--- a/epan/sequence_analysis.c
++++ b/epan/sequence_analysis.c
+@@ -240,7 +240,7 @@ sequence_analysis_list_free(seq_analysis_info_t *sainfo)
  
      /* free the graph data items */
  
 -#if GLIB_CHECK_VERSION (2, 32, 0)
 +#if 0
-        g_queue_free_full(sainfo->items, sequence_analysis_item_free);
+        if (sainfo->items != NULL)
+             g_queue_free_full(sainfo->items, sequence_analysis_item_free);
         sainfo->items = g_queue_new();
- #else

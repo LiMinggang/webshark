@@ -724,8 +724,6 @@ sharkd_session_process_analyse(void)
 	g_hash_table_destroy(analyser.protocols_set);
 }
 
-extern void col_finalize(column_info *cinfo);
-
 static column_info *
 sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok_t *tokens, int count)
 {
