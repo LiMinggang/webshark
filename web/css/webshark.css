@@ -78,26 +78,29 @@ table.ws_border
 .ws_cell_expert_color_Warning { background-color: #f7f253; }
 .ws_cell_expert_color_Error   { background-color: #ff5c5c; }
 
-ul.menu
+ul.menul
 {
 	list-style-type: none;
 	padding-left: 0px;
 }
 
-ul.menu li
+ul.menul li
 {
 	float: left;
 	padding-right: 15px;
 }
 
-ul.menu li a
+ul.menul li a
 {
 	color: black;
 	display: block;
 	text-decoration: none;
+	float: left;
+	padding-left:  10px;
+	padding-right: 10px;
 }
 
-ul.menu li a:hover
+ul.menul li a:hover
 {
 	background-color: #0080FF;
 }
@@ -128,7 +131,7 @@ div.submenu
 	background-color: #f9f9f9;
 }
 
-div.submenu li
+div.submenu li, div.submenu li a
 {
 	float: none;
 }

@@ -689,6 +689,27 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			<span id="toolbar_capture_description"></span>
 			<p />
 			Frame filter: <input id="capture_filter" type='text' onchange='set_filter(this.value);' oninput='checkfilter(this)' style='width: 550px;' />
+
+			<ul class="menul" style="margin-left: 100px;">
+			<li>
+				<a onclick="show_hide_menu('report_menu_conv');">Endpoints
+					<div class="submenu" id="report_menu_conv"></div>
+				</a>
+				<a onclick="show_hide_menu('report_menu_srt');">Response Time
+					<div class="submenu" id="report_menu_srt"></div>
+				</a>
+				<a onclick="show_hide_menu('report_menu_stat', 'report_menu_stat2');">Statistics
+					<div class="submenu" id="report_menu_stat" style="margin-left: -200px;"></div>
+					<div class="submenu" id="report_menu_stat2" style="margin-left: 200px;"></div>
+				</a>
+				<a onclick="show_hide_menu('report_menu_eo');">Export Objects
+					<div class="submenu" id="report_menu_eo"></div>
+				</a>
+				<a onclick="show_hide_menu('report_menu');">Misc
+					<div class="submenu" id="report_menu"></div>
+				</a>
+			</li>
+		</ul>
 		</div>
 		<div style="float: right; border: 1px solid grey;">
 			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
@@ -697,23 +718,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				<svg width="620" height="100"></svg>
 			</div>
 		</div>
-		<ul class="menu" style="float: right; margin-top: 0px; height: 130px;">
-			<li>
-				Reports:
-				<a onclick="show_hide_menu('report_menu_conv');">- Endpoints</a>
-				<a onclick="show_hide_menu('report_menu_srt');">- Response Time</a>
-				<a onclick="show_hide_menu('report_menu_stat', 'report_menu_stat2');">- Statistics</a>
-				<a onclick="show_hide_menu('report_menu_eo');">- Export Objects</a>
-				<a onclick="show_hide_menu('report_menu');">- Misc</a>
-
-				<div class="submenu" id="report_menu_conv"></div>
-				<div class="submenu" id="report_menu_srt"></div>
-				<div class="submenu" id="report_menu_stat" style="margin-left: -100px;"></div>
-				<div class="submenu" id="report_menu_stat2" style="margin-left: 300px;"></div>
-				<div class="submenu" id="report_menu_eo"></div>
-				<div class="submenu" id="report_menu"></div>
-			</li>
-		</ul>
 		<div style="clear: both;"></div>
 	</div>
 
