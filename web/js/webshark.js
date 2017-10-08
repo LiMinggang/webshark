@@ -1870,7 +1870,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 			{
 				var a = document.createElement('a');
 
-				var comment_glyph = webshark_glyph_img('comment', 16);
+				var comment_glyph = webshark_glyph_img('comment', 14);
 				comment_glyph.setAttribute('alt', 'Comment');
 				comment_glyph.setAttribute('title', 'Comment');
 
