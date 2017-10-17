@@ -45,20 +45,6 @@ index d4de2ccb99..4570f423d1 100644
                  if (gi) {
                      g_array_append_val(geoip_dat_arr, gi);
                  }
-diff --git a/sharkd.c b/sharkd.c
-index 8ca9ff328f..f3e435737e 100644
---- a/sharkd.c
-+++ b/sharkd.c
-@@ -792,6 +792,9 @@ const char *sharkd_version(void)
- #endif
- }
- 
-+/* newer glibc have memcpy@@GLIBC_2.14, and openshift don't have it */
-+void *memcpy(void *dst, const void *src, size_t len) { return memmove(dst, src, len); }
-+
- /*
-  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
-  *
 diff --git a/epan/sequence_analysis.c b/epan/sequence_analysis.c
 index 7978637427..54d8f60d8b 100644
 --- a/epan/sequence_analysis.c
