@@ -49,6 +49,22 @@
 
 		var capture_filter_complete = null;
 
+		function setup_user_toolbar(user)
+		{
+			if (user)
+			{
+				var el = document.getElementById('user_login');
+				el.innerHTML = user;
+				el.style.display = 'inline';
+
+				document.getElementById('user_registered').style.display = "inline";
+			}
+			else
+			{
+				document.getElementById('user_anon').style.display = "inline";
+			}
+		}
+
 		function setup_frame_toolbar()
 		{
 			document.getElementById('toolbar_frame').style.display = 'block';
@@ -625,6 +641,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 					document.title = document.title.replace("${WEBSHARK_VER}", data['version']);
 
+					setup_user_toolbar(data['user']);
+
 					for (var col = 0; col < ws_pref.columns.length; col++)
 					{
 						var col_title = "";
@@ -664,6 +682,21 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 </head>
 
 <body onload="load()"><div id="ws_div" style="display: none;">
+	<div id="user_toolbar">
+		<a href="/">Webshark</a>
+
+		<div style="float: right; margin-right: 5px;">
+			<span id="user_anon" style="display: none;">
+				Guest
+				<a href="/login">Login</a>
+			</span>
+			<span id="user_registered" style="display: none;">
+				<span id="user_login"></span>
+				<a href="/logout/?next=/webshark">Logout</a>
+			</span>
+		</div>
+	</div>
+
 	<div id="files_view" style="display: none;">
 		<input id="files_filter" placeholder="Apply a files filter" type='text' onchange='filter_files(this.value);' style='width: 1000px;' />
 		<p style="font-size: 12px;">Filter examples:

@@ -1,4 +1,16 @@
-body { background-color: #F8F8F8; }
+body { background-color: #F8F8F8; margin: 0; }
+
+#ws_div
+{
+	margin-left: 8px;
+}
+
+#user_toolbar
+{
+	margin-left: -8px;
+	padding-bottom: 4px;
+	background-color: #d8F8F8;
+}
 
 tr.selected
 {

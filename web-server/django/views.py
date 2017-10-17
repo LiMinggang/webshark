@@ -43,8 +43,8 @@ cap_dir = getattr(settings, "SHARKD_CAP_DIR", cap_dir_default) + "/"
 cap_upload_tmpdir = getattr(settings, "SHARKD_UPLOAD_TMPDIR", cap_dir + '../upload') + "/"
 
 def index(request):
-    context = { }
-    return render(request, 'webshark/index.html', context)
+    from django.shortcuts import redirect
+    return redirect('/static/webshark/index.html')
 
 def sharkd_instance(cap_file):
     shark = captures.get(cap_file, None)
@@ -201,6 +201,11 @@ def json_handle_request(request):
         finally:
             lock.release()
         ret = None
+
+    if req == 'info' and request.user.is_authenticated():
+        js = json.loads(ret)
+        js['user'] = request.user.get_username()
+        ret = json.dumps(js)
 
     if req == 'download':
         ## FIXME
