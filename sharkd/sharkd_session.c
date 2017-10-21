@@ -304,7 +304,7 @@ sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata
 	struct register_ct *table = (struct register_ct *) value;
 	int *pi = (int *) userdata;
 
-	const char *label = (const char*)key;
+	const char *label = (const char *) key;
 
 	if (get_conversation_packet_func(table))
 	{
@@ -331,7 +331,7 @@ sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata
 static gboolean
 sharkd_session_seq_analysis_cb(const void *key, void *value, void *userdata)
 {
-	register_analysis_t *analysis = (register_analysis_t*) value;
+	register_analysis_t *analysis = (register_analysis_t *) value;
 	int *pi = (int *) userdata;
 
 	printf("%s{", (*pi) ? "," : "");
@@ -346,7 +346,7 @@ sharkd_session_seq_analysis_cb(const void *key, void *value, void *userdata)
 static gboolean
 sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
 {
-	register_eo_t *eo = (register_eo_t*)value;
+	register_eo_t *eo = (register_eo_t *) value;
 	int *pi = (int *) user_data;
 
 	const int proto_id = get_eo_proto_id(eo);
@@ -403,7 +403,7 @@ sharkd_rtd_visit_cb(const void *key _U_, void *value, void *user_data)
 static gboolean
 sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
 {
-	register_follow_t *follower = (register_follow_t*) value;
+	register_follow_t *follower = (register_follow_t *) value;
 	int *pi = (int *) user_data;
 
 	const int proto_id = get_follow_proto_id(follower);
@@ -1170,7 +1170,7 @@ wlanstat_packet_details(wlan_ep_t *te, guint32 type, const address *addr, gboole
 
 	switch (type)
 	{
-		case MGT_PROBE_REQ:
+	case MGT_PROBE_REQ:
 		d_te->probe_req++;
 		break;
 	case MGT_PROBE_RESP:
@@ -2410,7 +2410,7 @@ static void
 sharkd_session_process_tap_eo_cb(void *tapdata)
 {
 	export_object_list_t *tap_object = (export_object_list_t *) tapdata;
-	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list*) tap_object->gui_data;
+	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list *) tap_object->gui_data;
 	GSList *slist;
 	int i = 0;
 
@@ -2752,7 +2752,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 	voip_calls_tapinfo_t voip_tapinfo;
 	rtpstream_tapinfo_t rtp_tapinfo =
-		{NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE};
+		{ NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE };
 
 	int voip_tapinfo_used = -1;
 
@@ -3337,7 +3337,8 @@ sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbu
 			printf(",\"s\":\"%s\"", severity);
 		}
 
-		if (((proto_tree *) node)->first_child) {
+		if (((proto_tree *) node)->first_child)
+		{
 			if (finfo->tree_type != -1)
 				printf(",\"e\":%d", finfo->tree_type);
 			printf(",\"n\":");
@@ -3446,7 +3447,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 	if (data_src)
 	{
-		struct data_source *src = (struct data_source *)data_src->data;
+		struct data_source *src = (struct data_source *) data_src->data;
 		const char *ds_sepa = NULL;
 
 		tvbuff_t *tvb;
@@ -3477,7 +3478,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 		while (data_src)
 		{
-			src = (struct data_source *)data_src->data;
+			src = (struct data_source *) data_src->data;
 
 			{
 				char *src_name = get_data_source_name(src);
@@ -3565,8 +3566,10 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	gint64 idx;
 	gint64 max_idx = 0;
 
-	if (tok_interval) {
-		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0) {
+	if (tok_interval)
+	{
+		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0)
+		{
 			fprintf(stderr, "Invalid interval parameter: %s.\n", tok_interval);
 			return;
 		}
