@@ -1,8 +1,8 @@
 diff --git a/epan/proto.c b/epan/proto.c
-index f57e4873f5..671671c35e 100644
+index 876e8cb5ab..378c38c4cb 100644
 --- a/epan/proto.c
 +++ b/epan/proto.c
-@@ -6970,7 +6970,7 @@ static void
+@@ -7366,7 +7366,7 @@ static void
  tmp_fld_check_assert(header_field_info *hfinfo)
  {
  	gchar* tmp_str;
@@ -11,20 +11,20 @@ index f57e4873f5..671671c35e 100644
  	/* The field must have a name (with length > 0) */
  	if (!hfinfo->name || !hfinfo->name[0]) {
  		if (hfinfo->abbrev)
-@@ -7506,7 +7506,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
+@@ -7923,7 +7923,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
  
  		/* Check that the filter name (abbreviation) is legal;
  		 * it must contain only alphanumerics, '-', "_", and ".". */
--		c = wrs_check_charset(fld_abbrev_chars, hfinfo->abbrev);
+-		c = check_charset(fld_abbrev_chars, hfinfo->abbrev);
 +		c = 0;
  		if (c) {
  			if (g_ascii_isprint(c))
  				fprintf(stderr, "Invalid character '%c' in filter name '%s'\n", c, hfinfo->abbrev);
 diff --git a/epan/uat_load.l b/epan/uat_load.l
-index 8c8af5452f..60891cee42 100644
+index 3c62f4d77e..6777c80ee2 100644
 --- a/epan/uat_load.l
 +++ b/epan/uat_load.l
-@@ -372,6 +372,7 @@ uat_load(uat_t *uat, char **errx)
+@@ -373,6 +373,7 @@ uat_load(uat_t *uat, char **errx)
  		return TRUE;
  	}
  
@@ -33,7 +33,7 @@ index 8c8af5452f..60891cee42 100644
  	if (!(in = ws_fopen(fname,"r"))) {
  		*errx = g_strdup(g_strerror(errno));
 diff --git a/epan/geoip_db.c b/epan/geoip_db.c
-index d4de2ccb99..4570f423d1 100644
+index 923a4fb2ae..cf84ab475f 100644
 --- a/epan/geoip_db.c
 +++ b/epan/geoip_db.c
 @@ -120,7 +120,7 @@ geoip_dat_scan_dir(const char *dirname) {

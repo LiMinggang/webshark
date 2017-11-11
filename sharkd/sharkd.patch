@@ -1,9 +1,9 @@
 diff --git a/ui/voip_calls.c b/ui/voip_calls.c
-index 6cd70d7..f54c6aa 100644
+index 4ab23e18ef..2bad03a56b 100644
 --- a/ui/voip_calls.c
 +++ b/ui/voip_calls.c
 @@ -65,8 +65,10 @@
- #include "ui/ui_util.h"
+ #include "ui/ws_ui_util.h"
  #include "ui/voip_calls.h"
  
 -#define DUMP_PTR1(p) printf("#=> %p\n",(void *)p)
@@ -16,10 +16,10 @@ index 6cd70d7..f54c6aa 100644
  const char *voip_call_state_name[8]={
      "",
 diff --git a/sharkd.c b/sharkd.c
-index c575224531..130f4f24eb 100644
+index 66b0694ec7..5af58ff57b 100644
 --- a/sharkd.c
 +++ b/sharkd.c
-@@ -258,6 +258,17 @@ sharkd_get_frame_ts(void *data, guint32 frame_num)
+@@ -246,6 +246,17 @@ sharkd_get_frame_ts(void *data, guint32 frame_num)
    return NULL;
  }
  
@@ -37,7 +37,7 @@ index c575224531..130f4f24eb 100644
  static epan_t *
  sharkd_epan_new(capture_file *cf)
  {
-@@ -267,7 +278,7 @@ sharkd_epan_new(capture_file *cf)
+@@ -255,7 +266,7 @@ sharkd_epan_new(capture_file *cf)
    epan->get_frame_ts = sharkd_get_frame_ts;
    epan->get_interface_name = cap_file_get_interface_name;
    epan->get_interface_description = cap_file_get_interface_description;
@@ -46,7 +46,7 @@ index c575224531..130f4f24eb 100644
  
    return epan;
  }
-@@ -781,6 +792,35 @@ sharkd_filter(const char *dftext, guint8 **result)
+@@ -769,6 +780,35 @@ sharkd_filter(const char *dftext, guint8 **result)
    return framenum;
  }
  
@@ -83,10 +83,10 @@ index c575224531..130f4f24eb 100644
  const char *sharkd_version(void)
  {
 diff --git a/sharkd.h b/sharkd.h
-index feef76a795..e0eca3fc1a 100644
+index 7b75788290..ad19b96441 100644
 --- a/sharkd.h
 +++ b/sharkd.h
-@@ -34,6 +34,8 @@ int sharkd_retap(void);
+@@ -22,6 +22,8 @@ int sharkd_retap(void);
  int sharkd_filter(const char *dftext, guint8 **result);
  int sharkd_dissect_columns(int framenum, column_info *cinfo, gboolean dissect_color);
  int sharkd_dissect_request(unsigned int framenum, void (*cb)(epan_dissect_t *, proto_tree *, struct epan_column_info *, const GSList *, void *), int dissect_bytes, int dissect_columns, int dissect_tree, void *data);
