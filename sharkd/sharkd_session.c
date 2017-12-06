@@ -619,9 +619,9 @@ sharkd_session_process_status(void)
 		g_free(name);
 	}
 
-	if (cfile.wth)
+	if (cfile.frame_set_info.wth)
 	{
-		gint64 file_size = wtap_file_size(cfile.wth, NULL);
+		gint64 file_size = wtap_file_size(cfile.frame_set_info.wth, NULL);
 
 		if (file_size > 0)
 			printf(",\"filesize\":%" G_GINT64_FORMAT, file_size);
@@ -859,7 +859,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 	printf("[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
-		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+		frame_data *fdata = frame_data_sequence_find(cfile.frame_set_info.frames, framenum);
 
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
@@ -886,7 +886,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 		if (fdata->flags.has_user_comment || fdata->flags.has_phdr_comment)
 		{
-			if (!fdata->flags.has_user_comment || sharkd_get_comment(fdata) != NULL)
+			if (!fdata->flags.has_user_comment || sharkd_get_user_comment(fdata) != NULL)
 				printf(",\"ct\":true");
 		}
 
@@ -3380,7 +3380,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 	printf("\"err\":0");
 
 	if (fdata->flags.has_user_comment)
-		pkt_comment = sharkd_get_comment(fdata);
+		pkt_comment = sharkd_get_user_comment(fdata);
 	else if (fdata->flags.has_phdr_comment)
 		pkt_comment = pi->phdr->opt_comment;
 
@@ -3582,7 +3582,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
-		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+		frame_data *fdata = frame_data_sequence_find(cfile.frame_set_info.frames, framenum);
 		gint64 msec_rel;
 		gint64 new_idx;
 
@@ -3894,6 +3894,18 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 	return 0;
 }
 
+/**
+ * sharkd_session_process_setcomment()
+ *
+ * Process setcomment request
+ *
+ * Input:
+ *   (m) frame - frame number
+ *   (o) comment - user comment
+ *
+ * Output object with attributes:
+ *   (m) err   - error code: 0 succeed
+ */
 static void
 sharkd_session_process_setcomment(char *buf, const jsmntok_t *tokens, int count)
 {
@@ -3907,11 +3919,11 @@ sharkd_session_process_setcomment(char *buf, const jsmntok_t *tokens, int count)
 	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
 		return;
 
-	fdata = frame_data_sequence_find(cfile.frames, framenum);
+	fdata = frame_data_sequence_find(cfile.frame_set_info.frames, framenum);
 	if (!fdata)
 		return;
 
-	ret = sharkd_set_comment(fdata, tok_comment);
+	ret = sharkd_set_user_comment(fdata, tok_comment);
 	printf("{\"err\":%d}\n", ret);
 }
 
