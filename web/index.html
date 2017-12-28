@@ -70,6 +70,7 @@
 			document.getElementById('toolbar_frame').style.display = 'block';
 
 			var comment_a = document.getElementById('toolbar_frame_comment');
+			var timeref_a = document.getElementById('toolbar_frame_timeref');
 
 			/* Edit comment */
 			{
@@ -82,9 +83,20 @@
 				dom_set_child(comment_a, glyph);
 			}
 
+			/* Set time reference */
+			{
+				timeref_a.addEventListener("click", webshark_frame_timeref_on_click);
+
+				var glyph = webshark_glyph_img('timeref', 32);
+				glyph.setAttribute('alt', 'Time reference');
+				glyph.setAttribute('title', 'Time reference');
+				dom_set_child(timeref_a, glyph);
+			}
+
 			_webshark_on_frame_change = function (framenum, data)
 			{
 				comment_a['data_ws_frame'] = framenum;
+				timeref_a['data_ws_frame'] = framenum;
 			};
 		}
 
@@ -783,6 +795,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 	</div>
 
 	<div id="toolbar_frame" style="display: none;">
+		<a id="toolbar_frame_timeref"></a>
 		<a id="toolbar_frame_comment"></a>
 		<input id="field_filter" placeholder="Apply a field filter" type='text' onchange='set_field_filter(this.value);' style='width: 350px;' />
 	</div>

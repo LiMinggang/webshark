@@ -309,6 +309,7 @@ function Webshark()
 	this.fetch_columns_limit = 120;
 	this.interval_count = 620; /* XXX, number of probes - currently size of svg */
 
+	this.ref_frames = [ ];
 	this.cached_columns = [ ];
 }
 
@@ -330,6 +331,80 @@ Webshark.prototype.load = function(filename, cb)
 			that.status = data;
 			cb(data);
 		});
+};
+
+Webshark.prototype.setRefFrame = function(framenum, is_ref)
+{
+	var done = false;
+
+	for (var i = 0; i < this.ref_frames.length; i++)
+	{
+		var ref_frame = this.ref_frames[i];
+
+		if (ref_frame == framenum)
+		{
+			this.ref_frames[i] = (is_ref) ? framenum : 0;
+			done = true;
+			break;
+		}
+
+		if (ref_frame == 0 && is_ref)
+		{
+			this.ref_frames[i] = framenum;
+			done = true;
+			break;
+		}
+	}
+
+	if (!done && is_ref)
+	{
+		this.ref_frames.push(framenum);
+	}
+
+	this.ref_frames.sort(function(a, b)
+	{
+		return a - b;
+	});
+
+	this.invalidCacheFrames();
+};
+
+Webshark.prototype.getRefFrame = function(framenum)
+{
+	var max_ref_frame = 0;
+
+	for (var i = 0; i < this.ref_frames.length; i++)
+	{
+		var ref_frame = this.ref_frames[i];
+
+		/* skip ref frames bigger than requested frame number */
+		if (ref_frame > framenum)
+			continue;
+
+		if (max_ref_frame < ref_frame)
+			max_ref_frame = ref_frame;
+	}
+
+	return max_ref_frame;
+};
+
+Webshark.prototype.getRefFrames = function()
+{
+	var str = "";
+	var sepa = "";
+
+	for (var i = 0; i < this.ref_frames.length; i++)
+	{
+		var ref_frame = this.ref_frames[i];
+
+		if (!ref_frame)
+			continue;
+
+		str = str + sepa + ref_frame;
+		sepa = ",";
+	}
+
+	return str;
 };
 
 Webshark.prototype.setColumns = function(user_cols)
@@ -421,6 +496,10 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 			req_frames['column' + i] = this.cols[i];
 	}
 
+	var refs = this.getRefFrames();
+	if (refs != "")
+		req_frames['refs'] = refs;
+
 	var that = this;
 
 	webshark_json_get(req_frames,
@@ -439,6 +518,16 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 				webshark_load_frame(framenum, false);
 			}
 		});
+};
+
+Webshark.prototype.invalidCacheFrames = function()
+{
+	for (var i = 0; i < this.cached_columns.length; i++)
+	{
+		this.cached_columns[i] = null;
+	}
+
+	webshark_lazy_frames(this.cached_columns);
 };
 
 Webshark.prototype.invalidCacheFrame = function(framenum)
@@ -709,6 +798,8 @@ function webshark_glyph(what)
 		'analyse': "M1664 960q-152-236-381-353 61 104 61 225 0 185-131.5 316.5t-316.5 131.5-316.5-131.5-131.5-316.5q0-121 61-225-229 117-381 353 133 205 333.5 326.5t434.5 121.5 434.5-121.5 333.5-326.5zm-720-384q0-20-14-34t-34-14q-125 0-214.5 89.5t-89.5 214.5q0 20 14 34t34 14 34-14 14-34q0-86 61-147t147-61q20 0 34-14t14-34zm848 384q0 34-20 69-140 230-376.5 368.5t-499.5 138.5-499.5-139-376.5-368q-20-35-20-69t20-69q140-229 376.5-368t499.5-139 499.5 139 376.5 368q20 35 20 69z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/comment-o.svg */
 		'comment': 'M896 384q-204 0-381.5 69.5t-282 187.5-104.5 255q0 112 71.5 213.5t201.5 175.5l87 50-27 96q-24 91-70 172 152-63 275-171l43-38 57 6q69 8 130 8 204 0 381.5-69.5t282-187.5 104.5-255-104.5-255-282-187.5-381.5-69.5zm896 512q0 174-120 321.5t-326 233-450 85.5q-70 0-145-8-198 175-460 242-49 14-114 22h-5q-15 0-27-10.5t-16-27.5v-1q-3-4-.5-12t2-10 4.5-9.5l6-9 7-8.5 8-9q7-8 31-34.5t34.5-38 31-39.5 32.5-51 27-59 26-76q-157-89-247.5-220t-90.5-281q0-174 120-321.5t326-233 450-85.5 450 85.5 326 233 120 321.5z',
+		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/clock-o.svg */
+		'timeref': 'M1024 544v448q0 14-9 23t-23 9h-320q-14 0-23-9t-9-23v-64q0-14 9-23t23-9h224v-352q0-14 9-23t23-9h64q14 0 23 9t9 23zm416 352q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z',
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-right.svg */
 		'collapsed': "M1152 896q0 26-19 45l-448 448q-19 19-45 19t-45-19-19-45v-896q0-26 19-45t45-19 45 19l448 448q19 19 19 45z",
 		/* https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/svg/caret-down.svg */
@@ -736,6 +827,7 @@ function webshark_glyph(what)
 	{
 		case 'analyse':
 		case 'comment':
+		case 'timeref':
 		case 'collapsed':
 		case 'expanded':
 		case 'filter':
@@ -1541,6 +1633,22 @@ function webshark_frame_comment_on_over(ev)
 					}
 				}
 			});
+	}
+
+	ev.preventDefault();
+}
+
+function webshark_frame_timeref_on_click(ev)
+{
+	var node;
+
+	node = dom_find_node_attr(ev.target, 'data_ws_frame');
+	if (node != null)
+	{
+		var framenum = node.data_ws_frame;
+		var timeref = (_webshark.getRefFrame(framenum) == framenum);
+
+		_webshark.setRefFrame(framenum, !timeref);
 	}
 
 	ev.preventDefault();
@@ -3065,14 +3173,21 @@ function webshark_load_frame(framenum, scroll_to, cols)
 			dom_remove_class(obj, "selected");
 	}
 
-	webshark_json_get(
+	var load_req =
 		{
 			req: 'frame',
 			bytes: 'yes',
 			proto: 'yes',
 			capture: _webshark_file,
 			frame: framenum
-		},
+		};
+
+	var ref_framenum = _webshark.getRefFrame(framenum);
+	if (ref_framenum)
+		load_req['ref_frame'] = ref_framenum;
+	load_req['prev_frame'] = framenum - 1;   /* TODO */
+
+	webshark_json_get(load_req,
 		function(data)
 		{
 			var bytes_data = [ ];
