@@ -19,43 +19,10 @@ You can monitor status by watching console.
 Building webshark docker image
 -------------
 
-Get wireshark sources:
+Build sharkd tarball
 ~~~~
-	$ git clone https://code.wireshark.org/review/wireshark
-	$ cd wireshark
-	$ git reset --hard 005ddc1d8b2aa079a39ace6cd65a5d2ed24aed11   ## tested with this hash
-
-
-~~~~
-
-Integrate sharkd:
-~~~~
-	$ patch -p1 < ../sharkd/sharkd.patch
-	$ patch -p1 < ../sharkd/sharkd_opt_memory.patch ## optional
-	$ cp ../sharkd/*.[ch] ./
-~~~~
-
-Compile sharkd static, and without optional libraries:
-~~~~
-	$ ./autogen.sh
-	$ export CFLAGS="-O3 -pipe"
-	$ ./configure \
-		--disable-wireshark --without-extcap --without-pcap --disable-dumpcap --disable-plugins \
-		--disable-shared --enable-static --disable-warnings-as-errors \
-		--without-ssl --without-gnutls --without-geoip
-	$ make -j8
-	$ make sharkd
-~~~~
-
-Generate binary tarball:
-~~~~
-	$ strip sharkd
-	$ mkdir -p ./usr/local/bin/ ./usr/local/share/wireshark/
-	$ cp sharkd ./usr/local/bin/
-	$ cp colorfilters ./usr/local/share/wireshark/
-	$ tar -vczf ../sharkd.tar.gz ./usr
-	$ cd ..                ## back into webshark directory
-	$ rm -rf wireshark/    ## wireshark sources no longer needed
+	$ docker build -t sharkd:latest sharkd/
+	$ docker run -v `pwd`:/out --rm -it sharkd:latest
 ~~~~
 
 Build and run docker image:
