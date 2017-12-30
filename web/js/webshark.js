@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var webshark_hexdump_module = require('./webshark-hexdump.js');
+
 var _webshark_rtps_players = { };
 var _webshark_rtps_players_name = { };
 var _webshark_rtps_table = { };
@@ -186,108 +188,6 @@ ProtocolTree.prototype.render_tree = function()
 	dom_set_child(this.elem, d);
 };
 
-
-function Hexdump(opts)
-{
-	this.datas = null;
-	this.active= -1;
-	this.base  = opts.base;
-	this.elem  = document.getElementById(opts.contentId);
-
-	this.highlights = [ ];
-}
-
-Hexdump.prototype.render_hexdump = function()
-{
-	var s, line;
-
-	var pkt = this.datas[this.active];
-
-	var padcount = (this.base == 2) ? 8 : (this.base == 16) ? 2 : 0;
-	var limit = (this.base == 2) ? 8 : (this.base == 16) ? 16 : 0;
-
-	var emptypadded = "  ";
-	while (emptypadded.length < padcount)
-		emptypadded = emptypadded + emptypadded;
-
-	if (limit == 0)
-		return;
-
-	var full_limit = limit;
-
-	s = "";
-	for (var i = 0; i < pkt.length; i += full_limit)
-	{
-		var str_off = "<span class='hexdump_offset'>" + xtoa(i, 4) + " </span>";
-		var str_hex = "";
-		var str_ascii = "";
-
-		var prev_class = "";
-
-		if (i + limit > pkt.length)
-			limit = pkt.length - i;
-
-		for (var j = 0; j < limit; j++)
-		{
-			var ch = pkt.charCodeAt(i + j);
-
-			var cur_class = "";
-
-			for (var k = 0; k < this.highlights.length; k++)
-			{
-				if (this.highlights[k].tab == this.active && this.highlights[k].start <= (i + j) && (i + j) < this.highlights[k].end)
-				{
-					cur_class = this.highlights[k].style;
-					break;
-				}
-			}
-
-			if (prev_class != cur_class)
-			{
-				if (prev_class != "")
-				{
-					/* close span for previous class */
-					str_ascii += "</span>";
-					str_hex += "</span>";
-				}
-
-				if (cur_class != "")
-				{
-					/* open span for new class */
-					str_hex += "<span class='" + cur_class + "'>";
-					str_ascii += "<span class='" + cur_class + "'>";
-				}
-
-				prev_class = cur_class;
-			}
-
-			str_ascii += ch_escape(chtoa(ch));
-
-			var numpad = ch.toString(this.base);
-			while (numpad.length < padcount)
-				numpad = '0' + numpad;
-
-			str_hex += numpad + " ";
-		}
-
-		if (prev_class != "")
-		{
-			str_ascii += "</span>";
-			str_hex += "</span>";
-		}
-
-		for (var j = limit; j < full_limit; j++)
-		{
-			str_hex += emptypadded + " ";
-			str_ascii += " ";
-		}
-
-		line = str_off + " " + str_hex + " " + str_ascii + "\n";
-		s += line;
-	}
-
-	this.elem.innerHTML = s;
-};
 
 function Webshark()
 {
@@ -729,33 +629,6 @@ function popup_on_click_a(ev)
 
 		ev.preventDefault();
 	}
-}
-
-function ch_escape(ch)
-{
-	switch (ch)
-	{
-		case '&': return '&amp;';
-		case '<': return '&lt;';
-		case '>': return '&gt;';
-	}
-
-	return ch;
-}
-
-function chtoa(ch)
-{
-	return (ch > 0x1f && ch < 0x7f) ? String.fromCharCode(ch) : '.';
-}
-
-function xtoa(hex, pad)
-{
-	var str = hex.toString(16);
-
-	while (str.length < pad)
-		str = "0" + str;
-
-	return str;
 }
 
 function webshark_get_base_url()
@@ -2863,7 +2736,7 @@ function webshark_render_tap(tap)
 		{
 			var stream = streams[i];
 
-			stream['_ssrc'] = "0x" + xtoa(stream['ssrc'], 0);
+			stream['_ssrc'] = "0x" + webshark_hexdump_module.xtoa(stream['ssrc'], 0);
 			stream['_pb'] = stream['problem'] ? "X" : "";
 
 			var lost = stream['expectednr'] - stream['totalnr'];
@@ -2873,7 +2746,7 @@ function webshark_render_tap(tap)
 			var ipstr = "ip";
 			if (stream['ipver'] == 6) ipstr = "ipv6";
 
-			var rtp_str = stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + xtoa(stream['ssrc'], 0);
+			var rtp_str = stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + webshark_hexdump_module.xtoa(stream['ssrc'], 0);
 
 			stream['_analyse'] = 'rtp-analyse:' + rtp_str;
 			stream['_download'] = 'rtp:' + rtp_str;
@@ -2928,7 +2801,7 @@ function webshark_render_tap(tap)
 		{
 			var rdiv = document.createElement('div');
 
-			rdiv.appendChild(dom_create_label_span("SSRC: 0x" + xtoa(tap['ssrc'], 0)));
+			rdiv.appendChild(dom_create_label_span("SSRC: 0x" + webshark_hexdump_module.xtoa(tap['ssrc'], 0)));
 
 			rdiv.appendChild(dom_create_label_span(", Max Delta: " + tap['max_delta'] + ' ms @ ' + tap['max_delta_nr']));
 			rdiv.appendChild(dom_create_label_span(", Max Jitter: " + tap['max_jitter'] + " ms"));
@@ -3348,7 +3221,7 @@ function webshark_load_follow(follow, filter)
 }
 
 exports.ProtocolTree = ProtocolTree;
-exports.Hexdump = Hexdump;
+exports.Hexdump = webshark_hexdump_module.Hexdump;
 exports.Webshark = Webshark;
 
 exports.webshark_load_files = webshark_load_files;
