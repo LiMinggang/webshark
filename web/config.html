@@ -10,9 +10,12 @@
 	<link rel="stylesheet" href="css/awesomplete.css" type="text/css">
 
 	<script src="js/webshark-clusterize.js"></script>
-	<script src="js/webshark.js" type="text/javascript"></script>
+	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
+		var _webshark_url = '/webshark/json?';
+		var _webshark = null;
+
 		var _webshark_options_html = null;
 		var _webshark_options = null;
 
@@ -20,15 +23,15 @@
 
 		function option_row_on_click(ev)
 		{
-			var option_node = dom_find_node_attr(ev.target, 'ws_option');
+			var option_node = window.webshark.dom_find_node_attr(ev.target, 'ws_option');
 
 			if (option_node != null)
 			{
 				if (_selected_option != null)
-					dom_remove_class(_selected_option, "selected");
+					window.webshark.dom_remove_class(_selected_option, "selected");
 
 				/* select new */
-				dom_add_class(option_node, "selected");
+				window.webshark.dom_add_class(option_node, "selected");
 				_selected_option = option_node;
 			}
 		}
@@ -152,8 +155,6 @@
 
 		function load()
 		{
-			_webshark_url = '/webshark/json?';
-
 			_webshark_options_html = new Clusterize({
 				rows: [],
 				rows_in_block: 50,
@@ -166,7 +167,7 @@
 
 			/* TODO: column edit */
 
-			webshark_json_get(
+			window.webshark.webshark_json_get(
 				{
 					req: 'dumpconf'
 				},

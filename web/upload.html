@@ -9,9 +9,11 @@
 	<link rel="stylesheet" href="css/webshark.css" type="text/css">
 
 	<script src="https://d3js.org/d3.v4.min.js" type="text/javascript"></script>
-	<script src="js/webshark.js" type="text/javascript"></script>
+	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
+		var _webshark_url = '/webshark/json?';
+
 		var SIZE_LIMIT = 10 * 1024 * 1024; /* 10 MB */
 
 		function form_upload(ev)
@@ -57,9 +59,9 @@
 
 					file['url'] = 'index.html?file=' + file['name'];
 
-					var div = webshark_create_file_details(file);
+					var div = window.webshark.webshark_create_file_details(file);
 
-					dom_set_child(document.getElementById('capture_files_view_details'), div);
+					window.webshark.dom_set_child(document.getElementById('capture_files_view_details'), div);
 
 					stat.innerHTML = 'Uploaded:';
 				}
@@ -79,12 +81,10 @@
 
 		function load()
 		{
-			_webshark_url = '/webshark/json?';
-
 			var upl = document.getElementById('uploader');
 			upl.onsubmit = form_upload;
 
-			webshark_json_get(
+			window.webshark.webshark_json_get(
 				{
 					req: 'info'
 				},

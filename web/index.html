@@ -14,9 +14,19 @@
 
 	<script src="js/webshark-awesomplete.js" type="text/javascript"></script>
 	<script src="js/webshark-clusterize.js"></script>
-	<script src="js/webshark.js" type="text/javascript"></script>
+	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
+		var _webshark_file = "";
+		var _webshark_url = '/webshark/json?';
+		var _webshark_on_frame_change = null;
+		var _webshark_files_html = null;
+		var _webshark_frames_html = null;
+		var _webshark_prototree_html = null;
+		var _webshark_hexdump_html = null;
+
+		var _webshark = null;
+
 		var ws_ftypes = [ ];
 		var ws_taps  = [ ];
 		var ws_stats = [ ];
@@ -74,23 +84,23 @@
 
 			/* Edit comment */
 			{
-				comment_a.addEventListener("click", webshark_frame_comment_on_click);
-				comment_a.addEventListener("mouseover", webshark_frame_comment_on_over);
+				comment_a.addEventListener("click", window.webshark.webshark_frame_comment_on_click);
+				comment_a.addEventListener("mouseover", window.webshark.webshark_frame_comment_on_over);
 
-				var glyph = webshark_glyph_img('comment', 32);
+				var glyph = window.webshark.webshark_glyph_img('comment', 32);
 				glyph.setAttribute('alt', 'Comment');
 				glyph.setAttribute('title', 'Comment');
-				dom_set_child(comment_a, glyph);
+				window.webshark.dom_set_child(comment_a, glyph);
 			}
 
 			/* Set time reference */
 			{
-				timeref_a.addEventListener("click", webshark_frame_timeref_on_click);
+				timeref_a.addEventListener("click", window.webshark.webshark_frame_timeref_on_click);
 
-				var glyph = webshark_glyph_img('timeref', 32);
+				var glyph = window.webshark.webshark_glyph_img('timeref', 32);
 				glyph.setAttribute('alt', 'Time reference');
 				glyph.setAttribute('title', 'Time reference');
-				dom_set_child(timeref_a, glyph);
+				window.webshark.dom_set_child(timeref_a, glyph);
 			}
 
 			_webshark_on_frame_change = function (framenum, data)
@@ -123,7 +133,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				a.setAttribute("target", "_blank");
 				a.setAttribute("href", window.location.href + "&tap=" + tap);
 				a.setAttribute("id", "menu_tap_" + tap);
-				// a.addEventListener("click", popup_on_click);
+				// a.addEventListener("click", window.webshark.popup_on_click);
 
 				li.appendChild(a);
 				node.appendChild(li);
@@ -178,7 +188,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				}
 			}
 
-			webshark_json_get(
+			window.webshark.webshark_json_get(
 				{
 					req: 'complete',
 					field: field
@@ -266,7 +276,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				return;
 			}
 
-			webshark_json_get(
+			window.webshark.webshark_json_get(
 				{
 					req: 'check',
 					filter: el.value
@@ -394,10 +404,10 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					var back_a = document.getElementById('toolbar_capture_files');
 					back_a.setAttribute("href", "index.html");
 
-					var glyph = webshark_glyph_img('files', 16);
+					var glyph = window.webshark.webshark_glyph_img('files', 16);
 					glyph.setAttribute('alt', 'Back to file list');
 					glyph.setAttribute('title', 'Back to file list');
-					dom_set_child(back_a, glyph);
+					window.webshark.dom_set_child(back_a, glyph);
 				}
 
 				/* Link to download capture file */
@@ -405,19 +415,19 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					var down_a = document.getElementById('toolbar_capture_down');
 					down_a.setAttribute("target", "_blank");
 					down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=self");
-					down_a.addEventListener("click", popup_on_click_a);
+					down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-					var glyph = webshark_glyph_img('download', 16);
+					var glyph = window.webshark.webshark_glyph_img('download', 16);
 					glyph.setAttribute('alt', 'Download capture file');
 					glyph.setAttribute('title', 'Download capture file');
-					dom_set_child(down_a, glyph);
+					window.webshark.dom_set_child(down_a, glyph);
 				}
 
 				/* Capture file description */
 				{
 					var label_span = document.getElementById('toolbar_capture_description');
 					var label_str = " " + data['filename'] + " (" + data['frames'] + " frames, " + data['duration'] + ' seconds, ' + data['filesize'] + " bytes)";
-					dom_set_child(label_span, document.createTextNode(label_str));
+					window.webshark.dom_set_child(label_span, document.createTextNode(label_str));
 				}
 
 				/* TODO: link to download ssl-sessions  */
@@ -447,9 +457,9 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					var upload_a = document.createElement('a');
 					upload_a.setAttribute("target", "_blank");
 					upload_a.setAttribute("href", 'upload.html');
-					upload_a.addEventListener("click", popup_on_click_a);
+					upload_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-					var glyph = webshark_glyph_img('upload', 16);
+					var glyph = window.webshark.webshark_glyph_img('upload', 16);
 					glyph.setAttribute('alt', 'Upload capture file');
 					glyph.setAttribute('title', 'Upload capture file');
 
@@ -466,7 +476,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				document.getElementById('files_view').style.display = 'block';
 
-				webshark_load_files(dir);
+				window.webshark.webshark_load_files(dir);
 			}
 
 			document.getElementById("ws_div").style.display = "block";
@@ -598,7 +608,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function load()
 		{
-			_webshark_url = '/webshark/json?';
 			_webshark_interval_mode = "bps";
 
 			_webshark_files_html = new Clusterize({
@@ -617,20 +626,20 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				contentId: 'packet_list_frames'
 			});
 
-			_webshark_prototree_html = new ProtocolTree({
+			_webshark_prototree_html = new window.webshark.ProtocolTree({
 				contentId: 'ws_packet_detail_view'
 			});
 
-			_webshark_hexdump_html = new Hexdump({
+			_webshark_hexdump_html = new window.webshark.Hexdump({
 				base: 16,
 				contentId: 'ws_bytes_dump'
 			});
 
 			load_preferences();
 
-			_webshark = new Webshark();
+			_webshark = new window.webshark.Webshark();
 
-			webshark_json_get(
+			window.webshark.webshark_json_get(
 				{
 					req: 'info'
 				},
@@ -685,7 +694,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 							columns_pref.push(col_format);
 					}
 
-					webshark_render_columns(columns_title);
+					window.webshark.webshark_render_columns(columns_title);
 					run();
 				});
 		}

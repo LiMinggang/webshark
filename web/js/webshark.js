@@ -17,17 +17,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var _webshark_file = "";
-var _webshark_url = "/webshark/api?";
-
-var _webshark_on_frame_change = null;
-
-var _webshark_files_html = null;
-var _webshark_frames_html = null;
-var _webshark_prototree_html = null;
-var _webshark_hexdump_html = null;
-
-var _webshark = null;
 var _webshark_rtps_players = { };
 var _webshark_rtps_players_name = { };
 var _webshark_rtps_table = { };
@@ -3357,3 +3346,26 @@ function webshark_load_follow(follow, filter)
 
 		});
 }
+
+exports.ProtocolTree = ProtocolTree;
+exports.Hexdump = Hexdump;
+exports.Webshark = Webshark;
+
+exports.webshark_load_files = webshark_load_files;
+exports.webshark_json_get = webshark_json_get;
+exports.webshark_glyph_img = webshark_glyph_img;
+
+exports.popup = popup;
+exports.popup_on_click_a = popup_on_click_a;
+
+exports.dom_add_class = dom_add_class;
+exports.dom_remove_class = dom_remove_class;
+exports.dom_set_child = dom_set_child;
+exports.dom_find_node_attr = dom_find_node_attr;
+
+exports.webshark_render_columns = webshark_render_columns;
+exports.webshark_create_file_details = webshark_create_file_details;
+
+exports.webshark_frame_comment_on_over = webshark_frame_comment_on_over;
+exports.webshark_frame_timeref_on_click = webshark_frame_timeref_on_click;
+exports.webshark_frame_comment_on_click = webshark_frame_comment_on_click;
