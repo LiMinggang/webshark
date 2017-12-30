@@ -1,3 +1,17 @@
+diff --git a/sharkd_daemon.c b/sharkd_daemon.c
+index 230534914f..464d8cd102 100644
+--- a/sharkd_daemon.c
++++ b/sharkd_daemon.c
+@@ -44,7 +44,8 @@
+ /* for windows support TCP sockets */
+ # define SHARKD_TCP_SUPPORT
+ #else
+-/* for other system support only local sockets */
++/* for other system support TCP and local sockets */
++# define SHARKD_TCP_SUPPORT
+ # define SHARKD_UNIX_SUPPORT
+ #endif
+ 
 diff --git a/ui/voip_calls.c b/ui/voip_calls.c
 index 4ab23e18ef..2bad03a56b 100644
 --- a/ui/voip_calls.c
