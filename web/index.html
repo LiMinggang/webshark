@@ -22,6 +22,7 @@
 		var _webshark_frames_html = null;
 		var _webshark_prototree_html = null;
 		var _webshark_hexdump_html = null;
+		var _webshark_interval_mode = "";
 
 		var _webshark = null;
 		var _webshark_files = null;
@@ -340,7 +341,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		function render_interval(mode)
 		{
 			_webshark_interval_mode = mode;
-			webshark_render_interval();
+			window.webshark.webshark_render_interval();
 		}
 
 		function bytes_display_base(new_base)

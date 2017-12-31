@@ -2592,7 +2592,6 @@ function webshark_render_tap(tap)
 var _webshark_interval = null;
 var _webshark_interval_scale = null;
 var _webshark_interval_filter = null;
-var _webshark_interval_mode = "";
 
 function webshark_render_interval()
 {
@@ -2921,6 +2920,7 @@ exports.dom_find_node_attr = dom_find_node_attr;
 
 exports.webshark_render_columns = webshark_render_columns;
 exports.webshark_create_file_details = webshark_capture_files_module.webshark_create_file_details;
+exports.webshark_render_interval = webshark_render_interval;
 
 exports.webshark_frame_comment_on_over = webshark_frame_comment_on_over;
 exports.webshark_frame_timeref_on_click = webshark_frame_timeref_on_click;
