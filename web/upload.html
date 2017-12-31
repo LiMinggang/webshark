@@ -57,7 +57,8 @@
 						return;
 					}
 
-					file['url'] = 'index.html?file=' + file['name'];
+					file['_path'] = file['name'];
+					file['url'] = 'index.html?file=' + file['_path'];
 
 					var div = window.webshark.webshark_create_file_details(file);
 

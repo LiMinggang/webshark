@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var webshark_capture_files_module = require("./webshark-capture-files.js");
 var webshark_display_filter_module = require('./webshark-display-filter.js');
 var webshark_hexdump_module = require('./webshark-hexdump.js');
 
@@ -1170,115 +1171,6 @@ function webshark_frame_row_on_click(ev)
 		webshark_load_frame(frame_node.data_ws_frame, false);
 }
 
-var _webshark_selected_file = null;
-
-function webshark_create_file_details(file)
-{
-	var div = document.createElement('div');
-	var p;
-
-	a = document.createElement('a');
-
-	a.appendChild(document.createTextNode('Load'));
-	a.setAttribute("href", file['url']);
-	div.appendChild(a);
-
-	p = document.createElement('p');
-	p.appendChild(document.createTextNode('File: ' + file['_path']));
-	div.appendChild(p);
-
-	if (file['size'])
-	{
-		p = document.createElement('p');
-		p.appendChild(document.createTextNode('Size: ' + file['size']));
-		div.appendChild(p);
-	}
-
-	if (file['analysis'])
-	{
-		p = document.createElement('p');
-		p.appendChild(document.createTextNode('Frames: ' + file['analysis']['frames']));
-		div.appendChild(p);
-
-		/* Time */
-		var first = file['analysis']['first'];
-		var last  = file['analysis']['last'];
-
-		if (first && last)
-		{
-			var dura  = last - first;
-
-			var format = d3.utcFormat; /* XXX, check if UTC */
-
-			p = document.createElement('p');
-			p.appendChild(document.createTextNode('From: ' + format(new Date(first * 1000))));
-			div.appendChild(p);
-
-			p = document.createElement('p');
-			p.appendChild(document.createTextNode('To: ' + format(new Date(last * 1000))));
-			div.appendChild(p);
-
-			p = document.createElement('p');
-			p.appendChild(document.createTextNode('Duration: ' + (last - first) + " s"));
-			div.appendChild(p);
-		}
-
-		/* Protocols */
-		var protos = file['analysis']['protocols'];
-		if (protos && protos.length > 0)
-		{
-			var ul = document.createElement('ul')
-			ul.className = 'proto';
-
-			div.appendChild(document.createElement('p').appendChild(document.createTextNode('Protocols:')));
-			for (var k = 0; k < protos.length; k++)
-			{
-				var proto_li = document.createElement('li');
-
-				proto_li.appendChild(document.createTextNode(protos[k]));
-				proto_li.className = 'proto';
-
-				ul.appendChild(proto_li);
-			}
-			div.appendChild(ul);
-		}
-	}
-
-	return div;
-}
-
-function webshark_file_row_on_click(ev)
-{
-	var file_node;
-
-	file_node = dom_find_node_attr(ev.target, 'ws_file_data');
-
-	if (file_node == _webshark_selected_file)
-	{
-		/* TODO: after double(triple?) clicking auto load file? */
-		return;
-	}
-
-	if (file_node != null)
-	{
-		var file = file_node['ws_file_data'];
-
-		file['url'] = webshark_get_base_url() + '?file=' + file['_path'];
-
-		var div = webshark_create_file_details(file);
-
-		/* unselect previous */
-		if (_webshark_selected_file != null)
-			_webshark_selected_file.classList.remove("selected");
-
-		dom_set_child(document.getElementById('capture_files_view_details'), div);
-
-		/* select new */
-		file_node.classList.add("selected");
-		_webshark_selected_file = file_node;
-	}
-}
-
 function webshark_tree_sync(subtree)
 {
 	if (subtree['expanded'] == false)
@@ -1677,109 +1569,6 @@ function ws_rtp_playback_control_create(pdiv, wave)
 	control_div.setAttribute('align', 'center');
 
 	pdiv.insertBefore(control_div, pdiv.firstChild);
-}
-
-function webshark_dir_on_click(ev)
-{
-	var node = dom_find_node_attr(ev.target, 'data_ws_dir');
-	if (node != null)
-	{
-		var dir = node['data_ws_dir'];
-		webshark_load_files(dir);
-		ev.preventDefault();
-	}
-}
-
-function webshark_create_file_row_html(file, row_no)
-{
-	var tr = document.createElement("tr");
-
-	var si_format = d3.format('.2s');
-
-	var stat = file['status'];
-
-	var data = [
-		file['name'],
-		file['dir'] ? "[DIR]" : (si_format(file['size']) + "B"),
-		file['desc'] ? file['desc'] : "",
-	];
-
-	var a_href = document.createElement("a");
-	if (file['dir'])
-	{
-		data[0] = file['_path'];
-
-		a_href.setAttribute("href", webshark_get_base_url() + "?dir=" + file['_path']);
-		a_href['data_ws_dir'] = file['_path'];
-		a_href.addEventListener("click", webshark_dir_on_click);
-	}
-	else
-	{
-		a_href.setAttribute("href", webshark_get_base_url() + "?file=" + file['_path']);
-	}
-	a_href.appendChild(document.createTextNode(data[0]));
-
-	for (var j = 0; j < data.length; j++)
-	{
-		var td = document.createElement("td");
-
-		if (j == 0) /* before filename */
-		{
-			var glyph = null;
-
-			if (file['pdir'])
-			{
-				glyph = webshark_glyph_img('pfolder', 16);
-				glyph.setAttribute('alt', 'Open Directory');
-				glyph.setAttribute('title', 'Open Directory');
-			}
-			else if (file['dir'])
-			{
-				glyph = webshark_glyph_img('folder', 16);
-				glyph.setAttribute('alt', 'Directory');
-				glyph.setAttribute('title', 'Directory');
-			}
-			else if (stat && stat['online'])
-			{
-				glyph = webshark_glyph_img('play', 16);
-				glyph.setAttribute('alt', 'Running');
-				glyph.setAttribute('title', 'Running ...');
-			}
-			else
-			{
-				glyph = webshark_glyph_img('stop', 16);
-				glyph.setAttribute('alt', 'Stopped');
-				glyph.setAttribute('title', 'Stopped');
-			}
-			if (glyph)
-				td.appendChild(glyph);
-			td.appendChild(document.createTextNode(' '));
-		}
-
-		if (j == 0)
-			td.appendChild(a_href);
-		else
-			td.appendChild(document.createTextNode(data[j]));
-		tr.appendChild(td);
-	}
-
-	if (file['cdir'] == true)
-	{
-		tr.style['background-color'] = '#ffffb0';
-	}
-	else if (stat && stat['online'] == true)
-	{
-		tr.style['background-color'] = 'lightblue';
-	}
-	else
-	{
-		tr.style['background-color'] = '#ccc';
-	}
-
-	tr.ws_file_data = file;
-	tr.addEventListener("click", webshark_file_row_on_click);
-
-	return tr;
 }
 
 function webshark_create_frame_row_html(frame, row_no)
@@ -2871,96 +2660,6 @@ function webshark_render_interval()
 	dom_set_child(document.getElementById('capture_interval'), svg.node());
 }
 
-var _webshark_files = [ ];
-
-function webshark_display_files(filter)
-{
-	var files = _webshark_files;
-
-	if (filter)
-		files = files.filter(filter);
-
-	_webshark_files_html.options.callbacks.createHTML = webshark_create_file_row_html;
-	_webshark_files_html.setData(files);
-}
-
-function webshark_load_files(dir)
-{
-	var files_req =
-		{
-			req: 'files'
-		};
-
-	if (dir)
-		files_req['dir'] = dir;
-
-	webshark_json_get(files_req,
-		function(data)
-		{
-			var pwd = data['pwd'];
-			var fullpwd;
-			var files = data['files'];
-
-			if (pwd == '.' || pwd == '/')
-			{
-				pwd = '/';
-				fullpwd = '/';
-			}
-			else
-			{
-				pwd = '/' + pwd;
-				fullpwd = pwd + '/';
-			}
-
-			for (var i = 0; i < files.length; i++)
-			{
-				var item = files[i];
-
-				item['_path'] = fullpwd + item['name'];
-			}
-
-			files.sort(function(a, b)
-			{
-				var sta = a['status'], stb = b['status'];
-				var ona, onb;
-
-				/* first directory */
-				ona = (a['dir'] == true) ? 1 : 0;
-				onb = (b['dir'] == true) ? 1 : 0;
-				if (ona != onb)
-					return ona < onb ? 1 : -1;
-
-				/* than online */
-				ona = (sta && sta['online'] == true) ? 1 : 0;
-				onb = (stb && stb['online'] == true) ? 1 : 0;
-				if (ona != onb)
-					return ona < onb ? 1 : -1;
-
-				/* and than by filename */
-				return a['name'] > b['name'] ? 1 : -1;
-			});
-
-			/* some extra directories always on top */
-			files.unshift({ cdir: true, pdir: true, name: fullpwd, _path: fullpwd, 'dir': true, 'desc': '' });
-
-			while (pwd != '/' && pwd != '')
-			{
-				var parentdir = pwd.substring(0, pwd.lastIndexOf('/'));
-
-				if (parentdir.length != 0)
-					files.unshift({ pdir: true, name: parentdir, _path: parentdir, 'dir': true, 'desc': '' });
-
-				pwd = parentdir;
-			}
-
-			if (fullpwd != '/')
-				files.unshift({ pdir: true, name: '/', _path: '/', 'dir': true, 'desc': '' });
-
-			_webshark_files = files;
-			webshark_display_files();
-		});
-}
-
 var _webshark_current_node = null;
 
 function webshark_node_highlight_bytes(obj, node)
@@ -3207,12 +2906,13 @@ function webshark_load_follow(follow, filter)
 exports.ProtocolTree = ProtocolTree;
 exports.Hexdump = webshark_hexdump_module.Hexdump;
 exports.Webshark = Webshark;
+exports.WSCaptureFilesTable = webshark_capture_files_module.WSCaptureFilesTable;
 exports.WSDisplayFilter = webshark_display_filter_module.WSDisplayFilter;
 
-exports.webshark_load_files = webshark_load_files;
 exports.webshark_json_get = webshark_json_get;
 exports.webshark_glyph_img = webshark_glyph_img;
 
+exports.webshark_get_base_url = webshark_get_base_url;
 exports.popup = popup;
 exports.popup_on_click_a = popup_on_click_a;
 
@@ -3220,7 +2920,7 @@ exports.dom_set_child = dom_set_child;
 exports.dom_find_node_attr = dom_find_node_attr;
 
 exports.webshark_render_columns = webshark_render_columns;
-exports.webshark_create_file_details = webshark_create_file_details;
+exports.webshark_create_file_details = webshark_capture_files_module.webshark_create_file_details;
 
 exports.webshark_frame_comment_on_over = webshark_frame_comment_on_over;
 exports.webshark_frame_timeref_on_click = webshark_frame_timeref_on_click;
