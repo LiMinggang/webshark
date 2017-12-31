@@ -28,10 +28,10 @@
 			if (option_node != null)
 			{
 				if (_selected_option != null)
-					window.webshark.dom_remove_class(_selected_option, "selected");
+					_selected_option.classList.remove("selected");
 
 				/* select new */
-				window.webshark.dom_add_class(option_node, "selected");
+				option_node.classList.add("selected");
 				_selected_option = option_node;
 			}
 		}

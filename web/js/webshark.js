@@ -525,13 +525,13 @@ function player_sync_view(x, ts)
 		var prev_node = t[2];
 
 		if (prev_node)
-			dom_remove_class(prev_node, "selected");
+			prev_node.classList.remove("selected");
 
 		var idx = player_find_index(items, ts);
 		if (idx != -1)
 		{
 			var current_node = table.childNodes[1 + idx];
-			dom_add_class(current_node, "selected");
+			current_node.classList.add("selected");
 			current_node.scrollIntoView(false);
 
 			t[2] = current_node;
@@ -1066,23 +1066,6 @@ function webshark_d3_sequence_diagram(svg, nodes, flows)
 
 }
 
-function dom_add_class(node, name)
-{
-	node.className += " " + name;
-}
-
-function dom_remove_class(node, name)
-{
-	var classes = node.className.split(" ");
-
-	node.className = "";
-	for (var i = 0; i < classes.length; i++)
-	{
-		if (classes[i] != name)
-			node.className = node.className + " " + classes[i];
-	}
-}
-
 function dom_clear(p)
 {
 	p.innerHTML = "";
@@ -1285,12 +1268,12 @@ function webshark_file_row_on_click(ev)
 
 		/* unselect previous */
 		if (_webshark_selected_file != null)
-			dom_remove_class(_webshark_selected_file, "selected");
+			_webshark_selected_file.classList.remove("selected");
 
 		dom_set_child(document.getElementById('capture_files_view_details'), div);
 
 		/* select new */
-		dom_add_class(file_node, "selected");
+		file_node.classList.add("selected");
 		_webshark_selected_file = file_node;
 	}
 }
@@ -1378,9 +1361,9 @@ function webshark_tap_row_on_click(ev)
 	if (node != null)
 	{
 		if (_prev_tap_selected_on_click)
-			dom_remove_class(_prev_tap_selected_on_click, "selected");
+			_prev_tap_selected_on_click.classList.remove("selected");
 
-		dom_add_class(node, "selected");
+		node.classList.add("selected");
 		_prev_tap_selected_on_click = node;
 
 		if (action == 'data_wlan_details')
@@ -1868,7 +1851,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 		tr.style['color'] = '#' + frame['fg'];
 
 	if (fnum == _webshark_current_frame)
-		dom_add_class(tr, 'selected');
+		tr.classList.add('selected');
 
 	tr.id = 'packet-list-frame-' + fnum;
 	tr.data_ws_frame = fnum;
@@ -2983,7 +2966,7 @@ function webshark_node_highlight_bytes(obj, node)
 {
 	/* unselect previous */
 	if (_webshark_current_node != null)
-		dom_remove_class(_webshark_current_node, "selected");
+		_webshark_current_node.classList.remove("selected");
 
 	var hls = [ ];
 
@@ -3016,7 +2999,7 @@ function webshark_node_highlight_bytes(obj, node)
 
 	/* select new */
 	_webshark_current_node = obj;
-	dom_add_class(obj, 'selected');
+	obj.classList.add('selected');
 }
 
 var _webshark_current_frame = null;
@@ -3032,7 +3015,7 @@ function webshark_load_frame(framenum, scroll_to, cols)
 	{
 		var obj = document.getElementById('packet-list-frame-' + _webshark_current_frame);
 		if (obj)
-			dom_remove_class(obj, "selected");
+			obj.classList.remove("selected");
 	}
 
 	var load_req =
@@ -3139,7 +3122,7 @@ function webshark_load_frame(framenum, scroll_to, cols)
 			var obj = document.getElementById('packet-list-frame-' + framenum);
 			if (obj)
 			{
-				dom_add_class(obj, 'selected');
+				obj.classList.add('selected');
 				if (scroll_to)
 					obj.scrollIntoView(false);
 			}
@@ -3231,8 +3214,6 @@ exports.webshark_glyph_img = webshark_glyph_img;
 exports.popup = popup;
 exports.popup_on_click_a = popup_on_click_a;
 
-exports.dom_add_class = dom_add_class;
-exports.dom_remove_class = dom_remove_class;
 exports.dom_set_child = dom_set_child;
 exports.dom_find_node_attr = dom_find_node_attr;
 
