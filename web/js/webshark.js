@@ -20,11 +20,8 @@
 var webshark_capture_files_module = require("./webshark-capture-files.js");
 var webshark_display_filter_module = require('./webshark-display-filter.js');
 var webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
+var webshark_rtp_player_module = require("./webshark-rtp-player.js");
 var webshark_hexdump_module = require('./webshark-hexdump.js');
-
-var _webshark_rtps_players = { };
-var _webshark_rtps_players_name = { };
-var _webshark_rtps_table = { };
 
 var column_downloading = 42;
 
@@ -336,122 +333,6 @@ function popup(url)
 
 	if (window.focus)
 		newwindow.focus();
-}
-
-function player_find_index(tap, ts)
-{
-	// TODO, optimize with binary search
-
-	for (var i = 0; i < tap.length; i++)
-	{
-		var off = tap[i]['o'];
-
-		if (off >= ts)
-			return i;
-	}
-
-	return -1;
-}
-
-function player_sync_view(x, ts)
-{
-	var t = _webshark_rtps_table[x];
-
-	if (t)
-	{
-		var items = t[0];
-		var table = t[1];
-		var prev_node = t[2];
-
-		if (prev_node)
-			prev_node.classList.remove("selected");
-
-		var idx = player_find_index(items, ts);
-		if (idx != -1)
-		{
-			var current_node = table.childNodes[1 + idx];
-			current_node.classList.add("selected");
-			current_node.scrollIntoView(false);
-
-			t[2] = current_node;
-		}
-	}
-}
-
-function play_on_click_a(ev)
-{
-	var node;
-	var url;
-
-	node = dom_find_node_attr(ev.target, 'href');
-	if (node != null)
-	{
-		url = node['href'];
-		if (url != null)
-		{
-			var wavesurfer = _webshark_rtps_players[url];
-
-			if (wavesurfer)
-			{
-				wavesurfer.play();
-				ev.preventDefault();
-				return;
-			}
-
-			var div = document.createElement('div');
-			{
-				var pdiv = document.getElementById('ws_rtp_playback');
-				var s = new Date().getTime();
-				div.id = 'wv' + s + "_" + Math.floor(Math.random() * 65535) + '_' + Math.floor(Math.random() * 255);
-				pdiv.appendChild(div);
-
-				div.style.border = '2px solid blue';
-			}
-
-			var wavesurfer = WaveSurfer.create({
-				container: '#' + div.id,
-				progressColor: '#0080FF',
-				waveColor: '#aaa'
-			});
-
-			ws_rtp_playback_control_create(div, wavesurfer);
-
-			var label = null;
-			if (node['ws_title'])
-				label = dom_create_label("Stream: " + node['ws_title']);
-			else
-				label = dom_create_label("URL: " + url);
-
-			div.insertBefore(label, div.firstChild);
-
-			if (node['ws_rtp'])
-			{
-				wavesurfer.on("audioprocess", function () {
-					var ts = wavesurfer.getCurrentTime();
-
-					player_sync_view(node['ws_rtp'], ts);
-				});
-
-				wavesurfer.on("seek", function () {
-					var ts = wavesurfer.getCurrentTime();
-
-					player_sync_view(node['ws_rtp'], ts);
-				});
-
-				_webshark_rtps_players_name[node['ws_rtp']] = wavesurfer;
-			}
-
-			wavesurfer.on('ready', function () {
-				wavesurfer.play();
-			});
-
-			wavesurfer.load(url);
-
-			_webshark_rtps_players[url] = wavesurfer;
-		}
-
-		ev.preventDefault();
-	}
 }
 
 function popup_on_click_a(ev)
@@ -1042,7 +923,7 @@ function webshark_tap_row_on_click(ev)
 		{
 			var rtp_str = node_rtp['data_ws_rtp_name'];
 
-			var wave = _webshark_rtps_players_name[rtp_str];
+			var wave = webshark_rtp_player_module.get_from_name(rtp_str);
 			if (wave)
 			{
 				var pos = node['data_ws_rtp_pos'] / wave.getDuration();
@@ -1226,138 +1107,6 @@ function webshark_frame_goto(ev)
 	}
 
 	ev.preventDefault();
-}
-
-function ws_rtp_playback_control_play_pause(wave, x)
-{
-	for (var w in _webshark_rtps_players)
-	{
-		var wv = _webshark_rtps_players[w];
-
-		if (!wave || wave == wv)
-		{
-			if (x == 'toggle') wv.playPause();
-			if (x == 'start') wv.play(0);
-		}
-	}
-
-}
-
-function ws_rtp_playback_control_skip(wave, x)
-{
-	for (var w in _webshark_rtps_players)
-	{
-		var wv = _webshark_rtps_players[w];
-
-		if (!wave || wave == wv)
-			wv.skip(x);
-	}
-}
-
-function ws_rtp_playback_control_speed(wave, x)
-{
-	for (var w in _webshark_rtps_players)
-	{
-		var wv = _webshark_rtps_players[w];
-
-		if (!wave || wave == wv)
-			wv.setPlaybackRate(x);
-	}
-}
-
-function ws_rtp_playback_control_create(pdiv, wave)
-{
-	var control_div = document.createElement('div');
-	var btn;
-
-	if (wave == null)
-		control_div.appendChild(dom_create_label("All loaded streams"));
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Play from start";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_play_pause(wave, 'start'); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Backward 10s";
-	btn.onclick = function() { ws_rtp_playback_control_skip(wave, -10); }
-	control_div.appendChild(btn);
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Backward 5s";
-	btn.onclick = function() { ws_rtp_playback_control_skip(wave, -5); }
-	control_div.appendChild(btn);
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Play/Pause";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_play_pause(wave, 'toggle'); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Forward 5s";
-	btn.onclick = function() { ws_rtp_playback_control_skip(wave, 5); }
-	control_div.appendChild(btn);
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "Forward 10s";
-	btn.onclick = function() { ws_rtp_playback_control_skip(wave, 10); }
-	control_div.appendChild(btn);
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "0.5x";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 0.5); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "1.0x";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 1); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "1.5x";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 1.5); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "2.0x";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 2); }
-
-	btn = document.createElement("button");
-	btn.className = "btn btn-primary";
-	btn.innerHTML = "4.0x";
-	control_div.appendChild(btn);
-	btn.onclick = function() { ws_rtp_playback_control_speed(wave, 4); }
-
-/*
-	if (wave != null)
-	{
-		var span = document.createElement("span");
-		span.innerHTML = " Loading";
-		control_div.appendChild(span);
-	}
- */
-
-/*
-    <button class="btn btn-primary" onclick="wavesurfer.toggleMute()">
-      <i class="fa fa-volume-off"></i>
-      Toggle Mute
-    </button>
-*/
-
-	control_div.setAttribute('align', 'center');
-
-	pdiv.insertBefore(control_div, pdiv.firstChild);
 }
 
 function webshark_create_frame_row_html(frame, row_no)
@@ -1791,7 +1540,7 @@ function webshark_create_tap_action_common(data)
 		down_a["ws_title"] = descr;
 		down_a["ws_rtp"] = data['_play'];
 		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_play']));
-		down_a.addEventListener("click", play_on_click_a);
+		down_a.addEventListener("click", webshark_rtp_player_module.play_on_click_a);
 
 		var glyph = webshark_glyph_img('play', 16);
 		glyph.setAttribute('alt', 'Load and play RTP: ' + descr);
@@ -2323,7 +2072,7 @@ function webshark_render_tap(tap)
 
 		var wave_div = document.createElement('div');
 		wave_div.id = 'ws_rtp_playback';
-		ws_rtp_playback_control_create(wave_div, null);
+		webshark_rtp_player_module.ws_rtp_playback_control_create(wave_div, null);
 
 		webshark_create_tap_table_data_common(webshark_rtp_streams_fields, table, streams);
 
@@ -2356,7 +2105,7 @@ function webshark_render_tap(tap)
 
 		table['data_ws_rtp_name'] = rtp_str;
 
-		_webshark_rtps_table[rtp_str] = [ items, table, null ];
+		webshark_rtp_player_module.set_in_table(rtp_str, [ items, table, null ]);
 		webshark_create_tap_table_data_common(webshark_rtp_analyse_fields, table, items);
 
 		document.getElementById('ws_tap_table').appendChild(dom_create_label("RTP analysis"));
@@ -2689,6 +2438,7 @@ exports.WSDisplayFilter = webshark_display_filter_module.WSDisplayFilter;
 
 exports.Webshark = Webshark;
 exports.webshark_json_get = webshark_json_get;
+exports.webshark_load_tap = webshark_load_tap;
 exports.webshark_glyph_img = webshark_glyph_img;
 
 exports.webshark_get_base_url = webshark_get_base_url;
@@ -2697,6 +2447,7 @@ exports.webshark_frame_goto = webshark_frame_goto;
 exports.popup = popup;
 exports.popup_on_click_a = popup_on_click_a;
 
+exports.dom_create_label = dom_create_label;
 exports.dom_set_child = dom_set_child;
 exports.dom_find_node_attr = dom_find_node_attr;
 
