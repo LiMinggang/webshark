@@ -302,7 +302,8 @@ WSCaptureFilesTable.prototype._createFileRowHTML = function(file, row_no)
 			if (that.fileDetails != null)
 			{
 				var div = webshark_create_file_details(file);
-				that.fileDetails.innerHTML = div.outerHTML;
+				that.fileDetails.innerHTML = "";
+				that.fileDetails.appendChild(div);
 			}
 
 			/* unselect previous */
