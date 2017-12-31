@@ -12,7 +12,6 @@
 	<script src="https://d3js.org/d3.v4.min.js" type="text/javascript"></script>
 	<script src="//cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/1.3.2/wavesurfer.min.js" type="text/javascript"></script>
 
-	<script src="js/webshark-awesomplete.js" type="text/javascript"></script>
 	<script src="js/webshark-clusterize.js"></script>
 	<script src="js/webshark-app.js" type="text/javascript"></script>
 
@@ -26,6 +25,7 @@
 		var _webshark_hexdump_html = null;
 
 		var _webshark = null;
+		var _webshark_display_filter = null;
 
 		var ws_ftypes = [ ];
 		var ws_taps  = [ ];
@@ -56,8 +56,6 @@
 
 			layout_optimize_height: true
 		};
-
-		var capture_filter_complete = null;
 
 		function setup_user_toolbar(user)
 		{
@@ -157,141 +155,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			return result;
 		}
 
-		var field_complete_cache = { };
-
-		function sharkd_complete_field_cache(field, fun)
-		{
-			var field_with_dot = (field.indexOf('.') != -1);
-
-			var str = field;
-
-			if (field_with_dot)
-			{
-				while (str.indexOf('.') != -1)
-				{
-					var data = field_complete_cache[str];
-					if (data)
-						return fun(data);
-
-					str = str.slice(0, str.length - 1);
-				}
-			}
-			else
-			{
-				while (str.length > 0)
-				{
-					var data = field_complete_cache[str];
-					if (data)
-						return fun(data);
-
-					str = str.slice(0, str.length - 1);
-				}
-			}
-
-			window.webshark.webshark_json_get(
-				{
-					req: 'complete',
-					field: field
-				},
-				function(data)
-				{
-					data = data['field'];
-					if (data == undefined)
-						return;
-
-					data.sort(function(a, b) { return a['f'] < b['f'] ? -1 : 1; });
-
-					field_complete_cache[field] = data;
-
-					fun(data);
-				});
-		}
-
-		function filter_input_extractor(filter)
-		{
-			var txt = filter.value;
-
-			var pos_end = filter.selectionStart;
-			var pos_start = pos_end;
-
-			while (pos_start > 0)
-			{
-				var ch = txt.charAt(--pos_start);
-
-				var ch_field = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || (ch == '.') || (ch == '_') || (ch == '-'));
-
-				if (!ch_field)
-				{
-					pos_start++;
-					break;
-				}
-			}
-
-			var result =
-				[
-					/* current text, before current, after current */
-					txt.slice(pos_start, pos_end),
-					txt.slice(0, pos_start),
-					txt.slice(pos_end)
-				];
-
-			return result;
-		}
-
-		function checkfilter(el)
-		{
-			if (el.value.length >= 2)
-			{
-				var fields = filter_input_extractor(el);
-
-				sharkd_complete_field_cache(fields[0],
-					function(data)
-					{
-						var list = [ ];
-
-						for (var i = 0; i < data.length; i++)
-						{
-							var field_name = data[i]['f'];
-							var field_descr = "";
-
-							if (data[i]['n'])
-								field_descr = data[i]['n'] + ' (' + ws_ftypes[data[i]['t']] + ')';
-
-							list[i] =
-								{
-									label: field_name,
-									descr: field_descr,
-									value: fields[1] + field_name + fields[2]
-								};
-						}
-
-						capture_filter_complete.list = list;
-						// capture_filter_complete.evaluate();
-					});
-			}
-
-			if (el.value == '')
-			{
-				el.className = '';
-				return;
-			}
-
-			window.webshark.webshark_json_get(
-				{
-					req: 'check',
-					filter: el.value
-				},
-				function(data)
-				{
-					if (data['filter'] == 'ok')
-						el.className = 'ws_gui_text_valid';
-					else if (data['filter'] == 'deprecated')
-						el.className = 'ws_gui_text_deprecated';
-					else
-						el.className = 'ws_gui_text_invalid';
-				});
-		}
-
 		function set_filter(filter)
 		{
 			_webshark.setFilter(filter);
@@ -314,28 +177,9 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			var filter = opt['filter'];
 			var dir = opt['dir'];
 
-			capture_filter_complete = new Awesomplete(document.getElementById("capture_filter"),
-				{
-					filter: Awesomplete.FILTER_STARTSWITH,
-					getvalue: function(f) { return filter_input_extractor(f)[0]; },
-					maxItems: 0,
-					maxHeight: '250px',
-					item: function (text, input)
-						{
-							var html = input === '' ?
-								text :
-								text.replace(RegExp("^" + Awesomplete.$.regExpEscape(input.trim()), "gi"), "<mark>$&</mark>");
-
-							if (text['descr'])
-								html += "<span style='float: right; font-size: 12px;'>" + text['descr'] + "</span>";
-
-							return Awesomplete.$.create("li",
-							{
-								innerHTML: html,
-								"aria-selected": "false"
-							});
-						}
-				});
+			var _webshark_display_filter = new window.webshark.WSDisplayFilter({
+				contentId: "display_filter"
+			});
 
 			if (follow) {
 
@@ -393,10 +237,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				if (filter)
 				{
-					var el_filter = document.getElementById('capture_filter');
-
-					el_filter.value = filter;
-					checkfilter(el_filter);
+					_webshark_display_filter.setFilter(filter);
 				}
 
 				/* Back to file list */
@@ -751,7 +592,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			<a id="toolbar_capture_down"></a>
 			<span id="toolbar_capture_description"></span>
 			<p />
-			<input id="capture_filter" placeholder="Apply a display filter" type='text' onchange='set_filter(this.value);' oninput='checkfilter(this)' style='width: 550px;' />
+			<input id="display_filter" placeholder="Apply a display filter" type='text' onchange='set_filter(this.value);' style='width: 550px;' />
 
 			<ul class="menul">
 			<li>

@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var webshark_display_filter_module = require('./webshark-display-filter.js');
 var webshark_hexdump_module = require('./webshark-hexdump.js');
 
 var _webshark_rtps_players = { };
@@ -3206,6 +3207,7 @@ function webshark_load_follow(follow, filter)
 exports.ProtocolTree = ProtocolTree;
 exports.Hexdump = webshark_hexdump_module.Hexdump;
 exports.Webshark = Webshark;
+exports.WSDisplayFilter = webshark_display_filter_module.WSDisplayFilter;
 
 exports.webshark_load_files = webshark_load_files;
 exports.webshark_json_get = webshark_json_get;

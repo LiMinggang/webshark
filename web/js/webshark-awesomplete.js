@@ -439,15 +439,7 @@ if (typeof Document !== "undefined") {
 _.$ = $;
 _.$$ = $$;
 
-// Make sure to export Awesomplete on self when in a browser
-if (typeof self !== "undefined") {
-	self.Awesomplete = _;
-}
-
-// Expose Awesomplete as a CJS module
-if (typeof module === "object" && module.exports) {
-	module.exports = _;
-}
+module.exports = _;
 
 return _;
 
