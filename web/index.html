@@ -198,7 +198,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				document.getElementById('toolbar_tap').style.display = 'block';
 
-				webshark_load_follow(follow, filter);
+				window.webshark.webshark_load_follow(follow, filter);
 
 			} else if (tap) {
 				document.title = "Report of " + _webshark_file + " - " + document.title;
