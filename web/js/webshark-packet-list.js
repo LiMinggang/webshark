@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var m_webshark_symbols_module = require("./webshark-symbols.js");
+
 var m_COLUMN_DOWNLOADING = 42;
 
 function webshark_create_frame_row_html(frame, row_no)
@@ -66,7 +68,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 			{
 				var a = document.createElement('a');
 
-				var comment_glyph = window.webshark.webshark_glyph_img('comment', 14);
+				var comment_glyph = m_webshark_symbols_module.webshark_glyph_img('comment', 14);
 				comment_glyph.setAttribute('alt', 'Comment');
 				comment_glyph.setAttribute('title', 'Comment');
 

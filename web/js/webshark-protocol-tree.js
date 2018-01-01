@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var m_webshark_symbols_module = require("./webshark-symbols.js");
+
 var m_PROTO_TREE_PADDING_PER_LEVEL = 20;
 
 function webshark_tree_sync(subtree)
@@ -154,7 +156,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			filter_a.addEventListener("click", window.webshark.webshark_tap_row_on_click);
 			*/
 
-			var glyph = window.webshark.webshark_glyph_img('filter', 12);
+			var glyph = m_webshark_symbols_module.webshark_glyph_img('filter', 12);
 			glyph.setAttribute('alt', 'Filter: ' + finfo['f']);
 			glyph.setAttribute('title', 'Filter: ' + finfo['f']);
 
@@ -168,12 +170,12 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			var expander = document.createElement("span");
 			expander.className = "tree_expander";
 
-			var img_collapsed = window.webshark.webshark_glyph_img('collapsed', 16);
+			var img_collapsed = m_webshark_symbols_module.webshark_glyph_img('collapsed', 16);
 			img_collapsed.setAttribute('alt', 'Expand');
 			img_collapsed.setAttribute('title', 'Click to expand');
 			expander.appendChild(img_collapsed);
 
-			var img_expanded = window.webshark.webshark_glyph_img('expanded', 16);
+			var img_expanded = m_webshark_symbols_module.webshark_glyph_img('expanded', 16);
 			img_expanded.setAttribute('alt', 'Collapse');
 			img_expanded.setAttribute('title', 'Click to collapse');
 			expander.appendChild(img_expanded);

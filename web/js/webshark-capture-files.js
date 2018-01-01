@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var m_webshark_symbols_module = require("./webshark-symbols.js");
+
 function webshark_create_file_details(file)
 {
 	var div = document.createElement('div');
@@ -241,25 +243,25 @@ WSCaptureFilesTable.prototype._createFileRowHTML = function(file, row_no)
 
 			if (file['pdir'])
 			{
-				glyph = window.webshark.webshark_glyph_img('pfolder', 16);
+				glyph = m_webshark_symbols_module.webshark_glyph_img('pfolder', 16);
 				glyph.setAttribute('alt', 'Open Directory');
 				glyph.setAttribute('title', 'Open Directory');
 			}
 			else if (file['dir'])
 			{
-				glyph = window.webshark.webshark_glyph_img('folder', 16);
+				glyph = m_webshark_symbols_module.webshark_glyph_img('folder', 16);
 				glyph.setAttribute('alt', 'Directory');
 				glyph.setAttribute('title', 'Directory');
 			}
 			else if (stat && stat['online'])
 			{
-				glyph = window.webshark.webshark_glyph_img('play', 16);
+				glyph = m_webshark_symbols_module.webshark_glyph_img('play', 16);
 				glyph.setAttribute('alt', 'Running');
 				glyph.setAttribute('title', 'Running ...');
 			}
 			else
 			{
-				glyph = window.webshark.webshark_glyph_img('stop', 16);
+				glyph = m_webshark_symbols_module.webshark_glyph_img('stop', 16);
 				glyph.setAttribute('alt', 'Stopped');
 				glyph.setAttribute('title', 'Stopped');
 			}

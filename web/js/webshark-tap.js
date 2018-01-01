@@ -19,6 +19,7 @@
 
 var m_webshark_rtp_player_module = require("./webshark-rtp-player.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
+var m_webshark_symbols_module = require("./webshark-symbols.js");
 
 var m_prev_tap_selected_on_click = null;
 
@@ -402,7 +403,7 @@ function webshark_create_tap_action_common(data)
 		anal_a.setAttribute("href", window.webshark.webshark_get_url() + "&tap=" + encodeURIComponent(data['_analyse']));
 		anal_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-		var glyph = window.webshark.webshark_glyph_img('analyse', 16);
+		var glyph = m_webshark_symbols_module.webshark_glyph_img('analyse', 16);
 		glyph.setAttribute('alt', 'Details: ' + data['_analyse']);
 		glyph.setAttribute('title', 'Details: ' + data['_analyse']);
 
@@ -418,7 +419,7 @@ function webshark_create_tap_action_common(data)
 		filter_a.setAttribute("href", window.webshark.webshark_get_url() + "&filter=" + encodeURIComponent(data['_filter']));
 		filter_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-		var glyph = window.webshark.webshark_glyph_img('filter', 16);
+		var glyph = m_webshark_symbols_module.webshark_glyph_img('filter', 16);
 		glyph.setAttribute('alt', 'Filter: ' + data['_filter']);
 		glyph.setAttribute('title', 'Filter: ' + data['_filter']);
 
@@ -434,7 +435,7 @@ function webshark_create_tap_action_common(data)
 		show_a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + data['_goto_frame']);
 		show_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-		var glyph = window.webshark.webshark_glyph_img('analyse', 16);
+		var glyph = m_webshark_symbols_module.webshark_glyph_img('analyse', 16);
 		glyph.setAttribute('alt', 'Load frame: ' + data['_filter']);
 		glyph.setAttribute('title', 'Load frame: ' + data['_filter']);
 
@@ -450,7 +451,7 @@ function webshark_create_tap_action_common(data)
 		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_download']));
 		down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
-		var glyph = window.webshark.webshark_glyph_img('download', 16);
+		var glyph = m_webshark_symbols_module.webshark_glyph_img('download', 16);
 		glyph.setAttribute('alt', 'Download: ' + data['_download']);
 		glyph.setAttribute('title', 'Download: ' + data['_download']);
 
@@ -472,7 +473,7 @@ function webshark_create_tap_action_common(data)
 		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_play']));
 		down_a.addEventListener("click", m_webshark_rtp_player_module.play_on_click_a);
 
-		var glyph = window.webshark.webshark_glyph_img('play', 16);
+		var glyph = m_webshark_symbols_module.webshark_glyph_img('play', 16);
 		glyph.setAttribute('alt', 'Load and play RTP: ' + descr);
 		glyph.setAttribute('title', 'Load and play RTP: ' + descr);
 
