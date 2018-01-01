@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var m_webshark_clusterize_module = require("./webshark-clusterize.js");
+
 function WSPreferencesTable(opts)
 {
 	var that = this;
@@ -26,7 +28,7 @@ function WSPreferencesTable(opts)
 
 	this.selected_option = null;
 
-	this.cluster = new Clusterize({
+	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
 		rows_in_block: 50,
 		tag: 'tr',

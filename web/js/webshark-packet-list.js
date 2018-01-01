@@ -18,6 +18,7 @@
  */
 
 var m_webshark_symbols_module = require("./webshark-symbols.js");
+var m_webshark_clusterize_module = require("./webshark-clusterize.js");
 
 var m_COLUMN_DOWNLOADING = 42;
 
@@ -104,7 +105,7 @@ function WSPacketList(opts)
 {
 	this.headerElem = document.getElementById(opts.headerId);
 
-	this.cluster = new Clusterize({
+	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
 		rows_in_block: 25,
 		tag: 'tr',

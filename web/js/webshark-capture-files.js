@@ -18,6 +18,7 @@
  */
 
 var m_webshark_symbols_module = require("./webshark-symbols.js");
+var m_webshark_clusterize_module = require("./webshark-clusterize.js");
 
 function webshark_create_file_details(file)
 {
@@ -100,7 +101,7 @@ function WSCaptureFilesTable(opts)
 	this.filesFilter = '';
 	this.selectedFile = null;
 
-	this.cluster = new Clusterize({
+	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
 		rows_in_block: 50,
 		tag: 'tr',
