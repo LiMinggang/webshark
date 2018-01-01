@@ -15,183 +15,24 @@
 	<script type="text/javascript">
 		var g_webshark_url = '/webshark/json?';
 
-		var g_webshark_options_html = null;
-		var g_webshark_options = null;
-
-		var g_selected_option = null;
-
-		function option_row_on_click(option_node)
-		{
-			if (g_selected_option != null)
-				g_selected_option.classList.remove("selected");
-
-			/* select new */
-			option_node.classList.add("selected");
-			g_selected_option = option_node;
-		}
-
-		function option_create_row_html(option, row)
-		{
-			var tr = document.createElement("tr");
-
-			/* name */
-			var td = document.createElement("td");
-			td.appendChild(document.createTextNode(option['name']));
-			tr.appendChild(td);
-
-			/* type */
-			var td = document.createElement("td");
-			if (option['bool'] != undefined)
-				td.appendChild(document.createTextNode('bool'));
-			else if (option['str'] != undefined)
-				td.appendChild(document.createTextNode('string'));
-			else if (option['uint'] != undefined)
-				td.appendChild(document.createTextNode('uint'));
-			else if (option['enum'] != undefined)
-				td.appendChild(document.createTextNode('enum'));
-			else if (option['range'] != undefined)
-				td.appendChild(document.createTextNode('range'));
-			else if (option['table'] != undefined)
-				td.appendChild(document.createTextNode('table'));
-			else
-				td.appendChild(document.createTextNode('unknown'));
-			tr.appendChild(td);
-
-			/* value */
-			var td = document.createElement("td");
-			if (option['bool'] != undefined)
-			{
-				var val = option['bool'] ? true : false;
-
-				var inp = document.createElement('input');
-				inp.setAttribute('type', 'checkbox');
-				if (val)
-					inp.setAttribute('checked', 'checked');
-
-				td.appendChild(inp);
-			}
-			else if (option['str'] != undefined)
-			{
-				var val = option['str'];
-
-				var inp = document.createElement('input');
-				inp.setAttribute('type', 'text');
-				inp.setAttribute('value', val);
-
-				td.appendChild(inp);
-			}
-			else if (option['uint'] != undefined)
-			{
-				var val = option['uint'];
-
-				var inp = document.createElement('input');
-				inp.setAttribute('type', 'text');
-				inp.setAttribute('value', val);
-
-				td.appendChild(inp);
-			}
-			else if (option['enum'] != undefined)
-			{
-				var inp = document.createElement('select');
-				for (var i = 0; i < option['enum'].length; i++)
-				{
-					var e = option['enum'][i];
-
-					var opt = document.createElement('option');
-					opt.setAttribute('value', e['v']);
-					opt.appendChild(document.createTextNode(e['d']));
-
-					if (e['s'] != undefined)
-						opt.setAttribute('selected', 'selected');
-
-					inp.appendChild(opt);
-				}
-
-				td.appendChild(inp);
-			}
-			else if (option['range'] != undefined)
-			{
-				var val = option['range'];
-
-				var inp = document.createElement('input');
-				inp.setAttribute('type', 'text');
-				inp.setAttribute('value', val);
-
-				td.appendChild(inp);
-			}
-			else if (option['table'] != undefined)
-			{
-				/* TODO */
-			}
-			tr.appendChild(td);
-
-			tr.addEventListener("click", option_row_on_click.bind(null, tr));
-
-			return tr;
-		}
+		var g_webshark_preferences = null;
 
 		function run_option_filter(el)
 		{
-			var value = el.value;
-
-			var prefs_arr = g_webshark_options.filter(function(data)
-			{
-				if (value == '') return true;
-
-				/* starts with */
-				return (data['name'].indexOf(value) == 0);
-			});
-
-			g_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
-			g_webshark_options_html.setData(prefs_arr);
+			g_webshark_preferences.setPrefFilter(el.value);
 		}
 
 		function load()
 		{
-			g_webshark_options_html = new Clusterize({
-				rows: [],
-				rows_in_block: 50,
-				tag: 'tr',
+			g_webshark_preferences = new window.webshark.WSPreferencesTable({
 				scrollId: 'options_view',
 				contentId: 'options_items'
 			});
 
 			// TODO: load current preferences
+			g_webshark_preferences.loadPrefs();
 
 			/* TODO: column edit */
-
-			window.webshark.webshark_json_get(
-				{
-					req: 'dumpconf'
-				},
-				function(data)
-				{
-					var prefs = data['prefs'];
-
-					var prefs_arr = [ ];
-					var pref_names = [ ];
-
-					for (var x in prefs)
-					{
-						var pref = prefs[x];
-
-						var p = { name: x };
-
-						p['bool'] = pref['b'];
-						p['str']  = pref['s'];
-						p['uint'] = pref['u'];
-						p['enum'] = pref['e'];
-						p['range'] = pref['r'];
-						p['table'] = pref['t'];
-
-						prefs_arr.push(p);
-					}
-
-					g_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
-					g_webshark_options_html.setData(prefs_arr);
-
-					g_webshark_options = prefs_arr;
-				});
 		}
 
 	</script>

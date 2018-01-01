@@ -22,6 +22,7 @@ var m_webshark_display_filter_module = require('./webshark-display-filter.js');
 var m_webshark_packet_list_module = require("./webshark-packet-list.js");
 var m_webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
+var m_webshark_preferences_module = require("./webshark-preferences.js");
 var m_webshark_tap_module = require("./webshark-tap.js");
 var m_webshark_symbols_module = require("./webshark-symbols.js");
 
@@ -1068,6 +1069,7 @@ exports.Hexdump = m_webshark_hexdump_module.Hexdump;
 exports.WSCaptureFilesTable = m_webshark_capture_files_module.WSCaptureFilesTable;
 exports.WSDisplayFilter = m_webshark_display_filter_module.WSDisplayFilter;
 exports.WSPacketList = m_webshark_packet_list_module.WSPacketList;
+exports.WSPreferencesTable = m_webshark_preferences_module.WSPreferencesTable;
 exports.webshark_load_tap = m_webshark_tap_module.webshark_load_tap;
 exports.webshark_create_file_details = m_webshark_capture_files_module.webshark_create_file_details;
 exports.webshark_glyph_img = m_webshark_symbols_module.webshark_glyph_img;
