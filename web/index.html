@@ -19,11 +19,11 @@
 		var g_webshark_file = "";
 		var g_webshark_url = '/webshark/json?';
 		var g_webshark_on_frame_change = null;
-		var g_webshark_frames_html = null;
 		var g_webshark_prototree_html = null;
 		var g_webshark_hexdump_html = null;
 		var g_webshark_interval_mode = "";
 		var g_webshark = null;
+		var g_webshark_packet_list = null;
 
 		var g_webshark_files = null;
 		var g_webshark_display_filter = null;
@@ -215,7 +215,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			} else if (frame) {
 				document.title = g_webshark_file + " #" + frame + " - " + document.title;
 
-				webshark_load_frame(frame, true);
+				window.webshark.webshark_load_frame(frame, true);
 
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
@@ -383,10 +383,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				fileDetailsId: 'capture_files_view_details'
 			});
 
-			g_webshark_frames_html = new Clusterize({
-				rows: [],
-				rows_in_block: 25,
-				tag: 'tr',
+			g_webshark_packet_list = new window.webshark.WSPacketList({
+				headerId: 'packet_list_header',
 				scrollId: 'ws_packet_list_view',
 				contentId: 'packet_list_frames'
 			});
@@ -459,7 +457,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 							columns_pref.push(col_format);
 					}
 
-					window.webshark.webshark_render_columns(columns_title);
+					g_webshark_packet_list.setColumns(columns_title);
 					run();
 				});
 		}

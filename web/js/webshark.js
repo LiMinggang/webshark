@@ -19,18 +19,17 @@
 
 var m_webshark_capture_files_module = require("./webshark-capture-files.js");
 var m_webshark_display_filter_module = require('./webshark-display-filter.js');
+var m_webshark_packet_list_module = require("./webshark-packet-list.js");
 var m_webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
 var m_webshark_tap_module = require("./webshark-tap.js");
-
-var m_COLUMN_DOWNLOADING = 42;
 
 var m_webshark_interval = null;
 var m_webshark_interval_scale = null;
 var m_webshark_interval_filter = null;
 
 var m_glyph_cache = { };
-var m_webshark_current_frame = null;
+var m_webshark_current_frame = 0;
 
 function Webshark()
 {
@@ -99,6 +98,11 @@ Webshark.prototype.setRefFrame = function(framenum, is_ref)
 	});
 
 	this.invalidCacheFrames();
+};
+
+Webshark.prototype.getCurrentFrameNumber = function()
+{
+	return m_webshark_current_frame;
 };
 
 Webshark.prototype.getRefFrame = function(framenum)
@@ -219,7 +223,7 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 	for (var i = 0; i < this.fetch_columns_limit && skip + i < this.cached_columns.length; i++)
 	{
 		if (!this.cached_columns[skip + i])
-			this.cached_columns[skip + i] = m_COLUMN_DOWNLOADING;
+			this.cached_columns[skip + i] = m_webshark_packet_list_module.m_COLUMN_DOWNLOADING;
 	}
 
 	if (this.cols)
@@ -241,7 +245,7 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 			{
 				for (var i = 0; i < data.length; i++)
 					that.cached_columns[skip + i] = data[i];
-				webshark_lazy_frames(that.cached_columns);
+				g_webshark_packet_list.setPackets(that.cached_columns);
 			}
 
 			if (load_first && data && data[0])
@@ -259,7 +263,7 @@ Webshark.prototype.invalidCacheFrames = function()
 		this.cached_columns[i] = null;
 	}
 
-	webshark_lazy_frames(this.cached_columns);
+	g_webshark_packet_list.setPackets(this.cached_columns);
 };
 
 Webshark.prototype.invalidCacheFrame = function(framenum)
@@ -316,7 +320,7 @@ Webshark.prototype.setComment = function(framenum, new_comment)
 
 			if (m_webshark_current_frame == framenum)
 			{
-				m_webshark_current_frame = null;
+				m_webshark_current_frame = 0;
 				webshark_load_frame(framenum, false);
 			}
 		});
@@ -773,32 +777,6 @@ function webshark_json_get(req_data, cb)
 	http.send(null);
 }
 
-function webshark_render_columns(col)
-{
-	var tr = document.createElement("tr");
-
-	for (var i = 0; i < col.length; i++)
-	{
-		var th = document.createElement("th");
-
-th.width = Math.floor(1000 / col.length) +"px"; // XXX, temporary
-
-		th.appendChild(document.createTextNode(col[i]));
-		tr.appendChild(th);
-	}
-
-	dom_set_child(document.getElementById('packet_list_header'), tr);
-}
-
-function webshark_frame_row_on_click(ev)
-{
-	var frame_node;
-
-	frame_node = dom_find_node_attr(ev.target, 'data_ws_frame');
-	if (frame_node != null)
-		webshark_load_frame(frame_node.data_ws_frame, false);
-}
-
 function webshark_frame_comment_on_over(ev)
 {
 	var node;
@@ -872,17 +850,6 @@ function webshark_frame_comment_on_click(ev)
 	ev.preventDefault();
 }
 
-function webshark_frame_on_click(ev)
-{
-	var node;
-
-	node = dom_find_node_attr(ev.target, 'data_ws_frame');
-	if (node != null)
-		popup(webshark_get_url() + "&frame=" + node.data_ws_frame);
-
-	ev.preventDefault();
-}
-
 function webshark_frame_goto(ev)
 {
 	var node;
@@ -894,93 +861,6 @@ function webshark_frame_goto(ev)
 	}
 
 	ev.preventDefault();
-}
-
-function webshark_create_frame_row_html(frame, row_no)
-{
-	var tr = document.createElement("tr");
-
-	if (!frame)
-	{
-		g_webshark.fetchColumns(row_no, false);
-		return tr;
-	}
-
-	if (frame == m_COLUMN_DOWNLOADING)
-		return tr;
-
-	var cols = frame['c'];
-	var fnum = frame['num'];
-
-	for (var j = 0; j < cols.length; j++)
-	{
-		var td = document.createElement("td");
-
-td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
-
-		if (j == 0)
-		{
-			/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
-			if (cols[0] == fnum)
-			{
-				var a = document.createElement('a');
-
-				a.appendChild(document.createTextNode(cols[j]))
-
-				a.setAttribute("target", "_blank");
-				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
-				a.addEventListener("click", webshark_frame_on_click);
-
-				td.appendChild(a);
-			}
-
-			if (frame['ct'])
-			{
-				var a = document.createElement('a');
-
-				var comment_glyph = webshark_glyph_img('comment', 14);
-				comment_glyph.setAttribute('alt', 'Comment');
-				comment_glyph.setAttribute('title', 'Comment');
-
-				a.setAttribute("target", "_blank");
-				a.setAttribute("href", webshark_get_url() + "&frame=" + fnum);
-				a.addEventListener("click", webshark_frame_comment_on_click);
-				a.addEventListener("mouseover", webshark_frame_comment_on_over);
-
-				a.appendChild(comment_glyph);
-				td.appendChild(a);
-			}
-		}
-		else
-		{
-			td.appendChild(document.createTextNode(cols[j]));
-		}
-
-		tr.appendChild(td);
-	}
-
-	if (frame['bg'])
-		tr.style['background-color'] = '#' + frame['bg'];
-
-	if (frame['fg'])
-		tr.style['color'] = '#' + frame['fg'];
-
-	if (fnum == m_webshark_current_frame)
-		tr.classList.add('selected');
-
-	tr.id = 'packet-list-frame-' + fnum;
-	tr.data_ws_frame = fnum;
-	tr.addEventListener("click", webshark_frame_row_on_click);
-
-	return tr;
-}
-
-function webshark_lazy_frames(frames)
-{
-	g_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_row_html;
-
-	// don't work g_webshark_frames_html.scroll_elem.scrollTop = 0;
-	g_webshark_frames_html.setData(frames);
 }
 
 function webshark_render_interval()
@@ -1088,7 +968,7 @@ function webshark_load_frame(framenum, scroll_to, cols)
 		return;
 
 	/* unselect previous */
-	if (m_webshark_current_frame != null)
+	if (m_webshark_current_frame != 0)
 	{
 		var obj = document.getElementById('packet-list-frame-' + m_webshark_current_frame);
 		if (obj)
@@ -1266,6 +1146,7 @@ exports.ProtocolTree = m_webshark_protocol_tree_module.ProtocolTree;
 exports.Hexdump = m_webshark_hexdump_module.Hexdump;
 exports.WSCaptureFilesTable = m_webshark_capture_files_module.WSCaptureFilesTable;
 exports.WSDisplayFilter = m_webshark_display_filter_module.WSDisplayFilter;
+exports.WSPacketList = m_webshark_packet_list_module.WSPacketList;
 exports.webshark_load_tap = m_webshark_tap_module.webshark_load_tap;
 exports.webshark_create_file_details = m_webshark_capture_files_module.webshark_create_file_details;
 
@@ -1276,6 +1157,7 @@ exports.webshark_glyph_img = webshark_glyph_img;
 exports.webshark_get_base_url = webshark_get_base_url;
 exports.webshark_get_url = webshark_get_url;
 exports.webshark_frame_goto = webshark_frame_goto;
+exports.webshark_load_frame = webshark_load_frame;
 exports.popup = popup;
 exports.popup_on_click_a = popup_on_click_a;
 
@@ -1283,7 +1165,6 @@ exports.dom_create_label = dom_create_label;
 exports.dom_set_child = dom_set_child;
 exports.dom_find_node_attr = dom_find_node_attr;
 
-exports.webshark_render_columns = webshark_render_columns;
 exports.webshark_render_interval = webshark_render_interval;
 exports.webshark_d3_chart = webshark_d3_chart;
 
