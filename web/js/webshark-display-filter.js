@@ -17,9 +17,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var webshark_awesomplete_module = require('./webshark-awesomplete.js');
+var m_webshark_awesomplete_module = require('./webshark-awesomplete.js');
 
-var field_complete_cache = { };
+var m_field_complete_cache = { };
 
 function input_extractor(filter)
 {
@@ -62,7 +62,7 @@ function complete_field_cache(field, fun)
 	{
 		while (str.indexOf('.') != -1)
 		{
-			var data = field_complete_cache[str];
+			var data = m_field_complete_cache[str];
 			if (data)
 				return fun(data);
 
@@ -73,7 +73,7 @@ function complete_field_cache(field, fun)
 	{
 		while (str.length > 0)
 		{
-			var data = field_complete_cache[str];
+			var data = m_field_complete_cache[str];
 			if (data)
 				return fun(data);
 
@@ -94,7 +94,7 @@ function complete_field_cache(field, fun)
 
 			data.sort(function(a, b) { return a['f'] < b['f'] ? -1 : 1; });
 
-			field_complete_cache[field] = data;
+			m_field_complete_cache[field] = data;
 
 			fun(data);
 		});
@@ -106,9 +106,9 @@ function WSDisplayFilter(opts)
 
 	this.elem = document.getElementById(opts.contentId);
 
-	this.complete = new webshark_awesomplete_module(this.elem,
+	this.complete = new m_webshark_awesomplete_module(this.elem,
 		{
-			filter: webshark_awesomplete_module.FILTER_STARTSWITH,
+			filter: m_webshark_awesomplete_module.FILTER_STARTSWITH,
 			getvalue: function(f) { return input_extractor(f)[0]; },
 			maxItems: 0,
 			maxHeight: '250px',
@@ -122,12 +122,12 @@ function WSDisplayFilter(opts)
 			{
 				var html = input === '' ?
 					text :
-					text.replace(RegExp("^" + webshark_awesomplete_module.$.regExpEscape(input.trim()), "gi"), "<mark>$&</mark>");
+					text.replace(RegExp("^" + m_webshark_awesomplete_module.$.regExpEscape(input.trim()), "gi"), "<mark>$&</mark>");
 
 				if (text['descr'])
 					html += "<span style='float: right; font-size: 12px;'>" + text['descr'] + "</span>";
 
-				return webshark_awesomplete_module.$.create("li",
+				return m_webshark_awesomplete_module.$.create("li",
 				{
 					innerHTML: html,
 					"aria-selected": "false"
@@ -162,7 +162,7 @@ WSDisplayFilter.prototype.checkfilter = function()
 					var field_descr = "";
 
 					if (data[i]['n'])
-						field_descr = data[i]['n'] + ' (' + ws_ftypes[data[i]['t']] + ')';
+						field_descr = data[i]['n'] + ' (' + g_ws_ftypes[data[i]['t']] + ')';
 
 					list[i] =
 					{

@@ -16,32 +16,32 @@
 	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
-		var _webshark_file = "";
-		var _webshark_url = '/webshark/json?';
-		var _webshark_on_frame_change = null;
-		var _webshark_frames_html = null;
-		var _webshark_prototree_html = null;
-		var _webshark_hexdump_html = null;
-		var _webshark_interval_mode = "";
+		var g_webshark_file = "";
+		var g_webshark_url = '/webshark/json?';
+		var g_webshark_on_frame_change = null;
+		var g_webshark_frames_html = null;
+		var g_webshark_prototree_html = null;
+		var g_webshark_hexdump_html = null;
+		var g_webshark_interval_mode = "";
+		var g_webshark = null;
 
-		var _webshark = null;
-		var _webshark_files = null;
-		var _webshark_display_filter = null;
+		var g_webshark_files = null;
+		var g_webshark_display_filter = null;
 
-		var ws_ftypes = [ ];
-		var ws_taps  = [ ];
-		var ws_stats = [ ];
-		var ws_nstat = [ ];
-		var ws_eo    = [ ];
-		var ws_follow= [ ];
-		var ws_seqa  = [ ];
-		var ws_srt   = [ ];
-		var ws_rtd   = [ ];
-		var ws_convs = [ ];
+		var g_ws_ftypes = [ ];
+		var g_ws_taps  = [ ];
+		var g_ws_stats = [ ];
+		var g_ws_nstat = [ ];
+		var g_ws_eo    = [ ];
+		var g_ws_follow= [ ];
+		var g_ws_seqa  = [ ];
+		var g_ws_srt   = [ ];
+		var g_ws_rtd   = [ ];
+		var g_ws_convs = [ ];
 
-		var ws_pref = { };
+		var g_ws_pref = { };
 
-		var ws_default_pref =
+		var g_ws_default_pref =
 		{
 			columns:
 			[
@@ -102,7 +102,7 @@
 				window.webshark.dom_set_child(timeref_a, glyph);
 			}
 
-			_webshark_on_frame_change = function (framenum, data)
+			g_webshark_on_frame_change = function (framenum, data)
 			{
 				comment_a['data_ws_frame'] = framenum;
 				timeref_a['data_ws_frame'] = framenum;
@@ -158,24 +158,24 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function set_filter(filter)
 		{
-			_webshark.setFilter(filter);
+			g_webshark.setFilter(filter);
 		}
 
 		function filter_files(filter)
 		{
-			_webshark_files.setFilesFilter(filter);
+			g_webshark_files.setFilesFilter(filter);
 		}
 
 		function set_field_filter(filter)
 		{
-			_webshark_prototree_html.setFieldFilter(filter);
+			g_webshark_prototree_html.setFieldFilter(filter);
 		}
 
 		function run()
 		{
 			var opt = parse_query(window.location.href.split("?")[1]);
 
-			_webshark_file = opt['file'];
+			g_webshark_file = opt['file'];
 
 			var frame = opt['frame'];
 			var tap = opt['tap'];
@@ -183,13 +183,13 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			var filter = opt['filter'];
 			var dir = opt['dir'];
 
-			var _webshark_display_filter = new window.webshark.WSDisplayFilter({
+			var g_webshark_display_filter = new window.webshark.WSDisplayFilter({
 				contentId: "display_filter"
 			});
 
 			if (follow) {
 
-				document.title = "Following " + follow + ' (' + filter + ') ' + _webshark_file + " - " + document.title;
+				document.title = "Following " + follow + ' (' + filter + ') ' + g_webshark_file + " - " + document.title;
 
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
@@ -201,7 +201,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				window.webshark.webshark_load_follow(follow, filter);
 
 			} else if (tap) {
-				document.title = "Report of " + _webshark_file + " - " + document.title;
+				document.title = "Report of " + g_webshark_file + " - " + document.title;
 
 				document.getElementById('toolbar_capture').style.display = 'none';
 				document.getElementById('ws_packet_list_view').style.display = 'none';
@@ -213,7 +213,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				window.webshark.webshark_load_tap(tap.split(";"));
 
 			} else if (frame) {
-				document.title = _webshark_file + " #" + frame + " - " + document.title;
+				document.title = g_webshark_file + " #" + frame + " - " + document.title;
 
 				webshark_load_frame(frame, true);
 
@@ -222,14 +222,14 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				setup_frame_toolbar();
 
-			} else if (_webshark_file) {
-				var new_title = _webshark_file + " - " + document.title;
+			} else if (g_webshark_file) {
+				var new_title = g_webshark_file + " - " + document.title;
 
 				document.title = "Loading: " + new_title;
 
 				setup_frame_toolbar();
 
-				if (ws_pref['layout_optimize_height'] == true)
+				if (g_ws_pref['layout_optimize_height'] == true)
 				{
 					document.getElementById('ws_packet_detail_view').style.width = '57%';
 					document.getElementById('ws_packet_bytes_view').style.width = '42%';
@@ -237,13 +237,13 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 						document.getElementById('ws_packet_detail_view').style.height;
 				}
 
-				_webshark.load(_webshark_file, function(data)
+				g_webshark.load(g_webshark_file, function(data)
 				{
 				document.title = new_title;
 
 				if (filter)
 				{
-					_webshark_display_filter.setFilter(filter);
+					g_webshark_display_filter.setFilter(filter);
 				}
 
 				/* Back to file list */
@@ -261,7 +261,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				{
 					var down_a = document.getElementById('toolbar_capture_down');
 					down_a.setAttribute("target", "_blank");
-					down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=self");
+					down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=self");
 					down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 					var glyph = window.webshark.webshark_glyph_img('download', 16);
@@ -281,15 +281,15 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				if (opt['hide_menu'] == undefined)
 				{
-					create_tap_menu('report_menu', ws_taps);
-					create_tap_menu('report_menu_conv', ws_convs);
-					create_tap_menu('report_menu_srt', ws_srt);
-					create_tap_menu('report_menu_srt', ws_rtd);
-					create_tap_menu('report_menu_stat', ws_stats);
-					create_tap_menu('report_menu_stat2', ws_nstat);
-					create_tap_menu('report_menu_eo', ws_eo);
-					create_tap_menu('report_menu', ws_follow);
-					create_tap_menu('report_menu', ws_seqa);
+					create_tap_menu('report_menu', g_ws_taps);
+					create_tap_menu('report_menu_conv', g_ws_convs);
+					create_tap_menu('report_menu_srt', g_ws_srt);
+					create_tap_menu('report_menu_srt', g_ws_rtd);
+					create_tap_menu('report_menu_stat', g_ws_stats);
+					create_tap_menu('report_menu_stat2', g_ws_nstat);
+					create_tap_menu('report_menu_eo', g_ws_eo);
+					create_tap_menu('report_menu', g_ws_follow);
+					create_tap_menu('report_menu', g_ws_seqa);
 				}
 
 				set_filter(filter);
@@ -323,7 +323,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				document.getElementById('files_view').style.display = 'block';
 
-				_webshark_files.loadFiles(dir);
+				g_webshark_files.loadFiles(dir);
 			}
 
 			document.getElementById("ws_div").style.display = "block";
@@ -331,23 +331,23 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function load_preferences()
 		{
-			for (var key in ws_default_pref)
+			for (var key in g_ws_default_pref)
 			{
-				if (ws_pref[key] == undefined)
-					ws_pref[key] = ws_default_pref[key];
+				if (g_ws_pref[key] == undefined)
+					g_ws_pref[key] = g_ws_default_pref[key];
 			}
 		}
 
 		function render_interval(mode)
 		{
-			_webshark_interval_mode = mode;
+			g_webshark_interval_mode = mode;
 			window.webshark.webshark_render_interval();
 		}
 
 		function bytes_display_base(new_base)
 		{
-			_webshark_hexdump_html.base = new_base;
-			_webshark_hexdump_html.render_hexdump();
+			g_webshark_hexdump_html.base = new_base;
+			g_webshark_hexdump_html.render_hexdump();
 		}
 
 		function show_hide_menu(id, id2)
@@ -375,15 +375,15 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function load()
 		{
-			_webshark_interval_mode = "bps";
+			g_webshark_interval_mode = "bps";
 
-			_webshark_files = new window.webshark.WSCaptureFilesTable({
+			g_webshark_files = new window.webshark.WSCaptureFilesTable({
 				scrollId: 'capture_files_view',
 				contentId: 'capture_files',
 				fileDetailsId: 'capture_files_view_details'
 			});
 
-			_webshark_frames_html = new Clusterize({
+			g_webshark_frames_html = new Clusterize({
 				rows: [],
 				rows_in_block: 25,
 				tag: 'tr',
@@ -391,18 +391,18 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				contentId: 'packet_list_frames'
 			});
 
-			_webshark_prototree_html = new window.webshark.ProtocolTree({
+			g_webshark_prototree_html = new window.webshark.ProtocolTree({
 				contentId: 'ws_packet_detail_view'
 			});
 
-			_webshark_hexdump_html = new window.webshark.Hexdump({
+			g_webshark_hexdump_html = new window.webshark.Hexdump({
 				base: 16,
 				contentId: 'ws_bytes_dump'
 			});
 
 			load_preferences();
 
-			_webshark = new window.webshark.Webshark();
+			g_webshark = new window.webshark.Webshark();
 
 			window.webshark.webshark_json_get(
 				{
@@ -410,16 +410,16 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				},
 				function(data)
 				{
-					ws_taps  = data['taps'];
-					ws_stats = data['stats'];
-					ws_nstat = data['nstat'];
-					ws_eo    = data['eo'];
-					ws_follow= data['follow'];
-					ws_seqa  = data['seqa'];
-					ws_srt   = data['srt'];
-					ws_rtd   = data['rtd'];
-					ws_convs = data['convs'];
-					ws_ftypes = data['ftypes'];
+					g_ws_taps  = data['taps'];
+					g_ws_stats = data['stats'];
+					g_ws_nstat = data['nstat'];
+					g_ws_eo    = data['eo'];
+					g_ws_follow= data['follow'];
+					g_ws_seqa  = data['seqa'];
+					g_ws_srt   = data['srt'];
+					g_ws_rtd   = data['rtd'];
+					g_ws_convs = data['convs'];
+					g_ws_ftypes = data['ftypes'];
 
 					var columns_default = [ "%m", "%t", "%s", "%d", "%p", "%L", "%i" ];
 					var columns_title   = [ ];
@@ -429,18 +429,18 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 					setup_user_toolbar(data['user']);
 
-					for (var col = 0; col < ws_pref.columns.length; col++)
+					for (var col = 0; col < g_ws_pref.columns.length; col++)
 					{
 						var col_title = "";
 						var col_format = "";
 						var col_format_idx = -1;
 
-						for (col_title in ws_pref.columns[col]) { col_format = ws_pref.columns[col][col_title]; }
+						for (col_title in g_ws_pref.columns[col]) { col_format = g_ws_pref.columns[col][col_title]; }
 						columns_title.push(col_title);
 
 						if (col >= columns_default.length || columns_default[col] != col_format)
 						{
-							_webshark.setColumns(columns_pref);
+							g_webshark.setColumns(columns_pref);
 						}
 
 						/* map from column format to integer */

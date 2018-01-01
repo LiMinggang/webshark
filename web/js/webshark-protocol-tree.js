@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var PROTO_TREE_PADDING_PER_LEVEL = 20;
+var m_PROTO_TREE_PADDING_PER_LEVEL = 20;
 
 function webshark_tree_sync(subtree)
 {
@@ -139,7 +139,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 				webshark_node_on_click(that, ev);
 			});
 
-		li.style['padding-left'] = (level * PROTO_TREE_PADDING_PER_LEVEL) + "px";
+		li.style['padding-left'] = (level * m_PROTO_TREE_PADDING_PER_LEVEL) + "px";
 
 		if (finfo['f'])
 		{
@@ -168,15 +168,15 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			var expander = document.createElement("span");
 			expander.className = "tree_expander";
 
-			var g_collapsed = window.webshark.webshark_glyph_img('collapsed', 16);
-			g_collapsed.setAttribute('alt', 'Expand');
-			g_collapsed.setAttribute('title', 'Click to expand');
-			expander.appendChild(g_collapsed);
+			var img_collapsed = window.webshark.webshark_glyph_img('collapsed', 16);
+			img_collapsed.setAttribute('alt', 'Expand');
+			img_collapsed.setAttribute('title', 'Click to expand');
+			expander.appendChild(img_collapsed);
 
-			var g_expanded = window.webshark.webshark_glyph_img('expanded', 16);
-			g_expanded.setAttribute('alt', 'Collapse');
-			g_expanded.setAttribute('title', 'Click to collapse');
-			expander.appendChild(g_expanded);
+			var img_expanded = window.webshark.webshark_glyph_img('expanded', 16);
+			img_expanded.setAttribute('alt', 'Collapse');
+			img_expanded.setAttribute('title', 'Click to collapse');
+			expander.appendChild(img_expanded);
 
 			if (level == 1)
 				proto_tree = finfo; /* XXX, verify */
@@ -192,7 +192,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			if (this.field_filter)
 				ett_expanded = true;
 
-			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: g_expanded, col: g_collapsed };
+			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: img_expanded, col: img_collapsed };
 
 			webshark_tree_sync(li.data_ws_subtree);
 			expander.addEventListener("click", webshark_tree_on_click);

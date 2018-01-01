@@ -17,10 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var webshark_rtp_player_module = require("./webshark-rtp-player.js");
-var webshark_hexdump_module = require('./webshark-hexdump.js');
+var m_webshark_rtp_player_module = require("./webshark-rtp-player.js");
+var m_webshark_hexdump_module = require('./webshark-hexdump.js');
 
-var _prev_tap_selected_on_click = null;
+var m_prev_tap_selected_on_click = null;
 
 function dom_create_label_span(str)
 {
@@ -69,7 +69,7 @@ function webshark_tap_row_on_click(ev)
 		{
 			var rtp_str = node_rtp['data_ws_rtp_name'];
 
-			var wave = webshark_rtp_player_module.get_from_name(rtp_str);
+			var wave = m_webshark_rtp_player_module.get_from_name(rtp_str);
 			if (wave)
 			{
 				var pos = node['data_ws_rtp_pos'] / wave.getDuration();
@@ -83,11 +83,11 @@ function webshark_tap_row_on_click(ev)
 
 	if (node != null)
 	{
-		if (_prev_tap_selected_on_click)
-			_prev_tap_selected_on_click.classList.remove("selected");
+		if (m_prev_tap_selected_on_click)
+			m_prev_tap_selected_on_click.classList.remove("selected");
 
 		node.classList.add("selected");
-		_prev_tap_selected_on_click = node;
+		m_prev_tap_selected_on_click = node;
 
 		if (action == 'data_wlan_details')
 		{
@@ -123,7 +123,7 @@ function webshark_tap_row_on_click(ev)
 			var tap_req =
 				{
 					req: 'tap',
-					capture: _webshark_file,
+					capture: g_webshark_file,
 					tap0: anal
 				};
 
@@ -153,12 +153,12 @@ function webshark_tap_row_on_click(ev)
 			var filter = node['data_ws_filter'];
 			document.getElementById('ws_packet_list_view').style.display = 'block';
 
-			_webshark.setFilter(filter);
+			g_webshark.setFilter(filter);
 		}
 	}
 }
 
-var webshark_stat_fields =
+var m_webshark_stat_fields =
 {
 	'name': 'Topic / Item',
 	'count': 'Count',
@@ -172,7 +172,7 @@ var webshark_stat_fields =
 	'bursttime': 'Burst start'
 };
 
-var webshark_conv_fields =
+var m_webshark_conv_fields =
 {
 	'saddr': 'Address A',
 	'sport': 'Port A',
@@ -190,7 +190,7 @@ var webshark_conv_fields =
 	'_rate_rx': 'bps A<-B'
 };
 
-var webshark_host_fields =
+var m_webshark_host_fields =
 {
 	'host': 'Address',
 	'port': 'Port',
@@ -202,7 +202,7 @@ var webshark_host_fields =
 	'rxb': 'RX Bytes'
 };
 
-var webshark_host_fields_geo =
+var m_webshark_host_fields_geo =
 {
 	'host': 'Address',
 	'port': 'Port',
@@ -221,7 +221,7 @@ var webshark_host_fields_geo =
 	'geoip_lon': 'GeoIP Lon'
 };
 
-var webshark_eo_fields =
+var m_webshark_eo_fields =
 {
 	'pkt': 'Packet number',
 	'hostname': 'Hostname',
@@ -230,7 +230,7 @@ var webshark_eo_fields =
 	'len': 'Length'
 };
 
-var webshark_rtp_streams_fields =
+var m_webshark_rtp_streams_fields =
 {
 	'saddr': 'Src addr',
 	'sport': 'Src port',
@@ -246,7 +246,7 @@ var webshark_rtp_streams_fields =
 	'_pb': 'Pb?'
 };
 
-var webshark_rtp_analyse_fields =
+var m_webshark_rtp_analyse_fields =
 {
 	'_frame_time': 'Packet (Time)',
 	'sn': 'Sequence',
@@ -258,7 +258,7 @@ var webshark_rtp_analyse_fields =
 	'_status': 'Status'
 };
 
-var webshark_rtd_fields =
+var m_webshark_rtd_fields =
 {
 	'type':    'Type',
 	'num':     'Messages',
@@ -275,7 +275,7 @@ var webshark_rtd_fields =
 	'rsp_dup':  'Duplicated Responses'
 };
 
-var webshark_srt_fields =
+var m_webshark_srt_fields =
 {
 	'n':       'Procedure',
 	'num':     'Calls',
@@ -284,7 +284,7 @@ var webshark_srt_fields =
 	'_avg':    'Avg SRT [ms]'
 };
 
-var webshark_voip_calls_fields =
+var m_webshark_voip_calls_fields =
 {
 	'start':   'Start Time',
 	'stop':    'Stop Time',
@@ -297,7 +297,7 @@ var webshark_voip_calls_fields =
 	'comment': 'Comments'
 };
 
-var webshark_expert_fields =
+var m_webshark_expert_fields =
 {
 	'f': 'No',
 	's': 'Severity',
@@ -306,7 +306,7 @@ var webshark_expert_fields =
 	'm': 'Summary'
 };
 
-var webshark_wlan_fields =
+var m_webshark_wlan_fields =
 {
 	'_bssid': "BSSID",
 	'chan':  "Ch.",
@@ -322,7 +322,7 @@ var webshark_wlan_fields =
 	'protection': "Protection"
 };
 
-var webshark_wlan_details_fields =
+var m_webshark_wlan_details_fields =
 {
 	'araw': 'Address',
 	'_perc': '% Packets',
@@ -447,7 +447,7 @@ function webshark_create_tap_action_common(data)
 		var down_a = document.createElement('a');
 
 		down_a.setAttribute("target", "_blank");
-		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_download']));
+		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_download']));
 		down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 		var glyph = window.webshark.webshark_glyph_img('download', 16);
@@ -469,8 +469,8 @@ function webshark_create_tap_action_common(data)
 		down_a.setAttribute("target", "_blank");
 		down_a["ws_title"] = descr;
 		down_a["ws_rtp"] = data['_play'];
-		down_a.setAttribute("href", _webshark_url + 'req=download&capture=' + _webshark_file  + "&token=" + encodeURIComponent(data['_play']));
-		down_a.addEventListener("click", webshark_rtp_player_module.play_on_click_a);
+		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_play']));
+		down_a.addEventListener("click", m_webshark_rtp_player_module.play_on_click_a);
 
 		var glyph = window.webshark.webshark_glyph_img('play', 16);
 		glyph.setAttribute('alt', 'Load and play RTP: ' + descr);
@@ -528,7 +528,7 @@ function webshark_create_tap_stat(table, stats, level)
 
 		tr.appendChild(webshark_create_tap_action_common(stat));
 
-		for (var col in webshark_stat_fields)
+		for (var col in m_webshark_stat_fields)
 		{
 			var value = stat[col];
 
@@ -561,7 +561,7 @@ function webshark_render_tap(tap)
 {
 	if (tap['type'] == 'stats')
 	{
-		var table = webshark_create_tap_table_common(webshark_stat_fields);
+		var table = webshark_create_tap_table_common(m_webshark_stat_fields);
 
 		webshark_create_tap_stat(table, tap['stats'], 0);
 
@@ -571,19 +571,19 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		var g_stat = tap['stats'][0];
+		var tg_stat = tap['stats'][0];
 
-//		TODO: generate more graphs g_stat = g_stat['sub'][0];
+//		TODO: generate more graphs tg_stat = tg_stat['sub'][0];
 
-		window.webshark.webshark_d3_chart(svg, g_stat['sub'],
+		window.webshark.webshark_d3_chart(svg, tg_stat['sub'],
 		{
-			title: g_stat['name'],
+			title: tg_stat['name'],
 			mwidth: 800, iwidth: 50, height: 400,
 
 			getX: function(d) { return d['name'] },
 
 			unit1: '%',
-			scale1: [ g_stat['count'] ],
+			scale1: [ tg_stat['count'] ],
 
 			series1:
 			[
@@ -597,7 +597,7 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'conv')
 	{
-		var table = webshark_create_tap_table_common(webshark_conv_fields);
+		var table = webshark_create_tap_table_common(m_webshark_conv_fields);
 		var convs = tap['convs'];
 
 		for (var i = 0; i < convs.length; i++)
@@ -626,7 +626,7 @@ function webshark_render_tap(tap)
 			conv['_filter'] = conv['filter'];
 		}
 
-		webshark_create_tap_table_data_common(webshark_conv_fields, table, convs);
+		webshark_create_tap_table_data_common(m_webshark_conv_fields, table, convs);
 		if (tap['geoip'] == true)
 		{
 			/* From http://dev.maxmind.com/geoip/geoip2/geolite2/ */
@@ -695,7 +695,7 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'host')
 	{
-		var host_fields = (tap['geoip'] == true) ? webshark_host_fields_geo : webshark_host_fields;
+		var host_fields = (tap['geoip'] == true) ? m_webshark_host_fields_geo : m_webshark_host_fields;
 
 		var table = webshark_create_tap_table_common(host_fields);
 		var hosts = tap['hosts'];
@@ -814,7 +814,7 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'rtd')
 	{
-		var table = webshark_create_tap_table_common(webshark_rtd_fields);
+		var table = webshark_create_tap_table_common(m_webshark_rtd_fields);
 
 		var rtd_stats = tap['stats'];
 
@@ -829,7 +829,7 @@ function webshark_render_tap(tap)
 			/* TODO: calculate % if row['open_req'] */
 		}
 
-		webshark_create_tap_table_data_common(webshark_rtd_fields, table, rtd_stats);
+		webshark_create_tap_table_data_common(m_webshark_rtd_fields, table, rtd_stats);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label('Response Time Delay (' + tap['tap'] + ') '));
 
@@ -856,7 +856,7 @@ function webshark_render_tap(tap)
 			var rows = srt_tables[i]['r'];
 			var filter = srt_tables[i]['f'];
 
-			var table = webshark_create_tap_table_common(webshark_srt_fields);
+			var table = webshark_create_tap_table_common(m_webshark_srt_fields);
 
 			for (var j = 0; j < rows.length; j++)
 			{
@@ -872,7 +872,7 @@ function webshark_render_tap(tap)
 				}
 			}
 
-			webshark_create_tap_table_data_common(webshark_srt_fields, table, rows);
+			webshark_create_tap_table_data_common(m_webshark_srt_fields, table, rows);
 
 			document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label('Service Response Time (' + tap['tap'] + ') ' + srt_tables[i]['n']));
 			document.getElementById('ws_tap_table').appendChild(table);
@@ -880,17 +880,17 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'eo')
 	{
-		var table = webshark_create_tap_table_common(webshark_eo_fields);
+		var table = webshark_create_tap_table_common(m_webshark_eo_fields);
 		var objects = tap['objects'];
 
-		webshark_create_tap_table_data_common(webshark_eo_fields, table, objects);
+		webshark_create_tap_table_data_common(m_webshark_eo_fields, table, objects);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("Export " + tap['proto'] + " object (" + objects.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'voip-calls')
 	{
-		var table = webshark_create_tap_table_common(webshark_voip_calls_fields);
+		var table = webshark_create_tap_table_common(m_webshark_voip_calls_fields);
 		var calls = tap['calls'];
 
 		for (var i = 0; i < calls.length; i++)
@@ -902,14 +902,14 @@ function webshark_render_tap(tap)
 			call['_filter'] = call['filter'];
 		}
 
-		webshark_create_tap_table_data_common(webshark_voip_calls_fields, table, calls);
+		webshark_create_tap_table_data_common(m_webshark_voip_calls_fields, table, calls);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("VoIP calls (" + calls.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'expert')
 	{
-		var table = webshark_create_tap_table_common(webshark_expert_fields);
+		var table = webshark_create_tap_table_common(m_webshark_expert_fields);
 		var details = tap['details'];
 
 		for (var i = 0; i < details.length; i++)
@@ -924,14 +924,14 @@ function webshark_render_tap(tap)
 			item['_goto_frame'] = item['f'];
 		}
 
-		webshark_create_tap_table_data_common(webshark_expert_fields, table, details);
+		webshark_create_tap_table_data_common(m_webshark_expert_fields, table, details);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("Expert information (" + details.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'wlan')
 	{
-		var table = webshark_create_tap_table_common(webshark_wlan_fields);
+		var table = webshark_create_tap_table_common(m_webshark_wlan_fields);
 		var list = tap['list'];
 
 		list.sort(function(a, b)
@@ -952,7 +952,7 @@ function webshark_render_tap(tap)
 			item['_wlan_extra_data'] = [ item['details'], item ];
 		}
 
-		webshark_create_tap_table_data_common(webshark_wlan_fields, table, list);
+		webshark_create_tap_table_data_common(m_webshark_wlan_fields, table, list);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("WLAN Traffic Statistics"));
 		document.getElementById('ws_tap_table').appendChild(table);
@@ -988,22 +988,22 @@ function webshark_render_tap(tap)
 				item['_comment'] = '';
 		}
 
-		var table = webshark_create_tap_table_common(webshark_wlan_details_fields);
+		var table = webshark_create_tap_table_common(m_webshark_wlan_details_fields);
 
-		webshark_create_tap_table_data_common(webshark_wlan_details_fields, table, list);
+		webshark_create_tap_table_data_common(m_webshark_wlan_details_fields, table, list);
 
 		document.getElementById('ws_tap_table').appendChild(table);
 	}
 	else if (tap['type'] == 'rtp-streams')
 	{
-		var table = webshark_create_tap_table_common(webshark_rtp_streams_fields);
+		var table = webshark_create_tap_table_common(m_webshark_rtp_streams_fields);
 		var streams = tap['streams'];
 
 		for (var i = 0; i < streams.length; i++)
 		{
 			var stream = streams[i];
 
-			stream['_ssrc'] = "0x" + webshark_hexdump_module.xtoa(stream['ssrc'], 0);
+			stream['_ssrc'] = "0x" + m_webshark_hexdump_module.xtoa(stream['ssrc'], 0);
 			stream['_pb'] = stream['problem'] ? "X" : "";
 
 			var lost = stream['expectednr'] - stream['totalnr'];
@@ -1013,7 +1013,7 @@ function webshark_render_tap(tap)
 			var ipstr = "ip";
 			if (stream['ipver'] == 6) ipstr = "ipv6";
 
-			var rtp_str = stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + webshark_hexdump_module.xtoa(stream['ssrc'], 0);
+			var rtp_str = stream['saddr'] + '_' + stream['sport'] + '_' + stream['daddr'] + '_' + stream['dport'] + '_' + m_webshark_hexdump_module.xtoa(stream['ssrc'], 0);
 
 			stream['_analyse'] = 'rtp-analyse:' + rtp_str;
 			stream['_download'] = 'rtp:' + rtp_str;
@@ -1028,9 +1028,9 @@ function webshark_render_tap(tap)
 
 		var wave_div = document.createElement('div');
 		wave_div.id = 'ws_rtp_playback';
-		webshark_rtp_player_module.ws_rtp_playback_control_create(wave_div, null);
+		m_webshark_rtp_player_module.ws_rtp_playback_control_create(wave_div, null);
 
-		webshark_create_tap_table_data_common(webshark_rtp_streams_fields, table, streams);
+		webshark_create_tap_table_data_common(m_webshark_rtp_streams_fields, table, streams);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("RTP streams (" + streams.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
@@ -1038,7 +1038,7 @@ function webshark_render_tap(tap)
 	}
 	else if (tap['type'] == 'rtp-analyse')
 	{
-		var table = webshark_create_tap_table_common(webshark_rtp_analyse_fields);
+		var table = webshark_create_tap_table_common(m_webshark_rtp_analyse_fields);
 		var items = tap['items'];
 
 		var rtp_str = "rtp:" + tap['tap'].slice(12);
@@ -1061,14 +1061,14 @@ function webshark_render_tap(tap)
 
 		table['data_ws_rtp_name'] = rtp_str;
 
-		webshark_rtp_player_module.set_in_table(rtp_str, [ items, table, null ]);
-		webshark_create_tap_table_data_common(webshark_rtp_analyse_fields, table, items);
+		m_webshark_rtp_player_module.set_in_table(rtp_str, [ items, table, null ]);
+		webshark_create_tap_table_data_common(m_webshark_rtp_analyse_fields, table, items);
 
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("RTP analysis"));
 		{
 			var rdiv = document.createElement('div');
 
-			rdiv.appendChild(dom_create_label_span("SSRC: 0x" + webshark_hexdump_module.xtoa(tap['ssrc'], 0)));
+			rdiv.appendChild(dom_create_label_span("SSRC: 0x" + m_webshark_hexdump_module.xtoa(tap['ssrc'], 0)));
 
 			rdiv.appendChild(dom_create_label_span(", Max Delta: " + tap['max_delta'] + ' ms @ ' + tap['max_delta_nr']));
 			rdiv.appendChild(dom_create_label_span(", Max Jitter: " + tap['max_jitter'] + " ms"));
@@ -1088,7 +1088,7 @@ function webshark_load_tap(taps)
 	var tap_req =
 		{
 			req: 'tap',
-			capture: _webshark_file
+			capture: g_webshark_file
 		};
 
 	for (var i = 0; i < taps.length; i++)

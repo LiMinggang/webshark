@@ -17,13 +17,20 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var webshark_capture_files_module = require("./webshark-capture-files.js");
-var webshark_display_filter_module = require('./webshark-display-filter.js');
-var webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
-var webshark_hexdump_module = require('./webshark-hexdump.js');
-var webshark_tap_module = require("./webshark-tap.js");
+var m_webshark_capture_files_module = require("./webshark-capture-files.js");
+var m_webshark_display_filter_module = require('./webshark-display-filter.js');
+var m_webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
+var m_webshark_hexdump_module = require('./webshark-hexdump.js');
+var m_webshark_tap_module = require("./webshark-tap.js");
 
-var column_downloading = 42;
+var m_COLUMN_DOWNLOADING = 42;
+
+var m_webshark_interval = null;
+var m_webshark_interval_scale = null;
+var m_webshark_interval_filter = null;
+
+var m_glyph_cache = { };
+var m_webshark_current_frame = null;
 
 function Webshark()
 {
@@ -150,7 +157,7 @@ Webshark.prototype.update = function()
 	var req_intervals =
 		{
 			req: 'intervals',
-			capture: _webshark_file
+			capture: g_webshark_file
 		};
 
 	if (this.filter)
@@ -159,10 +166,10 @@ Webshark.prototype.update = function()
 	/* XXX, webshark.load() is not called for taps/ single frames/ ... */
 	if (this.status)
 	{
-		_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
-		if (_webshark_interval_scale < 1)
-			_webshark_interval_scale = 1;
-		req_intervals['interval'] = 1000 * _webshark_interval_scale;
+		m_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
+		if (m_webshark_interval_scale < 1)
+			m_webshark_interval_scale = 1;
+		req_intervals['interval'] = 1000 * m_webshark_interval_scale;
 	}
 
 	var that = this;
@@ -173,12 +180,12 @@ Webshark.prototype.update = function()
 		{
 			if (that.filter)
 			{
-				_webshark_interval_filter = data;
+				m_webshark_interval_filter = data;
 			}
 			else
 			{
-				_webshark_interval = data;
-				_webshark_interval_filter = null; /* render only main */
+				m_webshark_interval = data;
+				m_webshark_interval_filter = null; /* render only main */
 			}
 
 			/* XXX, broken */
@@ -197,7 +204,7 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 	var req_frames =
 		{
 			req: 'frames',
-			capture: _webshark_file
+			capture: g_webshark_file
 		};
 
 	if (this.fetch_columns_limit != 0)
@@ -212,7 +219,7 @@ Webshark.prototype.fetchColumns = function(skip, load_first)
 	for (var i = 0; i < this.fetch_columns_limit && skip + i < this.cached_columns.length; i++)
 	{
 		if (!this.cached_columns[skip + i])
-			this.cached_columns[skip + i] = column_downloading;
+			this.cached_columns[skip + i] = m_COLUMN_DOWNLOADING;
 	}
 
 	if (this.cols)
@@ -278,7 +285,7 @@ Webshark.prototype.getComment = function(framenum, func)
 	webshark_json_get(
 		{
 			req: 'frame',
-			capture: _webshark_file,
+			capture: g_webshark_file,
 			frame: framenum
 		},
 		func);
@@ -289,7 +296,7 @@ Webshark.prototype.setComment = function(framenum, new_comment)
 	var set_req =
 		{
 			req: 'setcomment',
-			capture: _webshark_file,
+			capture: g_webshark_file,
 			frame: framenum
 		};
 
@@ -307,9 +314,9 @@ Webshark.prototype.setComment = function(framenum, new_comment)
 			/* XXX, lazy, need invalidate cache, to show comment symbol, FIX (notifications?) */
 			that.invalidCacheFrame(framenum);
 
-			if (_webshark_current_frame == framenum)
+			if (m_webshark_current_frame == framenum)
 			{
-				_webshark_current_frame = null;
+				m_webshark_current_frame = null;
 				webshark_load_frame(framenum, false);
 			}
 		});
@@ -356,17 +363,15 @@ function webshark_get_url()
 {
 	var base_url = window.location.href.split("?")[0];
 
-	var extra = '?file=' + _webshark_file;
+	var extra = '?file=' + g_webshark_file;
 
 	return base_url + extra;
 }
 
-var glyph_cache = { };
-
 function webshark_glyph(what)
 {
-	if (glyph_cache[what])
-		return glyph_cache[what];
+	if (m_glyph_cache[what])
+		return m_glyph_cache[what];
 
 	var fa_paths =
 	{
@@ -429,7 +434,7 @@ function webshark_glyph(what)
 	}
 
 	var str = 'data:image/svg+xml;base64,' + window.btoa(svg.node().outerHTML);
-	glyph_cache[what] = str;
+	m_glyph_cache[what] = str;
 	return str;
 }
 
@@ -752,7 +757,7 @@ function webshark_json_get(req_data, cb)
 
 	debug(3, " webshark_json_get(" + req + ") sending request");
 
-	http.open("GET", _webshark_url + req, true);
+	http.open("GET", g_webshark_url + req, true);
 	http.onreadystatechange =
 		function()
 		{
@@ -803,7 +808,7 @@ function webshark_frame_comment_on_over(ev)
 	{
 		var framenum = node.data_ws_frame;
 
-		_webshark.getComment(framenum,
+		g_webshark.getComment(framenum,
 			function(data)
 			{
 				var tgt = ev.target;
@@ -836,9 +841,9 @@ function webshark_frame_timeref_on_click(ev)
 	if (node != null)
 	{
 		var framenum = node.data_ws_frame;
-		var timeref = (_webshark.getRefFrame(framenum) == framenum);
+		var timeref = (g_webshark.getRefFrame(framenum) == framenum);
 
-		_webshark.setRefFrame(framenum, !timeref);
+		g_webshark.setRefFrame(framenum, !timeref);
 	}
 
 	ev.preventDefault();
@@ -853,14 +858,14 @@ function webshark_frame_comment_on_click(ev)
 	{
 		var framenum = node.data_ws_frame;
 
-		_webshark.getComment(framenum,
+		g_webshark.getComment(framenum,
 			function(data)
 			{
 				var prev_comment = data['comment'];
 
 				var comment = window.prompt("Please enter new comment for frame #" + framenum, prev_comment);
 				if (comment != null)
-					_webshark.setComment(framenum, comment);
+					g_webshark.setComment(framenum, comment);
 			});
 	}
 
@@ -897,11 +902,11 @@ function webshark_create_frame_row_html(frame, row_no)
 
 	if (!frame)
 	{
-		_webshark.fetchColumns(row_no, false);
+		g_webshark.fetchColumns(row_no, false);
 		return tr;
 	}
 
-	if (frame == column_downloading)
+	if (frame == m_COLUMN_DOWNLOADING)
 		return tr;
 
 	var cols = frame['c'];
@@ -960,7 +965,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 	if (frame['fg'])
 		tr.style['color'] = '#' + frame['fg'];
 
-	if (fnum == _webshark_current_frame)
+	if (fnum == m_webshark_current_frame)
 		tr.classList.add('selected');
 
 	tr.id = 'packet-list-frame-' + fnum;
@@ -972,35 +977,31 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 function webshark_lazy_frames(frames)
 {
-	_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_row_html;
+	g_webshark_frames_html.options.callbacks.createHTML = webshark_create_frame_row_html;
 
-	// don't work _webshark_frames_html.scroll_elem.scrollTop = 0;
-	_webshark_frames_html.setData(frames);
+	// don't work g_webshark_frames_html.scroll_elem.scrollTop = 0;
+	g_webshark_frames_html.setData(frames);
 }
-
-var _webshark_interval = null;
-var _webshark_interval_scale = null;
-var _webshark_interval_filter = null;
 
 function webshark_render_interval()
 {
-	var intervals_data   = _webshark_interval ? _webshark_interval['intervals'] : null;
-	var intervals_filter = _webshark_interval_filter ? _webshark_interval_filter['intervals'] : null;
+	var intervals_data   = m_webshark_interval ? m_webshark_interval['intervals'] : null;
+	var intervals_filter = m_webshark_interval_filter ? m_webshark_interval_filter['intervals'] : null;
 	var intervals_full = [ ];
 
-	var last_one  = _webshark_interval ? _webshark_interval['last'] : _webshark_interval_filter['last'];
+	var last_one  = m_webshark_interval ? m_webshark_interval['last'] : m_webshark_interval_filter['last'];
 	var color_arr = [ 'steelblue' ];
 
 	var count_idx =
-		(_webshark_interval_mode == "bps") ? 2 :
-		(_webshark_interval_mode == "fps") ? 1 :
+		(g_webshark_interval_mode == "bps") ? 2 :
+		(g_webshark_interval_mode == "fps") ? 1 :
 		-1;
 
 	if (count_idx == -1)
 		return;
 
 	for (var i = 0; i <= last_one; i++)
-		intervals_full[i] = [ (i * _webshark_interval_scale), 0, 0 ];
+		intervals_full[i] = [ (i * m_webshark_interval_scale), 0, 0 ];
 
 	if (intervals_data)
 	{
@@ -1022,7 +1023,7 @@ function webshark_render_interval()
 		color_arr = [ '#ddd', 'steelblue' ]; /* grey out 'main interval', highlight 'filtered interval' */
 	}
 
-	/* TODO, put mark of current packet (_webshark_current_frame) */
+	/* TODO, put mark of current packet (m_webshark_current_frame) */
 
 	var svg = d3.select("body").append("svg").remove();
 
@@ -1031,7 +1032,7 @@ function webshark_render_interval()
 		width: 620, height: 100,
 		margin: {top: 0, right: 10, bottom: 20, left: 40},
 
-		xrange: [ 0, (last_one * _webshark_interval_scale) ],
+		xrange: [ 0, (last_one * m_webshark_interval_scale) ],
 
 		getX: function(d) { return d[0]; },
 
@@ -1075,23 +1076,21 @@ function webshark_on_field_select_highlight_bytes(node)
 	if (dom_tab)
 		dom_tab.click();
 
-	_webshark_hexdump_html.active = ds_idx;
-	_webshark_hexdump_html.highlights = hls;
-	_webshark_hexdump_html.render_hexdump();
+	g_webshark_hexdump_html.active = ds_idx;
+	g_webshark_hexdump_html.highlights = hls;
+	g_webshark_hexdump_html.render_hexdump();
 }
-
-var _webshark_current_frame = null;
 
 function webshark_load_frame(framenum, scroll_to, cols)
 {
 	/* frame content should not change -> skip requests for frame like current one */
-	if (framenum == _webshark_current_frame)
+	if (framenum == m_webshark_current_frame)
 		return;
 
 	/* unselect previous */
-	if (_webshark_current_frame != null)
+	if (m_webshark_current_frame != null)
 	{
-		var obj = document.getElementById('packet-list-frame-' + _webshark_current_frame);
+		var obj = document.getElementById('packet-list-frame-' + m_webshark_current_frame);
 		if (obj)
 			obj.classList.remove("selected");
 	}
@@ -1101,11 +1100,11 @@ function webshark_load_frame(framenum, scroll_to, cols)
 			req: 'frame',
 			bytes: 'yes',
 			proto: 'yes',
-			capture: _webshark_file,
+			capture: g_webshark_file,
 			frame: framenum
 		};
 
-	var ref_framenum = _webshark.getRefFrame(framenum);
+	var ref_framenum = g_webshark.getRefFrame(framenum);
 	if (ref_framenum)
 		load_req['ref_frame'] = ref_framenum;
 	load_req['prev_frame'] = framenum - 1;   /* TODO */
@@ -1115,15 +1114,15 @@ function webshark_load_frame(framenum, scroll_to, cols)
 		{
 			var bytes_data = [ ];
 
-			_webshark_prototree_html.onFieldSelect = webshark_on_field_select_highlight_bytes;
-			_webshark_prototree_html.tree = data['tree'];
-			_webshark_prototree_html.render_tree();
+			g_webshark_prototree_html.onFieldSelect = webshark_on_field_select_highlight_bytes;
+			g_webshark_prototree_html.tree = data['tree'];
+			g_webshark_prototree_html.render_tree();
 
 			var fol = data['fol'];
 
-			for (var i = 0; i < ws_follow.length; i++)
+			for (var i = 0; i < g_ws_follow.length; i++)
 			{
-				var it = document.getElementById('menu_tap_' + ws_follow[i].tap);
+				var it = document.getElementById('menu_tap_' + g_ws_follow[i].tap);
 
 				if (it)
 				{
@@ -1174,10 +1173,10 @@ function webshark_load_frame(framenum, scroll_to, cols)
 
 					input.onchange = function()
 					{
-						var bytes_data = _webshark_hexdump_html.datas;
+						var bytes_data = g_webshark_hexdump_html.datas;
 
-						_webshark_hexdump_html.active = this.value;
-						_webshark_hexdump_html.render_hexdump();
+						g_webshark_hexdump_html.active = this.value;
+						g_webshark_hexdump_html.render_hexdump();
 					};
 
 					dom_ds.appendChild(input);
@@ -1185,17 +1184,17 @@ function webshark_load_frame(framenum, scroll_to, cols)
 				}
 			}
 
-			_webshark_hexdump_html.datas = bytes_data;
-			_webshark_hexdump_html.active = 0;
-			_webshark_hexdump_html.highlights = [ ];
-			_webshark_hexdump_html.render_hexdump();
+			g_webshark_hexdump_html.datas = bytes_data;
+			g_webshark_hexdump_html.active = 0;
+			g_webshark_hexdump_html.highlights = [ ];
+			g_webshark_hexdump_html.render_hexdump();
 
-			if (_webshark_on_frame_change != null)
+			if (g_webshark_on_frame_change != null)
 			{
-				_webshark_on_frame_change(framenum, data);
+				g_webshark_on_frame_change(framenum, data);
 			}
 
-			_webshark_current_frame = framenum;
+			m_webshark_current_frame = framenum;
 
 			/* select new */
 			var obj = document.getElementById('packet-list-frame-' + framenum);
@@ -1214,7 +1213,7 @@ function webshark_load_follow(follow, filter)
 	webshark_json_get(
 		{
 			req: 'follow',
-			capture: _webshark_file,
+			capture: g_webshark_file,
 			follow: follow,
 			filter: filter
 		},
@@ -1258,17 +1257,17 @@ function webshark_load_follow(follow, filter)
 			document.getElementById('ws_tap_table').appendChild(div);
 
 			document.getElementById('ws_packet_list_view').style.display = 'block';
-			_webshark.setFilter(filter);
+			g_webshark.setFilter(filter);
 
 		});
 }
 
-exports.ProtocolTree = webshark_protocol_tree_module.ProtocolTree;
-exports.Hexdump = webshark_hexdump_module.Hexdump;
-exports.WSCaptureFilesTable = webshark_capture_files_module.WSCaptureFilesTable;
-exports.WSDisplayFilter = webshark_display_filter_module.WSDisplayFilter;
-exports.webshark_load_tap = webshark_tap_module.webshark_load_tap;
-exports.webshark_create_file_details = webshark_capture_files_module.webshark_create_file_details;
+exports.ProtocolTree = m_webshark_protocol_tree_module.ProtocolTree;
+exports.Hexdump = m_webshark_hexdump_module.Hexdump;
+exports.WSCaptureFilesTable = m_webshark_capture_files_module.WSCaptureFilesTable;
+exports.WSDisplayFilter = m_webshark_display_filter_module.WSDisplayFilter;
+exports.webshark_load_tap = m_webshark_tap_module.webshark_load_tap;
+exports.webshark_create_file_details = m_webshark_capture_files_module.webshark_create_file_details;
 
 exports.Webshark = Webshark;
 exports.webshark_json_get = webshark_json_get;

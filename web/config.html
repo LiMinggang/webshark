@@ -13,13 +13,12 @@
 	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
-		var _webshark_url = '/webshark/json?';
-		var _webshark = null;
+		var g_webshark_url = '/webshark/json?';
 
-		var _webshark_options_html = null;
-		var _webshark_options = null;
+		var g_webshark_options_html = null;
+		var g_webshark_options = null;
 
-		var _selected_option = null;
+		var g_selected_option = null;
 
 		function option_row_on_click(ev)
 		{
@@ -27,12 +26,12 @@
 
 			if (option_node != null)
 			{
-				if (_selected_option != null)
-					_selected_option.classList.remove("selected");
+				if (g_selected_option != null)
+					g_selected_option.classList.remove("selected");
 
 				/* select new */
 				option_node.classList.add("selected");
-				_selected_option = option_node;
+				g_selected_option = option_node;
 			}
 		}
 
@@ -141,7 +140,7 @@
 		{
 			var value = el.value;
 
-			var prefs_arr = _webshark_options.filter(function(data)
+			var prefs_arr = g_webshark_options.filter(function(data)
 			{
 				if (value == '') return true;
 
@@ -149,13 +148,13 @@
 				return (data['name'].indexOf(value) == 0);
 			});
 
-			_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
-			_webshark_options_html.setData(prefs_arr);
+			g_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
+			g_webshark_options_html.setData(prefs_arr);
 		}
 
 		function load()
 		{
-			_webshark_options_html = new Clusterize({
+			g_webshark_options_html = new Clusterize({
 				rows: [],
 				rows_in_block: 50,
 				tag: 'tr',
@@ -194,10 +193,10 @@
 						prefs_arr.push(p);
 					}
 
-					_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
-					_webshark_options_html.setData(prefs_arr);
+					g_webshark_options_html.options.callbacks.createHTML = option_create_row_html;
+					g_webshark_options_html.setData(prefs_arr);
 
-					_webshark_options = prefs_arr;
+					g_webshark_options = prefs_arr;
 				});
 		}
 

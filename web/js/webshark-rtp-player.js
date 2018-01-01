@@ -17,9 +17,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var _webshark_rtps_players = { };
-var _webshark_rtps_players_name = { };
-var _webshark_rtps_table = { };
+var m_webshark_rtps_players = { };
+var m_webshark_rtps_players_name = { };
+var m_webshark_rtps_table = { };
 
 function play_on_click_a(ev)
 {
@@ -32,7 +32,7 @@ function play_on_click_a(ev)
 		url = node['href'];
 		if (url != null)
 		{
-			var wavesurfer = _webshark_rtps_players[url];
+			var wavesurfer = m_webshark_rtps_players[url];
 
 			if (wavesurfer)
 			{
@@ -81,7 +81,7 @@ function play_on_click_a(ev)
 					player_sync_view(node['ws_rtp'], ts);
 				});
 
-				_webshark_rtps_players_name[node['ws_rtp']] = wavesurfer;
+				m_webshark_rtps_players_name[node['ws_rtp']] = wavesurfer;
 			}
 
 			wavesurfer.on('ready', function () {
@@ -90,7 +90,7 @@ function play_on_click_a(ev)
 
 			wavesurfer.load(url);
 
-			_webshark_rtps_players[url] = wavesurfer;
+			m_webshark_rtps_players[url] = wavesurfer;
 		}
 
 		ev.preventDefault();
@@ -99,7 +99,7 @@ function play_on_click_a(ev)
 
 function player_sync_view(x, ts)
 {
-	var t = _webshark_rtps_table[x];
+	var t = m_webshark_rtps_table[x];
 
 	if (t)
 	{
@@ -139,9 +139,9 @@ function player_find_index(tap, ts)
 
 function ws_rtp_playback_control_play_pause(wave, x)
 {
-	for (var w in _webshark_rtps_players)
+	for (var w in m_webshark_rtps_players)
 	{
-		var wv = _webshark_rtps_players[w];
+		var wv = m_webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 		{
@@ -153,9 +153,9 @@ function ws_rtp_playback_control_play_pause(wave, x)
 
 function ws_rtp_playback_control_skip(wave, x)
 {
-	for (var w in _webshark_rtps_players)
+	for (var w in m_webshark_rtps_players)
 	{
-		var wv = _webshark_rtps_players[w];
+		var wv = m_webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 			wv.skip(x);
@@ -164,9 +164,9 @@ function ws_rtp_playback_control_skip(wave, x)
 
 function ws_rtp_playback_control_speed(wave, x)
 {
-	for (var w in _webshark_rtps_players)
+	for (var w in m_webshark_rtps_players)
 	{
-		var wv = _webshark_rtps_players[w];
+		var wv = m_webshark_rtps_players[w];
 
 		if (!wave || wave == wv)
 			wv.setPlaybackRate(x);
@@ -273,10 +273,10 @@ exports.ws_rtp_playback_control_create = ws_rtp_playback_control_create;
 
 exports.set_in_table = function(rtp_str, arr)
 {
-	_webshark_rtps_table[rtp_str] = arr;
+	m_webshark_rtps_table[rtp_str] = arr;
 };
 
 exports.get_from_name = function(rtp_str)
 {
-	return _webshark_rtps_players_name[rtp_str];
+	return m_webshark_rtps_players_name[rtp_str];
 };

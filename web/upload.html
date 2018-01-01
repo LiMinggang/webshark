@@ -12,9 +12,9 @@
 	<script src="js/webshark-app.js" type="text/javascript"></script>
 
 	<script type="text/javascript">
-		var _webshark_url = '/webshark/json?';
+		var g_webshark_url = '/webshark/json?';
 
-		var SIZE_LIMIT = 10 * 1024 * 1024; /* 10 MB */
+		var g_SIZE_LIMIT = 10 * 1024 * 1024; /* 10 MB */
 
 		function form_upload(ev)
 		{
@@ -29,9 +29,9 @@
 
 			var f = files[0];
 
-			if (f.size >= SIZE_LIMIT)
+			if (f.size >= g_SIZE_LIMIT)
 			{
-				stat.innerHTML = 'Limit is ' + SIZE_LIMIT + '. Select other file';
+				stat.innerHTML = 'Limit is ' + g_SIZE_LIMIT + '. Select other file';
 				ev.preventDefault();
 				return;
 			}
