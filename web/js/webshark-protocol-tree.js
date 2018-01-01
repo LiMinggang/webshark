@@ -37,12 +37,11 @@ function webshark_tree_sync(subtree)
 	}
 }
 
-function webshark_tree_on_click(ev)
+function webshark_tree_on_click(clicked_tree_node)
 {
 	var tree_node;
-	var node;
 
-	tree_node = window.webshark.dom_find_node_attr(ev.target, 'data_ws_subtree');
+	tree_node = window.webshark.dom_find_node_attr(clicked_tree_node, 'data_ws_subtree');
 	if (tree_node)
 	{
 		var subtree = tree_node.data_ws_subtree;
@@ -55,29 +54,6 @@ function webshark_tree_on_click(ev)
 	}
 }
 
-function webshark_node_on_click(that, ev)
-{
-	var node;
-
-	node = window.webshark.dom_find_node_attr(ev.target, 'data_ws_node');
-	if (node != null)
-	{
-		if (that.selected_field == node)
-			webshark_tree_on_click(ev);
-
-		/* unselect previous */
-		if (that.selected_field != null)
-			that.selected_field.classList.remove("selected");
-
-		if (that.onFieldSelect)
-			that.onFieldSelect(node.data_ws_node);
-
-		/* select new */
-		that.selected_field = node;
-		node.classList.add('selected');
-	}
-}
-
 function ProtocolTree(opts)
 {
 	this.selected_field = null;
@@ -86,9 +62,25 @@ function ProtocolTree(opts)
 	this.elem = document.getElementById(opts.contentId);
 }
 
+ProtocolTree.prototype.node_on_click = function(clicked_node, field)
+{
+	if (this.selected_field == clicked_node)
+		webshark_tree_on_click(clicked_node);
+
+	/* unselect previous */
+	if (this.selected_field != null)
+		this.selected_field.classList.remove("selected");
+
+	if (this.onFieldSelect)
+		this.onFieldSelect(field);
+
+	/* select new */
+	this.selected_field = clicked_node;
+	clicked_node.classList.add('selected');
+};
+
 ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 {
-	var that = this;
 	var ul = document.createElement("ul");
 
 	for (var i = 0; i < tree.length; i++)
@@ -134,12 +126,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			finfo['p_ds'] = proto_tree['ds'];
 		}
 
-		li.data_ws_node = finfo;
-		li.addEventListener("click",
-			function (ev)
-			{
-				webshark_node_on_click(that, ev);
-			});
+		li.addEventListener("click", this.node_on_click.bind(this, li, finfo));
 
 		li.style['padding-left'] = (level * m_PROTO_TREE_PADDING_PER_LEVEL) + "px";
 
@@ -151,10 +138,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			filter_a.setAttribute("style", "float: right;");
 			filter_a.setAttribute("href", window.webshark.webshark_get_url() + "&filter=" + encodeURIComponent(finfo['f']));
 			filter_a.addEventListener("click", window.webshark.popup_on_click_a);
-			/*
-			filter_a.data_ws_filter = finfo['f'];
-			filter_a.addEventListener("click", window.webshark.webshark_tap_row_on_click);
-			*/
+			/* filter_a.addEventListener("click", webshark_tap_row_on_click_filter.bind(null, finfo['f'])); */
 
 			var glyph = m_webshark_symbols_module.webshark_glyph_img('filter', 12);
 			glyph.setAttribute('alt', 'Filter: ' + finfo['f']);
@@ -197,7 +181,7 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			li.data_ws_subtree = { ett: finfo['e'], expanded: ett_expanded, tree: subtree, exp: img_expanded, col: img_collapsed };
 
 			webshark_tree_sync(li.data_ws_subtree);
-			expander.addEventListener("click", webshark_tree_on_click);
+			expander.addEventListener("click", webshark_tree_on_click.bind(null, li));
 		}
 	}
 

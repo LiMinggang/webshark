@@ -1039,18 +1039,18 @@ function webshark_load_follow(follow, filter)
 					var f_no = p[i]['n'];
 					var f_server = (p[i]['s'] != undefined);
 
+					var load_frame_func = webshark_load_frame.bind(null, f_no, true);
+
 					var pre = document.createElement('pre');
 					pre.appendChild(document.createTextNode('Frame #' + f_no + ': ' + (f_server ? server_to_client_string_tag : client_to_server_string_tag) +' (' + f_txt.length+ ' bytes)'));
 					pre.className = 'follow_frame_no';
-					pre.data_ws_frame = f_no;
-					pre.addEventListener("click", webshark_frame_goto);
+					pre.addEventListener("click", load_frame_func);
 					div.appendChild(pre);
 
 					var pre = document.createElement('pre');
 					pre.appendChild(document.createTextNode(f_txt));
 					pre.className = f_server ? 'follow_server_tag' : 'follow_client_tag';
-					pre.data_ws_frame = f_no;
-					pre.addEventListener("click", webshark_frame_goto);
+					pre.addEventListener("click", load_frame_func);
 					div.appendChild(pre);
 				}
 			}
@@ -1079,7 +1079,6 @@ exports.webshark_get_base_url = webshark_get_base_url;
 exports.webshark_get_url = webshark_get_url;
 exports.webshark_frame_goto = webshark_frame_goto;
 exports.webshark_load_frame = webshark_load_frame;
-exports.popup = popup;
 exports.popup_on_click_a = popup_on_click_a;
 
 exports.dom_create_label = dom_create_label;

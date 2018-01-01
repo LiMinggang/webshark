@@ -20,19 +20,14 @@
 
 		var g_selected_option = null;
 
-		function option_row_on_click(ev)
+		function option_row_on_click(option_node)
 		{
-			var option_node = window.webshark.dom_find_node_attr(ev.target, 'ws_option');
+			if (g_selected_option != null)
+				g_selected_option.classList.remove("selected");
 
-			if (option_node != null)
-			{
-				if (g_selected_option != null)
-					g_selected_option.classList.remove("selected");
-
-				/* select new */
-				option_node.classList.add("selected");
-				g_selected_option = option_node;
-			}
+			/* select new */
+			option_node.classList.add("selected");
+			g_selected_option = option_node;
 		}
 
 		function option_create_row_html(option, row)
@@ -130,8 +125,7 @@
 			}
 			tr.appendChild(td);
 
-			tr.ws_option = 'true';
-			tr.addEventListener("click", option_row_on_click);
+			tr.addEventListener("click", option_row_on_click.bind(null, tr));
 
 			return tr;
 		}

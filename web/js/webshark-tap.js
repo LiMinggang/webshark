@@ -38,63 +38,29 @@ function prec_trunc(x, num)
 	return Math.round(xnum) / x;
 }
 
-function webshark_tap_row_on_click(ev)
+function webshark_tap_row_on_click_common_select(node)
 {
-	var node;
-	var action = null;
+	if (m_prev_tap_selected_on_click)
+		m_prev_tap_selected_on_click.classList.remove("selected");
 
-	node = window.webshark.dom_find_node_attr(ev.target, 'data_wlan_details');
-	if (node != null)
-		action = 'data_wlan_details';
+	node.classList.add("selected");
+	m_prev_tap_selected_on_click = node;
+}
 
-	if (action == null)
-	{
-		node = window.webshark.dom_find_node_attr(ev.target, 'data_ws_analyse');
-		if (node != null)
-			action = 'data_ws_analyse';
-	}
+function webshark_tap_row_on_click_analyse(node, anal)
+{
+	webshark_tap_row_on_click_common_select(node);
 
-	if (action == null)
-	{
-		node = window.webshark.dom_find_node_attr(ev.target, 'data_ws_filter');
-		if (node != null)
-			action = 'data_ws_filter';
-	}
-
-	if (action == null)
-	{
-		var node_rtp = window.webshark.dom_find_node_attr(ev.target, 'data_ws_rtp_name');
-		node = window.webshark.dom_find_node_attr(ev.target, 'data_ws_rtp_pos');
-
-		if (node && node_rtp)
+	var tap_req =
 		{
-			var rtp_str = node_rtp['data_ws_rtp_name'];
+			req: 'tap',
+			capture: g_webshark_file,
+			tap0: anal
+		};
 
-			var wave = m_webshark_rtp_player_module.get_from_name(rtp_str);
-			if (wave)
-			{
-				var pos = node['data_ws_rtp_pos'] / wave.getDuration();
-				wave.seekAndCenter(pos);
-			}
-
-			/* wavesurfer seek callback will take care about highlighting */
-			return;
-		}
-	}
-
-	if (node != null)
-	{
-		if (m_prev_tap_selected_on_click)
-			m_prev_tap_selected_on_click.classList.remove("selected");
-
-		node.classList.add("selected");
-		m_prev_tap_selected_on_click = node;
-
-		if (action == 'data_wlan_details')
+	window.webshark.webshark_json_get(tap_req,
+		function(data)
 		{
-			var details = node['data_wlan_details'][0];
-			var item    = node['data_wlan_details'][1];
-
 			var tap_table = document.getElementById('ws_tap_table');
 			var tap_extra = document.getElementById('ws_tap_details');
 
@@ -105,57 +71,61 @@ function webshark_tap_row_on_click(ev)
 			tap_table.id = '';
 			tap_extra.id = 'ws_tap_table';
 
-			data =
-				{
-					type: 'fake-wlan-details',
-					items: details,
-					orig_item: item
-				};
-			webshark_render_tap(data);
+			for (var i = 0; i < data['taps'].length - 1; i++)
+				webshark_render_tap(data['taps'][i]);
 
 			tap_table.id = 'ws_tap_table';
 			tap_extra.id = 'ws_tap_details';
-		}
+		});
+}
 
-		if (action == 'data_ws_analyse')
+function webshark_tap_row_on_click_filter(node, filter)
+{
+	webshark_tap_row_on_click_common_select(node);
+
+	document.getElementById('ws_packet_list_view').style.display = 'block';
+	g_webshark.setFilter(filter);
+}
+
+function webshark_tap_row_on_click_wlan(node, data_wlan_details)
+{
+	webshark_tap_row_on_click_common_select(node);
+
+	var details = data_wlan_details[0];
+	var item    = data_wlan_details[1];
+
+	var tap_table = document.getElementById('ws_tap_table');
+	var tap_extra = document.getElementById('ws_tap_details');
+
+	tap_extra.style.display = 'block';
+	tap_extra.innerHTML = "";
+
+	/* XXX< hacky, add parameters to webshark_render_tap() */
+	tap_table.id = '';
+	tap_extra.id = 'ws_tap_table';
+
+	var data =
 		{
-			var anal = node['data_ws_analyse'];
+			type: 'fake-wlan-details',
+			items: details,
+			orig_item: item
+		};
 
-			var tap_req =
-				{
-					req: 'tap',
-					capture: g_webshark_file,
-					tap0: anal
-				};
+	webshark_render_tap(data);
 
-			window.webshark.webshark_json_get(tap_req,
-				function(data)
-				{
-					var tap_table = document.getElementById('ws_tap_table');
-					var tap_extra = document.getElementById('ws_tap_details');
+	tap_table.id = 'ws_tap_table';
+	tap_extra.id = 'ws_tap_details';
+}
 
-					tap_extra.style.display = 'block';
-					tap_extra.innerHTML = "";
+function webshark_tap_row_on_click_rtp(node, rtp_str, rtp_pos)
+{
+	/* don't call webshark_tap_row_on_click_common_select() wavesurfer seek callback will take care about highlighting */
 
-					/* XXX< hacky, add parameters to webshark_render_tap() */
-					tap_table.id = '';
-					tap_extra.id = 'ws_tap_table';
-
-					for (var i = 0; i < data['taps'].length - 1; i++)
-						webshark_render_tap(data['taps'][i]);
-
-					tap_table.id = 'ws_tap_table';
-					tap_extra.id = 'ws_tap_details';
-				});
-		}
-
-		if (action == 'data_ws_filter')
-		{
-			var filter = node['data_ws_filter'];
-			document.getElementById('ws_packet_list_view').style.display = 'block';
-
-			g_webshark.setFilter(filter);
-		}
+	var wave = m_webshark_rtp_player_module.get_from_name(rtp_str);
+	if (wave)
+	{
+		var pos = rtp_pos / wave.getDuration();
+		wave.seekAndCenter(pos);
 	}
 }
 
@@ -368,23 +338,26 @@ function webshark_create_tap_table_data_common(fields, table, data)
 
 		if (val['_wlan_extra_data'] != undefined)
 		{
-			tr.data_wlan_details = val['_wlan_extra_data'];
-			tr.addEventListener("click", webshark_tap_row_on_click);
+			tr.addEventListener("click", webshark_tap_row_on_click_wlan.bind(null, tr, val['_wlan_extra_data']));
 		}
 		else if (val['_rtp_goto'] != undefined)
 		{
-			tr.data_ws_rtp_pos = val['_rtp_goto'];
-			tr.addEventListener("click", webshark_tap_row_on_click);
+			var node_rtp = window.webshark.dom_find_node_attr(table, 'data_ws_rtp_name');
+
+			if (node_rtp)
+			{
+				var rtp_str = node_rtp['data_ws_rtp_name'];
+
+				tr.addEventListener("click", webshark_tap_row_on_click_rtp.bind(null, tr, rtp_str, val['_rtp_goto']));
+			}
 		}
 		else if (val['_analyse'])
 		{
-			tr.data_ws_analyse = val['_analyse'];
-			tr.addEventListener("click", webshark_tap_row_on_click);
+			tr.addEventListener("click", webshark_tap_row_on_click_analyse.bind(null, tr, val['_analyse']));
 		}
 		else if (val['_filter'])
 		{
-			tr.data_ws_filter = val['_filter'];
-			tr.addEventListener("click", webshark_tap_row_on_click);
+			tr.addEventListener("click", webshark_tap_row_on_click_filter.bind(null, tr, val['_filter']));
 		}
 
 		table.appendChild(tr);

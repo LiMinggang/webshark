@@ -54,12 +54,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 				a.setAttribute("target", "_blank");
 				a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + fnum);
-				a.addEventListener("click",
-					function(ev)
-					{
-						window.webshark.popup(window.webshark.webshark_get_url() + "&frame=" + fnum);
-						ev.preventDefault();
-					});
+				a.addEventListener("click", window.webshark.popup_on_click_a);
 
 				td.appendChild(a);
 			}
@@ -100,11 +95,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 	tr.id = 'packet-list-frame-' + fnum;
 	tr.data_ws_frame = fnum;
-	tr.addEventListener("click",
-		function (ev)
-		{
-			window.webshark.webshark_load_frame(fnum, false);
-		});
+	tr.addEventListener("click", window.webshark.webshark_load_frame.bind(null, fnum, false));
 
 	return tr;
 }
