@@ -20,9 +20,9 @@
 		var g_webshark_on_frame_change = null;
 		var g_webshark_prototree_html = null;
 		var g_webshark_hexdump_html = null;
-		var g_webshark_interval_mode = "";
 		var g_webshark = null;
 		var g_webshark_packet_list = null;
+		var g_webshark_interval = null;
 
 		var g_webshark_files = null;
 		var g_webshark_display_filter = null;
@@ -337,10 +337,10 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			}
 		}
 
-		function render_interval(mode)
+		function render_interval(new_mode)
 		{
-			g_webshark_interval_mode = mode;
-			window.webshark.webshark_render_interval();
+			g_webshark_interval.mode = new_mode;
+			g_webshark_interval.render_interval();
 		}
 
 		function bytes_display_base(new_base)
@@ -374,12 +374,16 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function load()
 		{
-			g_webshark_interval_mode = "bps";
-
 			g_webshark_files = new window.webshark.WSCaptureFilesTable({
 				scrollId: 'capture_files_view',
 				contentId: 'capture_files',
 				fileDetailsId: 'capture_files_view_details'
+			});
+
+			g_webshark_interval = new window.webshark.WSInterval({
+				contentId: 'capture_interval',
+				mode: "bps",
+				width: 620 /* number of probes - currently size of svg */
 			});
 
 			g_webshark_packet_list = new window.webshark.WSPacketList({

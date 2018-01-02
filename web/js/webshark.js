@@ -22,13 +22,10 @@ var m_webshark_display_filter_module = require('./webshark-display-filter.js');
 var m_webshark_packet_list_module = require("./webshark-packet-list.js");
 var m_webshark_protocol_tree_module = require("./webshark-protocol-tree.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
+var m_webshark_interval_module = require("./webshark-interval.js");
 var m_webshark_preferences_module = require("./webshark-preferences.js");
 var m_webshark_tap_module = require("./webshark-tap.js");
 var m_webshark_symbols_module = require("./webshark-symbols.js");
-
-var m_webshark_interval = null;
-var m_webshark_interval_scale = null;
-var m_webshark_interval_filter = null;
 
 var m_webshark_current_frame = 0;
 
@@ -39,7 +36,6 @@ function Webshark()
 	this.filter = null;
 
 	this.fetch_columns_limit = 120;
-	this.interval_count = 620; /* XXX, number of probes - currently size of svg */
 
 	this.ref_frames = [ ];
 	this.cached_columns = [ ];
@@ -169,12 +165,14 @@ Webshark.prototype.update = function()
 		req_intervals['filter'] = this.filter;
 
 	/* XXX, webshark.load() is not called for taps/ single frames/ ... */
-	if (this.status)
+	if (g_webshark_interval && this.status)
 	{
-		m_webshark_interval_scale = Math.round(this.status.duration / this.interval_count);
-		if (m_webshark_interval_scale < 1)
-			m_webshark_interval_scale = 1;
-		req_intervals['interval'] = 1000 * m_webshark_interval_scale;
+		g_webshark_interval.setDuration(this.status.duration);
+		req_intervals['interval'] = 1000 * g_webshark_interval.getScale();
+	}
+	else
+	{
+		req_intervals['interval'] = 1000 * 60 * 60 * 24;  /* XXX, if interval is not created we don't really care about result data. There is no easy way to get information about number of frames after filtering ;( */
 	}
 
 	var that = this;
@@ -183,20 +181,8 @@ Webshark.prototype.update = function()
 	webshark_json_get(req_intervals,
 		function(data)
 		{
-			if (that.filter)
-			{
-				m_webshark_interval_filter = data;
-			}
-			else
-			{
-				m_webshark_interval = data;
-				m_webshark_interval_filter = null; /* render only main */
-			}
-
-			/* XXX, broken */
-			try {
-				webshark_render_interval();
-			} catch(ex) { }
+			if (g_webshark_interval && that.status)
+				g_webshark_interval.setResult(that.filter, data);
 
 			that.cached_columns = [ ];
 			that.cached_columns.length = data['frames'];
@@ -785,72 +771,6 @@ function webshark_frame_goto(ev)
 	ev.preventDefault();
 }
 
-function webshark_render_interval()
-{
-	var intervals_data   = m_webshark_interval ? m_webshark_interval['intervals'] : null;
-	var intervals_filter = m_webshark_interval_filter ? m_webshark_interval_filter['intervals'] : null;
-	var intervals_full = [ ];
-
-	var last_one  = m_webshark_interval ? m_webshark_interval['last'] : m_webshark_interval_filter['last'];
-	var color_arr = [ 'steelblue' ];
-
-	var count_idx =
-		(g_webshark_interval_mode == "bps") ? 2 :
-		(g_webshark_interval_mode == "fps") ? 1 :
-		-1;
-
-	if (count_idx == -1)
-		return;
-
-	for (var i = 0; i <= last_one; i++)
-		intervals_full[i] = [ (i * m_webshark_interval_scale), 0, 0 ];
-
-	if (intervals_data)
-	{
-		for (var i = 0; i < intervals_data.length; i++)
-		{
-			var idx = intervals_data[i][0];
-			intervals_full[idx][1] += intervals_data[i][count_idx];
-		}
-	}
-
-	if (intervals_filter)
-	{
-		for (var i = 0; i < intervals_filter.length; i++)
-		{
-			var idx = intervals_filter[i][0];
-			intervals_full[idx][2] += intervals_filter[i][count_idx];
-		}
-
-		color_arr = [ '#ddd', 'steelblue' ]; /* grey out 'main interval', highlight 'filtered interval' */
-	}
-
-	/* TODO, put mark of current packet (m_webshark_current_frame) */
-
-	var svg = d3.select("body").append("svg").remove();
-
-	webshark_d3_chart(svg, intervals_full,
-	{
-		width: 620, height: 100,
-		margin: {top: 0, right: 10, bottom: 20, left: 40},
-
-		xrange: [ 0, (last_one * m_webshark_interval_scale) ],
-
-		getX: function(d) { return d[0]; },
-
-		unit1: 'k',
-		series3:
-		[
-			function(d) { return d[1]; },
-			function(d) { return d[2]; }
-		],
-
-		color: color_arr
-	});
-
-	dom_set_child(document.getElementById('capture_interval'), svg.node());
-}
-
 function webshark_on_field_select_highlight_bytes(node)
 {
 	var hls = [ ];
@@ -1068,6 +988,7 @@ exports.ProtocolTree = m_webshark_protocol_tree_module.ProtocolTree;
 exports.Hexdump = m_webshark_hexdump_module.Hexdump;
 exports.WSCaptureFilesTable = m_webshark_capture_files_module.WSCaptureFilesTable;
 exports.WSDisplayFilter = m_webshark_display_filter_module.WSDisplayFilter;
+exports.WSInterval = m_webshark_interval_module.WSInterval;
 exports.WSPacketList = m_webshark_packet_list_module.WSPacketList;
 exports.WSPreferencesTable = m_webshark_preferences_module.WSPreferencesTable;
 exports.webshark_load_tap = m_webshark_tap_module.webshark_load_tap;
@@ -1087,7 +1008,6 @@ exports.dom_create_label = dom_create_label;
 exports.dom_set_child = dom_set_child;
 exports.dom_find_node_attr = dom_find_node_attr;
 
-exports.webshark_render_interval = webshark_render_interval;
 exports.webshark_d3_chart = webshark_d3_chart;
 
 exports.webshark_load_follow = webshark_load_follow;
