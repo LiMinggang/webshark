@@ -48,8 +48,8 @@ function Hexdump(opts)
 {
 	this.datas = null;
 	this.active= -1;
-	this.base  = opts.base;
-	this.elem  = document.getElementById(opts.contentId);
+	this.base  = opts['base'];
+	this.elem  = document.getElementById(opts['contentId']);
 
 	this.highlights = [ ];
 }

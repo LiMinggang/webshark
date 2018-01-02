@@ -103,14 +103,14 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 
 function WSPacketList(opts)
 {
-	this.headerElem = document.getElementById(opts.headerId);
+	this.headerElem = document.getElementById(opts['headerId']);
 
 	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
 		rows_in_block: 25,
 		tag: 'tr',
-		scrollId: opts.scrollId,
-		contentId: opts.contentId
+		scrollId: opts['scrollId'],
+		contentId: opts['contentId']
 	});
 
 	this.cluster.options.callbacks.createHTML = webshark_create_frame_row_html;

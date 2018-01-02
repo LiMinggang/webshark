@@ -32,8 +32,8 @@ function WSPreferencesTable(opts)
 		rows: [],
 		rows_in_block: 50,
 		tag: 'tr',
-		scrollId: opts.scrollId,
-		contentId: opts.contentId
+		scrollId: opts['scrollId'],
+		contentId: opts['contentId']
 	});
 
 	this.cluster.options.callbacks.createHTML = function(option, row)

@@ -104,7 +104,7 @@ function WSDisplayFilter(opts)
 {
 	var that = this;
 
-	this.elem = document.getElementById(opts.contentId);
+	this.elem = document.getElementById(opts['contentId']);
 
 	this.complete = new m_webshark_awesomplete_module(this.elem,
 		{

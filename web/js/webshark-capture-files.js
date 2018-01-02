@@ -105,11 +105,11 @@ function WSCaptureFilesTable(opts)
 		rows: [],
 		rows_in_block: 50,
 		tag: 'tr',
-		scrollId: opts.scrollId,
-		contentId: opts.contentId
+		scrollId: opts['scrollId'],
+		contentId: opts['contentId']
 	});
 
-	this.fileDetails = document.getElementById(opts.fileDetailsId);
+	this.fileDetails = document.getElementById(opts['fileDetailsId']);
 };
 
 function WSCaptureFilesTable_filter_files(files, filter)

@@ -59,7 +59,7 @@ function ProtocolTree(opts)
 	this.selected_field = null;
 	this.tree = null;
 	this.field_filter = null;
-	this.elem = document.getElementById(opts.contentId);
+	this.elem = document.getElementById(opts['contentId']);
 }
 
 ProtocolTree.prototype.node_on_click = function(clicked_node, field)
