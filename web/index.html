@@ -382,6 +382,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			g_webshark_interval = new window.webshark.WSInterval({
 				contentId: 'capture_interval',
+				descrId: 'capture_interval_descr',
 				mode: "bps",
 				width: 620 /* number of probes - currently size of svg */
 			});
@@ -541,10 +542,15 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		</ul>
 		</div>
 		<div style="float: right; border: 1px solid grey;">
-			<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
-			<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
 			<div id="capture_interval" style="margin-top: 2px;">
 				<svg width="620" height="100"></svg>
+			</div>
+			<div style="float: left;">
+				<span style="font-size: 12px;" id="capture_interval_descr"><!---Displaying XXX frames out of YYY.--></span>
+			</div>
+			<div style="float: right;">
+				<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
+				<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
 			</div>
 		</div>
 		<div style="clear: both;"></div>

@@ -23,6 +23,7 @@ function WSInterval(opts)
 	this.interval_count = opts['width'];
 
 	this.elem = document.getElementById(opts['contentId']);
+	this.descr_elem = document.getElementById(opts['descrId']);
 
 	this.interval = null;
 	this.interval_filter = null;
@@ -124,6 +125,30 @@ WSInterval.prototype.render_interval = function()
 	});
 
 	window.webshark.dom_set_child(this.elem, svg.node());
+
+	this.descr_elem.innerHTML = this.create_description();
+};
+
+WSInterval.prototype.create_description = function()
+{
+	var descr = "";
+
+	if (this.interval_filter && this.interval)
+	{
+		var perc100 = Math.floor(100 * (this.interval_filter['frames'] / this.interval['frames']) * 100);
+
+		descr = 'Displaying ' + this.interval_filter['frames'] + ' out of ' + this.interval['frames'] + ' frames (' + (perc100 / 100) + '%)';
+	}
+	else if (this.interval)
+	{
+		descr = 'Displaying all ' + this.interval['frames'] + ' frames';
+	}
+	else if (this.interval_filter)
+	{
+		descr = 'Displaying filtered ' + this.interval_filter['frames'] + ' frames';
+	}
+
+	return descr;
 };
 
 exports.WSInterval = WSInterval;
