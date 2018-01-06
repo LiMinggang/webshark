@@ -19,7 +19,7 @@
 		var g_webshark_url = '/webshark/json?';
 		var g_webshark_on_frame_change = null;
 		var g_webshark_prototree_html = null;
-		var g_webshark_hexdump_html = null;
+		var g_webshark_hexdump = null;
 		var g_webshark = null;
 		var g_webshark_packet_list = null;
 		var g_webshark_interval = null;
@@ -351,8 +351,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function bytes_display_base(new_base)
 		{
-			g_webshark_hexdump_html.base = new_base;
-			g_webshark_hexdump_html.render_hexdump();
+			g_webshark_hexdump.base = new_base;
+			g_webshark_hexdump.render_hexdump();
 
 			if (new_base != 2)
 				document.getElementById('packet_display_base_2').classList.remove('selected');
@@ -409,8 +409,9 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				contentId: 'ws_packet_detail_view'
 			});
 
-			g_webshark_hexdump_html = new window.webshark.Hexdump({
+			g_webshark_hexdump = new window.webshark.WSHexdump({
 				base: 16,
+				tabsId: 'ws_packet_pane',
 				contentId: 'ws_bytes_dump'
 			});
 

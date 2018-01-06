@@ -44,17 +44,69 @@ function xtoa(hex, pad)
 	return str;
 }
 
-function Hexdump(opts)
+function WSHexdump(opts)
 {
 	this.datas = null;
 	this.active= -1;
 	this.base  = opts['base'];
-	this.elem  = document.getElementById(opts['contentId']);
+
+	this.elem      = document.getElementById(opts['contentId']);
+	this.tabs_elem = document.getElementById(opts['tabsId']);
 
 	this.highlights = [ ];
+	this.tabs_btns = [ ];
 }
 
-Hexdump.prototype.render_hexdump = function()
+WSHexdump.prototype.switch_tab = function(new_active, do_render)
+{
+	var prev_active = this.active;
+	var btn;
+
+	if (prev_active == new_active)
+		return;
+
+	this.active = new_active;
+	if (do_render)
+		this.render_hexdump();
+
+
+	btn = this.tabs_btns[prev_active];
+	if (btn)
+		btn.classList.remove('selected');
+
+	btn = this.tabs_btns[new_active];
+	if (btn)
+		btn.classList.add('selected');
+};
+
+WSHexdump.prototype.create_tabs = function(datas, names)
+{
+	this.datas = datas;
+
+
+	this.tabs_btns = [ ];
+	this.tabs_elem.innerHTML = '';
+
+//	if (names.length <= 1)
+//		return;
+
+	for (var i = 0; i < names.length; i++)
+	{
+		var btn = document.createElement('button');
+
+		btn.className = 'wsbutton';
+		if (i == 0)
+			btn.classList.add('selected');
+		btn.appendChild(document.createTextNode(names[i]));
+
+		btn.addEventListener("click", this.switch_tab.bind(this, i, true));
+
+		this.tabs_btns.push(btn);
+		this.tabs_elem.appendChild(btn);
+	}
+};
+
+WSHexdump.prototype.render_hexdump = function()
 {
 	var s, line;
 
@@ -146,5 +198,5 @@ Hexdump.prototype.render_hexdump = function()
 	this.elem.innerHTML = s;
 };
 
-exports.Hexdump = Hexdump;
+exports.WSHexdump = WSHexdump;
 exports.xtoa = xtoa;

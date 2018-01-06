@@ -771,28 +771,6 @@ function webshark_frame_goto(ev)
 	ev.preventDefault();
 }
 
-function webshark_hexump_switch_tab(new_active, do_render)
-{
-	var prev_active = g_webshark_hexdump_html.active;
-	var btn;
-
-	if (prev_active == new_active)
-		return;
-
-	g_webshark_hexdump_html.active = new_active;
-	if (do_render)
-		g_webshark_hexdump_html.render_hexdump();
-
-
-	btn = document.getElementById('ws_bytes' + prev_active);
-	if (btn)
-		btn.classList.remove('selected');
-
-	btn = document.getElementById('ws_bytes' + new_active);
-	if (btn)
-		btn.classList.add('selected');
-}
-
 function webshark_on_field_select_highlight_bytes(node)
 {
 	var hls = [ ];
@@ -816,11 +794,11 @@ function webshark_on_field_select_highlight_bytes(node)
 		hls.push({ tab: p_ds_idx, start: node['p'][0], end: (node['p'][0] + node['p'][1] ), style: 'selected_proto' });
 	}
 
-	webshark_hexump_switch_tab(ds_idx, false);
+	g_webshark_hexdump.switch_tab(ds_idx, false);
 
-	g_webshark_hexdump_html.active = ds_idx;
-	g_webshark_hexdump_html.highlights = hls;
-	g_webshark_hexdump_html.render_hexdump();
+	g_webshark_hexdump.active = ds_idx;
+	g_webshark_hexdump.highlights = hls;
+	g_webshark_hexdump.render_hexdump();
 }
 
 function webshark_load_frame(framenum, scroll_to, cols)
@@ -854,6 +832,7 @@ function webshark_load_frame(framenum, scroll_to, cols)
 	webshark_json_get(load_req,
 		function(data)
 		{
+			var bytes_names = [ ];
 			var bytes_data = [ ];
 
 			g_webshark_prototree_html.onFieldSelect = webshark_on_field_select_highlight_bytes;
@@ -887,40 +866,23 @@ function webshark_load_frame(framenum, scroll_to, cols)
 			}
 
 			bytes_data.push(window.atob(data['bytes']));
+			bytes_names.push('Frame (' + bytes_data[0].length + ' bytes)');
 
 			/* multiple data sources? */
-			var dom_ds = document.getElementById('ws_packet_pane');
-			dom_ds.innerHTML = '';
 			if (data['ds'])
 			{
-				var names = [ 'Frame (' + bytes_data[0].length + ' bytes)' ];
-
 				for (var i = 0; i < data['ds'].length; i++)
 				{
-					names.push(data['ds'][i]['name']);
 					bytes_data.push(window.atob(data['ds'][i]['bytes']));
-				}
-
-				for (var i = 0; i < names.length; i++)
-				{
-					var btn = document.createElement('button');
-
-					btn.setAttribute('id', 'ws_bytes' + i);
-					btn.className = 'wsbutton';
-					if (i == 0)
-						btn.classList.add('selected');
-
-					btn.addEventListener("click", webshark_hexump_switch_tab.bind(null, i, true));
-
-					btn.appendChild(document.createTextNode(names[i]));
-					dom_ds.appendChild(btn);
+					bytes_names.push(data['ds'][i]['name']);
 				}
 			}
 
-			g_webshark_hexdump_html.datas = bytes_data;
-			g_webshark_hexdump_html.active = 0;
-			g_webshark_hexdump_html.highlights = [ ];
-			g_webshark_hexdump_html.render_hexdump();
+			g_webshark_hexdump.create_tabs(bytes_data, bytes_names);
+
+			g_webshark_hexdump.active = 0;
+			g_webshark_hexdump.highlights = [ ];
+			g_webshark_hexdump.render_hexdump();
 
 			if (g_webshark_on_frame_change != null)
 			{
@@ -996,9 +958,9 @@ function webshark_load_follow(follow, filter)
 }
 
 exports.ProtocolTree = m_webshark_protocol_tree_module.ProtocolTree;
-exports.Hexdump = m_webshark_hexdump_module.Hexdump;
 exports.WSCaptureFilesTable = m_webshark_capture_files_module.WSCaptureFilesTable;
 exports.WSDisplayFilter = m_webshark_display_filter_module.WSDisplayFilter;
+exports.WSHexdump = m_webshark_hexdump_module.WSHexdump;
 exports.WSInterval = m_webshark_interval_module.WSInterval;
 exports.WSPacketList = m_webshark_packet_list_module.WSPacketList;
 exports.WSPreferencesTable = m_webshark_preferences_module.WSPreferencesTable;
