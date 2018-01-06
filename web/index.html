@@ -341,12 +341,24 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		{
 			g_webshark_interval.mode = new_mode;
 			g_webshark_interval.render_interval();
+
+			if (new_mode != 'fps')
+				document.getElementById('capture_interval_fps').classList.remove('selected');
+			if (new_mode != 'bps')
+				document.getElementById('capture_interval_bps').classList.remove('selected');
+			document.getElementById('capture_interval_' + new_mode).classList.add('selected');
 		}
 
 		function bytes_display_base(new_base)
 		{
 			g_webshark_hexdump_html.base = new_base;
 			g_webshark_hexdump_html.render_hexdump();
+
+			if (new_base != 2)
+				document.getElementById('packet_display_base_2').classList.remove('selected');
+			if (new_base != 16)
+				document.getElementById('packet_display_base_16').classList.remove('selected');
+			document.getElementById('packet_display_base_' + new_base).classList.add('selected');
 		}
 
 		function show_hide_menu(id, id2)
@@ -549,8 +561,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				<span style="font-size: 12px;" id="capture_interval_descr"><!---Displaying XXX frames out of YYY.--></span>
 			</div>
 			<div style="float: right;">
-				<input type="radio" name="interval_mode" onchange="render_interval('bps')" value="bps" checked="checked"> bytes/seconds
-				<input type="radio" name="interval_mode" onchange="render_interval('fps')" value="fps"> frames/seconds
+				<button id="capture_interval_bps" class="wsbutton selected" onclick="render_interval('bps')">Bytes</button>
+				<button id="capture_interval_fps" class="wsbutton" onclick="render_interval('fps')">Frames</button>
 			</div>
 		</div>
 		<div style="clear: both;"></div>
@@ -586,9 +598,12 @@ Select frame
 	</div>
 
 	<div id="ws_packet_bytes_view" style='overflow: auto; width: 100%; height: 200px; border: 2px solid grey; float: right;'>
-		<div id="ws_packet_pane" style="float: right;"></div>
-		<input type="radio" name="bytes_mode" onchange="bytes_display_base(16)" value="16" checked="checked"> Hex view
-		<input type="radio" name="bytes_mode" onchange="bytes_display_base(2)" value="2"> Bits view
+		<div id="ws_packet_pane" style="float: left;"></div>
+		<div style="float: right;">
+			<button id="packet_display_base_16" class="wsbutton selected" onclick="bytes_display_base(16)">Hex</button>
+			<button id="packet_display_base_2"  class="wsbutton" onclick="bytes_display_base(2)">Bits</button>
+		</div>
+		<div style="clear: both;"></div>
 		<pre id='ws_bytes_dump'>Select frame</pre>
 	</div>
 

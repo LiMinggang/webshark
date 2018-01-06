@@ -12,7 +12,20 @@ body { background-color: #F8F8F8; margin: 0; }
 	background-color: #d8F8F8;
 }
 
-tr.selected
+.wsbutton
+{
+	border: none;
+	padding: 4px 12px;
+	text-align: center;
+	text-decoration: none;
+	display: inline-block;
+
+	float: left;
+	font-size: 12px;
+	background-color: #ccc;
+}
+
+button.selected, tr.selected
 {
 	background-color: #0080FF !important;
 }

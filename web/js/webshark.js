@@ -771,6 +771,28 @@ function webshark_frame_goto(ev)
 	ev.preventDefault();
 }
 
+function webshark_hexump_switch_tab(new_active, do_render)
+{
+	var prev_active = g_webshark_hexdump_html.active;
+	var btn;
+
+	if (prev_active == new_active)
+		return;
+
+	g_webshark_hexdump_html.active = new_active;
+	if (do_render)
+		g_webshark_hexdump_html.render_hexdump();
+
+
+	btn = document.getElementById('ws_bytes' + prev_active);
+	if (btn)
+		btn.classList.remove('selected');
+
+	btn = document.getElementById('ws_bytes' + new_active);
+	if (btn)
+		btn.classList.add('selected');
+}
+
 function webshark_on_field_select_highlight_bytes(node)
 {
 	var hls = [ ];
@@ -794,9 +816,7 @@ function webshark_on_field_select_highlight_bytes(node)
 		hls.push({ tab: p_ds_idx, start: node['p'][0], end: (node['p'][0] + node['p'][1] ), style: 'selected_proto' });
 	}
 
-	var dom_tab = document.getElementById('ws_bytes' + ds_idx);
-	if (dom_tab)
-		dom_tab.click();
+	webshark_hexump_switch_tab(ds_idx, false);
 
 	g_webshark_hexdump_html.active = ds_idx;
 	g_webshark_hexdump_html.highlights = hls;
@@ -881,28 +901,19 @@ function webshark_load_frame(framenum, scroll_to, cols)
 					bytes_data.push(window.atob(data['ds'][i]['bytes']));
 				}
 
-				/* TODO: tabs like in wireshark */
 				for (var i = 0; i < names.length; i++)
 				{
-					var input = document.createElement('input');
+					var btn = document.createElement('button');
 
-					input.setAttribute('type', 'radio');
-					input.setAttribute('id', 'ws_bytes' + i);
-					input.setAttribute('name', 'ws_bytes');
-					input.setAttribute('value', "" + i);
+					btn.setAttribute('id', 'ws_bytes' + i);
+					btn.className = 'wsbutton';
 					if (i == 0)
-						input.setAttribute('checked', 'checked');
+						btn.classList.add('selected');
 
-					input.onchange = function()
-					{
-						var bytes_data = g_webshark_hexdump_html.datas;
+					btn.addEventListener("click", webshark_hexump_switch_tab.bind(null, i, true));
 
-						g_webshark_hexdump_html.active = this.value;
-						g_webshark_hexdump_html.render_hexdump();
-					};
-
-					dom_ds.appendChild(input);
-					dom_ds.appendChild(document.createTextNode(names[i]));
+					btn.appendChild(document.createTextNode(names[i]));
+					dom_ds.appendChild(btn);
 				}
 			}
 
