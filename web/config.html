@@ -37,9 +37,9 @@
 	</script>
 </head>
 
-<body onload="load()">
+<body onload="load()"><div id="ws_div">
 	<div>
-		Option filter: <input id="option_filter" type='text' oninput='run_option_filter(this)'  style='width: 600px;' />
+		<input id="option_filter" type='text' placeholder="Apply an option filter" oninput='run_option_filter(this)' style='width: 600px;' />
 	</div>
 
 	<div id="options_view" style='height: 750px; overflow: auto; border: 2px solid grey;'>
@@ -55,5 +55,5 @@
 			</tbody>
 		</table>
 	</div>
-</body>
+</div></body>
 </html>
