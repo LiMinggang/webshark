@@ -276,6 +276,19 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 					window.webshark.dom_set_child(label_span, document.createTextNode(label_str));
 				}
 
+				/* Capture file settings */
+				{
+					var pref_a = document.getElementById('toolbar_capture_settings');
+					pref_a.setAttribute("target", "_blank");
+					pref_a.setAttribute("href", "config.html?file=" + g_webshark_file);
+					pref_a.addEventListener("click", window.webshark.popup_on_click_a);
+
+					var glyph = window.webshark.webshark_glyph_img('settings', 16);
+					glyph.setAttribute('alt', 'Configure capture file');
+					glyph.setAttribute('title', 'Configure capture file');
+					window.webshark.dom_set_child(pref_a, glyph);
+				}
+
 				/* TODO: link to download ssl-sessions  */
 
 				if (opt['hide_menu'] == undefined)
@@ -528,8 +541,9 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 	<div id="toolbar_capture">
 		<div style="float: left;">
 			<a id="toolbar_capture_files"></a>
-			<a id="toolbar_capture_down"></a>
+			<a id="toolbar_capture_settings"></a>
 			<span id="toolbar_capture_description"></span>
+			<a id="toolbar_capture_down"></a>
 			<p />
 			<input id="display_filter" placeholder="Apply a display filter" type='text' onchange='set_filter(this.value);' style='width: 550px;' />
 
