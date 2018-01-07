@@ -343,6 +343,25 @@ function popup_on_click_a(ev)
 	}
 }
 
+function webshark_get_params_url()
+{
+	var query = window.location.href.split("?")[1];
+
+	var result = { };
+
+	if (query)
+	{
+		var opts = query.split("&");
+		for (var i = 0; i < opts.length; i++)
+		{
+			var arr = opts[i].split("=");
+			result[arr[0]] = decodeURIComponent(arr[1]);
+		}
+	}
+
+	return result;
+}
+
 function webshark_get_base_url()
 {
 	var base_url = window.location.href.split("?")[0];
@@ -971,6 +990,7 @@ exports.webshark_glyph_img = m_webshark_symbols_module.webshark_glyph_img;
 exports.Webshark = Webshark;
 exports.webshark_json_get = webshark_json_get;
 
+exports.webshark_get_params_url = webshark_get_params_url;
 exports.webshark_get_base_url = webshark_get_base_url;
 exports.webshark_get_url = webshark_get_url;
 exports.webshark_frame_goto = webshark_frame_goto;

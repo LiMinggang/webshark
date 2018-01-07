@@ -28,6 +28,8 @@ function WSPreferencesTable(opts)
 
 	this.selected_option = null;
 
+	this.capture_filename = opts['filename'];
+
 	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
 		rows_in_block: 50,
@@ -156,10 +158,15 @@ WSPreferencesTable.prototype.loadPrefs = function()
 {
 	var that = this;
 
-	window.webshark.webshark_json_get(
+	var dumpconf_req =
 		{
 			req: 'dumpconf'
-		},
+		};
+
+	if (this.capture_filename)
+		dumpconf_req['capture'] = this.capture_filename;
+
+	window.webshark.webshark_json_get(dumpconf_req,
 		function(data)
 		{
 			var prefs = data['prefs'];

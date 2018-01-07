@@ -23,15 +23,21 @@
 
 		function load()
 		{
+			var opt = window.webshark.webshark_get_params_url();
+
+			var webshark_file = opt['file'];
+
 			g_webshark_preferences = new window.webshark.WSPreferencesTable({
+				filename: webshark_file,
 				scrollId: 'options_view',
 				contentId: 'options_items'
 			});
 
-			// TODO: load current preferences
 			g_webshark_preferences.loadPrefs();
 
 			/* TODO: column edit */
+
+			document.title = document.title.replace("${CAPTURE_FILE}", webshark_file);
 		}
 
 	</script>

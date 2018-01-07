@@ -138,23 +138,6 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			}
 		}
 
-		function parse_query(query)
-		{
-			var result = { };
-
-			if (query)
-			{
-				var opts = query.split("&");
-				for (var i = 0; i < opts.length; i++)
-				{
-					var arr = opts[i].split("=");
-					result[arr[0]] = decodeURIComponent(arr[1]);
-				}
-			}
-
-			return result;
-		}
-
 		function set_filter(filter)
 		{
 			g_webshark.setFilter(filter);
@@ -172,7 +155,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 		function run()
 		{
-			var opt = parse_query(window.location.href.split("?")[1]);
+			var opt = window.webshark.webshark_get_params_url();
 
 			g_webshark_file = opt['file'];
 
