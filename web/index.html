@@ -16,7 +16,7 @@
 
 	<script type="text/javascript">
 		var g_webshark_file = "";
-		var g_webshark_url = '/webshark/json?';
+		var g_webshark_url = '/webshark/json';
 		var g_webshark_on_frame_change = null;
 		var g_webshark_prototree_html = null;
 		var g_webshark_hexdump = null;
@@ -129,7 +129,12 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 				a.appendChild(document.createTextNode(title));
 				a.setAttribute("target", "_blank");
-				a.setAttribute("href", window.location.href + "&tap=" + tap);
+				a.setAttribute("href", window.webshark.webshark_create_url(
+					{
+						file: g_webshark_file,
+						tap: tap
+					}));
+
 				a.setAttribute("id", "menu_tap_" + tap);
 				// a.addEventListener("click", window.webshark.popup_on_click);
 
@@ -243,7 +248,12 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				{
 					var down_a = document.getElementById('toolbar_capture_down');
 					down_a.setAttribute("target", "_blank");
-					down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=self");
+					down_a.setAttribute("href", window.webshark.webshark_create_api_url(
+						{
+							req: 'download',
+							capture: g_webshark_file,
+							token: 'self'
+						}));
 					down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 					var glyph = window.webshark.webshark_glyph_img('download', 16);

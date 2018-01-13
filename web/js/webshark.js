@@ -343,6 +343,44 @@ function popup_on_click_a(ev)
 	}
 }
 
+function webshark_params_to_uri(params)
+{
+	var req = null;
+
+	for (var r in params)
+	{
+		var creq = r + "=" + encodeURIComponent(params[r]);
+
+		if (req)
+			req = req + "&" + creq;
+		else
+			req = '?' + creq;
+	}
+
+	if (req == null)
+		req = '';
+
+	return req;
+}
+
+function webshark_create_url(params)
+{
+	var base_url = window.location.href.split("?")[0];
+
+	var str_params = webshark_params_to_uri(params);
+
+	return base_url + str_params;
+}
+
+function webshark_create_api_url(params)
+{
+	var base_url = g_webshark_url;
+
+	var str_params = webshark_params_to_uri(params);
+
+	return base_url + str_params;
+}
+
 function webshark_get_params_url()
 {
 	var query = window.location.href.split("?")[1];
@@ -360,22 +398,6 @@ function webshark_get_params_url()
 	}
 
 	return result;
-}
-
-function webshark_get_base_url()
-{
-	var base_url = window.location.href.split("?")[0];
-
-	return base_url;
-}
-
-function webshark_get_url()
-{
-	var base_url = window.location.href.split("?")[0];
-
-	var extra = '?file=' + g_webshark_file;
-
-	return base_url + extra;
 }
 
 function webshark_d3_chart(svg, data, opts)
@@ -674,21 +696,13 @@ function webshark_json_get(req_data, cb)
 {
 	var http = new XMLHttpRequest();
 
-	var req = null;
+	var url = webshark_create_api_url(req_data);
 
-	for (var r in req_data)
-	{
-		var creq = r + "=" + encodeURIComponent(req_data[r]);
-
-		if (req)
-			req = req + "&" + creq;
-		else
-			req = creq;
-	}
+	var req = JSON.stringify(req_data);
 
 	debug(3, " webshark_json_get(" + req + ") sending request");
 
-	http.open("GET", g_webshark_url + req, true);
+	http.open("GET", url, true);
 	http.onreadystatechange =
 		function()
 		{
@@ -878,7 +892,12 @@ function webshark_load_frame(framenum, scroll_to, cols)
 
 					if (it)
 					{
-						it.setAttribute("href", window.location.href + "&follow=" + fol[i][0] + '&filter=' + fol[i][1]);
+						it.setAttribute("href", webshark_create_url(
+							{
+								file: g_webshark_file,
+								follow: fol[i][0],
+								filter: fol[i][1]
+							}));
 						it.style.display = 'inline';
 					}
 				}
@@ -990,9 +1009,9 @@ exports.webshark_glyph_img = m_webshark_symbols_module.webshark_glyph_img;
 exports.Webshark = Webshark;
 exports.webshark_json_get = webshark_json_get;
 
+exports.webshark_create_url = webshark_create_url;
+exports.webshark_create_api_url = webshark_create_api_url;
 exports.webshark_get_params_url = webshark_get_params_url;
-exports.webshark_get_base_url = webshark_get_base_url;
-exports.webshark_get_url = webshark_get_url;
 exports.webshark_frame_goto = webshark_frame_goto;
 exports.webshark_load_frame = webshark_load_frame;
 exports.popup_on_click_a = popup_on_click_a;

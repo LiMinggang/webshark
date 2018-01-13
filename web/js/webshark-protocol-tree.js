@@ -109,7 +109,11 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 			a.appendChild(txt_node);
 
 			a.setAttribute("target", "_blank");
-			a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + finfo['fnum']);
+			a.setAttribute("href", window.webshark.webshark_create_url(
+				{
+					file: g_webshark_file,
+					frame: finfo['fnum']
+				}));
 			a.addEventListener("click", window.webshark.webshark_frame_goto);
 
 			a.data_ws_frame = finfo['fnum'];
@@ -136,7 +140,11 @@ ProtocolTree.prototype.create_subtree = function(tree, proto_tree, level)
 
 			filter_a.setAttribute("target", "_blank");
 			filter_a.setAttribute("style", "float: right;");
-			filter_a.setAttribute("href", window.webshark.webshark_get_url() + "&filter=" + encodeURIComponent(finfo['f']));
+			filter_a.setAttribute("href", window.webshark.webshark_create_url(
+				{
+					file: g_webshark_file,
+					filter: finfo['f']
+				}));
 			filter_a.addEventListener("click", window.webshark.popup_on_click_a);
 			/* filter_a.addEventListener("click", webshark_tap_row_on_click_filter.bind(null, finfo['f'])); */
 

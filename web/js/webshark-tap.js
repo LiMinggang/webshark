@@ -373,7 +373,11 @@ function webshark_create_tap_action_common(data)
 		var anal_a = document.createElement('a');
 
 		anal_a.setAttribute("target", "_blank");
-		anal_a.setAttribute("href", window.webshark.webshark_get_url() + "&tap=" + encodeURIComponent(data['_analyse']));
+		anal_a.setAttribute("href", window.webshark.webshark_create_url(
+			{
+				file: g_webshark_file,
+				tap: data['_analyse']
+			}));
 		anal_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 		var glyph = m_webshark_symbols_module.webshark_glyph_img('analyse', 16);
@@ -389,7 +393,11 @@ function webshark_create_tap_action_common(data)
 		var filter_a = document.createElement('a');
 
 		filter_a.setAttribute("target", "_blank");
-		filter_a.setAttribute("href", window.webshark.webshark_get_url() + "&filter=" + encodeURIComponent(data['_filter']));
+		filter_a.setAttribute("href", window.webshark.webshark_create_url(
+			{
+				file: g_webshark_file,
+				filter: data['_filter']
+			}));
 		filter_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 		var glyph = m_webshark_symbols_module.webshark_glyph_img('filter', 16);
@@ -405,7 +413,11 @@ function webshark_create_tap_action_common(data)
 		var show_a = document.createElement('a');
 
 		show_a.setAttribute("target", "_blank");
-		show_a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + data['_goto_frame']);
+		show_a.setAttribute("href", window.webshark.webshark_create_url(
+			{
+				file: g_webshark_file,
+				frame: data['_goto_frame']
+			}));
 		show_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 		var glyph = m_webshark_symbols_module.webshark_glyph_img('analyse', 16);
@@ -421,7 +433,12 @@ function webshark_create_tap_action_common(data)
 		var down_a = document.createElement('a');
 
 		down_a.setAttribute("target", "_blank");
-		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_download']));
+		down_a.setAttribute("href", window.websharl.webshark_create_api_url(
+			{
+				req: 'download',
+				capture: g_webshark_file,
+				token: data['_download']
+			}));
 		down_a.addEventListener("click", window.webshark.popup_on_click_a);
 
 		var glyph = m_webshark_symbols_module.webshark_glyph_img('download', 16);
@@ -443,7 +460,12 @@ function webshark_create_tap_action_common(data)
 		down_a.setAttribute("target", "_blank");
 		down_a["ws_title"] = descr;
 		down_a["ws_rtp"] = data['_play'];
-		down_a.setAttribute("href", g_webshark_url + 'req=download&capture=' + g_webshark_file  + "&token=" + encodeURIComponent(data['_play']));
+		down_a.setAttribute("href", window.webshark.webshark_create_api_url(
+			{
+				req: 'download',
+				capture: g_webshark_file,
+				token: data['_play']
+			}));
 		down_a.addEventListener("click", m_webshark_rtp_player_module.play_on_click_a);
 
 		var glyph = m_webshark_symbols_module.webshark_glyph_img('play', 16);

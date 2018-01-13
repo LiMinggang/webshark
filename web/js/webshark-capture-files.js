@@ -205,7 +205,10 @@ WSCaptureFilesTable.prototype._onRowClickHTML = function(click_tr, file)
 		return;
 	}
 
-	file['url'] = window.webshark.webshark_get_base_url() + '?file=' + file['_path'];
+	file['url'] = window.webshark.webshark_create_url(
+		{
+			file: file['_path']
+		});
 
 	if (this.fileDetails != null)
 	{
@@ -244,7 +247,10 @@ WSCaptureFilesTable.prototype._createFileRowHTML = function(file, row_no)
 	{
 		data[0] = file['_path'];
 
-		a_href.setAttribute("href", window.webshark.webshark_get_base_url() + "?dir=" + file['_path']);
+		a_href.setAttribute("href", window.webshark.webshark_create_url(
+			{
+				dir: file['_path']
+			}));
 		a_href.addEventListener("click",
 			function(ev)
 			{
@@ -256,7 +262,10 @@ WSCaptureFilesTable.prototype._createFileRowHTML = function(file, row_no)
 	}
 	else
 	{
-		a_href.setAttribute("href", window.webshark.webshark_get_base_url() + "?file=" + file['_path']);
+		a_href.setAttribute("href", window.webshark.webshark_create_url(
+			{
+				file: file['_path']
+			}));
 	}
 	a_href.appendChild(document.createTextNode(data[0]));
 

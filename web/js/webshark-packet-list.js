@@ -54,7 +54,11 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 				a.appendChild(document.createTextNode(cols[j]))
 
 				a.setAttribute("target", "_blank");
-				a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + fnum);
+				a.setAttribute("href", window.webshark.webshark_create_url(
+					{
+						file: g_webshark_file,
+						frame: fnum
+					}));
 				a.addEventListener("click", window.webshark.popup_on_click_a);
 
 				td.appendChild(a);
@@ -69,7 +73,11 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 				comment_glyph.setAttribute('title', 'Comment');
 
 				a.setAttribute("target", "_blank");
-				a.setAttribute("href", window.webshark.webshark_get_url() + "&frame=" + fnum);
+				a.setAttribute("href", window.webshark.webshark_create_url(
+					{
+						file: g_webshark_file,
+						frame: fnum
+					}));
 				a.addEventListener("click", window.webshark.webshark_frame_comment_on_click);
 				a.addEventListener("mouseover", window.webshark.webshark_frame_comment_on_over);
 
