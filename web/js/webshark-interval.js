@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+var m_webshark_chart_module = require("./webshark-chart.js");
+
 function WSInterval(opts)
 {
 	this.mode = opts['mode'];
@@ -105,7 +107,7 @@ WSInterval.prototype.render_interval = function()
 
 	var svg = d3.select("body").append("svg").remove();
 
-	window.webshark.webshark_d3_chart(svg, intervals_full,
+	m_webshark_chart_module.webshark_d3_chart(svg, intervals_full,
 	{
 		width: 620, height: 100,
 		margin: {top: 0, right: 10, bottom: 20, left: 40},

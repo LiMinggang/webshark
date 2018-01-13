@@ -20,6 +20,7 @@
 var m_webshark_rtp_player_module = require("./webshark-rtp-player.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
 var m_webshark_symbols_module = require("./webshark-symbols.js");
+var m_webshark_chart_module = require("./webshark-chart.js");
 
 var m_prev_tap_selected_on_click = null;
 
@@ -571,7 +572,7 @@ function webshark_render_tap(tap)
 
 //		TODO: generate more graphs tg_stat = tg_stat['sub'][0];
 
-		window.webshark.webshark_d3_chart(svg, tg_stat['sub'],
+		m_webshark_chart_module.webshark_d3_chart(svg, tg_stat['sub'],
 		{
 			title: tg_stat['name'],
 			mwidth: 800, iwidth: 50, height: 400,
@@ -648,7 +649,7 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		window.webshark.webshark_d3_chart(svg, convs,
+		m_webshark_chart_module.webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Frames Count',
 			mwidth: 500, iwidth: 220, height: 400,
@@ -670,7 +671,7 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		window.webshark.webshark_d3_chart(svg, convs,
+		m_webshark_chart_module.webshark_d3_chart(svg, convs,
 		{
 			title: tap['proto'] + ' Conversations - Bytes Count',
 			mwidth: 500, iwidth: 220, height: 400,
@@ -736,7 +737,7 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		window.webshark.webshark_d3_chart(svg, hosts,
+		m_webshark_chart_module.webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Frames Count',
 			mwidth: 400, iwidth: 110, height: 400,
@@ -758,7 +759,7 @@ function webshark_render_tap(tap)
 		var svg = d3.select("body").append("svg").remove()
 				.attr("style", 'border: 1px solid black;');
 
-		window.webshark.webshark_d3_chart(svg, hosts,
+		m_webshark_chart_module.webshark_d3_chart(svg, hosts,
 		{
 			title: tap['proto'] + ' Endpoints - Bytes Count',
 			mwidth: 400, iwidth: 110, height: 400,
