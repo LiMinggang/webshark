@@ -736,13 +736,15 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
 		if (tok_column == NULL)
 			break;
 
+		columns_custom[i] = NULL;
+		columns_occur[i] = 0;
+
 		if ((custom_sepa = strchr(tok_column, ':')))
 		{
 			*custom_sepa = '\0'; /* XXX, C abuse: discarding-const */
 
 			columns_fmt[i] = COL_CUSTOM;
 			columns_custom[i] = tok_column;
-			columns_occur[i] = 0;
 
 			if (!ws_strtoi16(custom_sepa + 1, NULL, &columns_occur[i]))
 				return NULL;
@@ -1112,13 +1114,21 @@ static gboolean
 sharkd_session_packet_tap_expert_cb(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *pointer)
 {
 	struct sharkd_expert_tap *etd = (struct sharkd_expert_tap *) tapdata;
-	expert_info_t *ei             = (expert_info_t *) pointer;
+	const expert_info_t *ei       = (const expert_info_t *) pointer;
+	expert_info_t *ei_copy;
 
-	ei = (expert_info_t *) g_memdup(ei, sizeof(*ei));
-	ei->protocol = g_string_chunk_insert_const(etd->text, ei->protocol);
-	ei->summary  = g_string_chunk_insert_const(etd->text, ei->summary);
+	if (ei == NULL)
+		return FALSE;
 
-	etd->details = g_slist_prepend(etd->details, ei);
+	ei_copy = g_new(expert_info_t, 1);
+	/* Note: this is a shallow copy */
+	*ei_copy = *ei;
+
+	/* ei->protocol, ei->summary might be allocated in packet scope, make a copy. */
+	ei_copy->protocol = g_string_chunk_insert_const(etd->text, ei_copy->protocol);
+	ei_copy->summary  = g_string_chunk_insert_const(etd->text, ei_copy->summary);
+
+	etd->details = g_slist_prepend(etd->details, ei_copy);
 
 	return TRUE;
 }
