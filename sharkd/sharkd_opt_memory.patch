@@ -1,8 +1,8 @@
 diff --git a/epan/frame_data.h b/epan/frame_data.h
-index 7dd6cce1a6..7201404c57 100644
+index b6fe4e7831..dbee463d43 100644
 --- a/epan/frame_data.h
 +++ b/epan/frame_data.h
-@@ -88,7 +88,6 @@ typedef struct _frame_data {
+@@ -77,7 +77,6 @@ typedef struct _frame_data {
    const struct _color_filter *color_filter;  /**< Per-packet matching color_filter_t object */
  
    nstime_t     abs_ts;       /**< Absolute timestamp */
@@ -11,10 +11,10 @@ index 7dd6cce1a6..7201404c57 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index 9310bf7c72..3f5163649f 100644
+index 03afaff858..074700d8aa 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
-@@ -59,7 +59,6 @@ static int proto_pkt_comment = -1;
+@@ -47,7 +47,6 @@ static int proto_pkt_comment = -1;
  static int proto_syscall = -1;
  
  static int hf_frame_arrival_time = -1;
@@ -22,7 +22,7 @@ index 9310bf7c72..3f5163649f 100644
  static int hf_frame_arrival_time_epoch = -1;
  static int hf_frame_time_delta = -1;
  static int hf_frame_time_delta_displayed = -1;
-@@ -435,9 +434,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
+@@ -456,9 +455,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
  								  " the valid range is 0-1000000000",
  								  (long) pinfo->abs_ts.nsecs);
  			}
@@ -32,7 +32,7 @@ index 9310bf7c72..3f5163649f 100644
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -752,11 +748,6 @@ proto_register_frame(void)
+@@ -776,11 +772,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
@@ -45,20 +45,20 @@ index 9310bf7c72..3f5163649f 100644
  		  { "Epoch Time", "frame.time_epoch",
  		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 diff --git a/epan/frame_data.c b/epan/frame_data.c
-index f9bb8b47b5..48d522b981 100644
+index 4d95c07c8c..4a7c978ac4 100644
 --- a/epan/frame_data.c
 +++ b/epan/frame_data.c
-@@ -190,8 +190,6 @@ frame_data_init(frame_data *fdata, guint32 num,
-   fdata->tsprec = (gint16)phdr->pkt_tsprec;
+@@ -201,8 +201,6 @@ frame_data_init(frame_data *fdata, guint32 num, const wtap_rec *rec,
+   fdata->flags.has_user_comment = 0;
+   fdata->flags.need_colorize = 0;
    fdata->color_filter = NULL;
-   fdata->abs_ts = phdr->ts;
 -  fdata->shift_offset.secs = 0;
 -  fdata->shift_offset.nsecs = 0;
    fdata->frame_ref_num = 0;
    fdata->prev_dis_num = 0;
  }
 diff --git a/ui/Makefile.am b/ui/Makefile.am
-index 3232d53e36..d7fe61a82b 100644
+index 7b52e815c0..ba6ff4ad70 100644
 --- a/ui/Makefile.am
 +++ b/ui/Makefile.am
 @@ -85,7 +85,6 @@ WIRESHARK_UI_SRC = \

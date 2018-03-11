@@ -6,7 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <config.h>
@@ -276,11 +276,11 @@ sharkd_rtp_match_check(const struct sharkd_rtp_match *req, const packet_info *pi
 static gboolean
 sharkd_session_process_info_nstat_cb(const void *key, void *value, void *userdata)
 {
-	stat_tap_table_ui *new_stat_tap = (stat_tap_table_ui *) value;
+	stat_tap_table_ui *stat_tap = (stat_tap_table_ui *) value;
 	int *pi = (int *) userdata;
 
 	printf("%s{", (*pi) ? "," : "");
-		printf("\"name\":\"%s\"", new_stat_tap->title);
+		printf("\"name\":\"%s\"", stat_tap->title);
 		printf(",\"tap\":\"nstat:%s\"", (const char *) key);
 	printf("}");
 
@@ -506,7 +506,7 @@ sharkd_session_process_info(void)
 
 	printf(",\"nstat\":[");
 	i = 0;
-	new_stat_tap_iterate_tables(sharkd_session_process_info_nstat_cb, &i);
+	stat_tap_iterate_tables(sharkd_session_process_info_nstat_cb, &i);
 	printf("]");
 
 	printf(",\"convs\":[");
@@ -2106,7 +2106,7 @@ sharkd_session_free_tap_conv_cb(void *arg)
 static void
 sharkd_session_process_tap_nstat_cb(void *arg)
 {
-	new_stat_data_t *stat_data = (new_stat_data_t *) arg;
+	stat_data_t *stat_data = (stat_data_t *) arg;
 	guint i, j, k;
 
 	printf("{\"tap\":\"nstat:%s\",\"type\":\"nstat\"", stat_data->stat_tap_data->cli_string);
@@ -2147,14 +2147,14 @@ sharkd_session_process_tap_nstat_cb(void *arg)
 		{
 			stat_tap_table_item_type *field_data;
 
-			field_data = new_stat_tap_get_field_data(table, j, 0);
+			field_data = stat_tap_get_field_data(table, j, 0);
 			if (field_data == NULL || field_data->type == TABLE_ITEM_NONE) /* Nothing for us here */
 				continue;
 
 			printf("%s[", sepa);
 			for (k = 0; k < table->num_fields; k++)
 			{
-				field_data = new_stat_tap_get_field_data(table, j, k);
+				field_data = stat_tap_get_field_data(table, j, k);
 
 				if (k)
 					printf(",");
@@ -2166,7 +2166,7 @@ sharkd_session_process_tap_nstat_cb(void *arg)
 						break;
 
 					case TABLE_ITEM_INT:
-						printf("%d", field_data->value.uint_value);
+						printf("%d", field_data->value.int_value);
 						break;
 
 					case TABLE_ITEM_STRING:
@@ -2200,7 +2200,7 @@ sharkd_session_process_tap_nstat_cb(void *arg)
 static void
 sharkd_session_free_tap_nstat_cb(void *arg)
 {
-	new_stat_data_t *stat_data = (new_stat_data_t *) arg;
+	stat_data_t *stat_data = (stat_data_t *) arg;
 
 	free_stat_tables(stat_data->stat_tap_data, NULL, NULL);
 }
@@ -2936,8 +2936,8 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		}
 		else if (!strncmp(tok_tap, "nstat:", 6))
 		{
-			stat_tap_table_ui *stat_tap = new_stat_tap_by_name(tok_tap + 6);
-			new_stat_data_t *stat_data;
+			stat_tap_table_ui *stat_tap = stat_tap_by_name(tok_tap + 6);
+			stat_data_t *stat_data;
 
 			if (!stat_tap)
 			{
@@ -2947,7 +2947,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			stat_tap->stat_tap_init_cb(stat_tap, NULL, NULL);
 
-			stat_data = g_new0(new_stat_data_t, 1);
+			stat_data = g_new0(stat_data_t, 1);
 			stat_data->stat_tap_data = stat_tap;
 			stat_data->user_data = NULL;
 
@@ -3432,7 +3432,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 	if (fdata->flags.has_user_comment)
 		pkt_comment = sharkd_get_user_comment(fdata);
 	else if (fdata->flags.has_phdr_comment)
-		pkt_comment = pi->phdr->opt_comment;
+		pkt_comment = pi->rec->opt_comment;
 
 	if (pkt_comment)
 	{
@@ -3456,7 +3456,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 			for (i = 0; i < count; i++)
 			{
-				struct data_source *src = (struct data_source *) g_slist_nth_data((GSList *) data_src, i);
+				const struct data_source *src = (const struct data_source *) g_slist_nth_data((GSList *) data_src, i);
 
 				tvbs[i] = get_data_source_tvb(src);
 			}
