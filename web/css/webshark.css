@@ -50,7 +50,7 @@ li.selected
 	background-color: #0080FF;
 }
 
-#packet_list
+.packet_list
 {
 	border-collapse: collapse;
 	font-family: monospace;
@@ -62,7 +62,7 @@ table.ws_border
 	border: 2px solid grey;
 }
 
-#packet_list th, #packet_list td, td.ws_border
+.packet_list th, .packet_list td, td.ws_border
 {
 	border-right: 1px solid grey;
 }

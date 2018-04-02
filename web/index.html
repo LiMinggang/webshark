@@ -42,6 +42,17 @@
 
 		var g_ws_default_pref =
 		{
+			columns_width:
+			{
+				'%m': 1.7 * 59,
+				'%t': 1.7 * 94,
+				'%s': 1.7 * 154,
+				'%d': 1.7 * 154,
+				'%p': 1.7 * 56,
+				'%L': 1.7 * 48,
+				// '%i'
+			},
+
 			columns:
 			[
 				{ "No.":          "%m" },
@@ -407,7 +418,8 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 			g_webshark_packet_list = new window.webshark.WSPacketList({
 				headerId: 'packet_list_header',
-				scrollId: 'ws_packet_list_view',
+				headerFakeId: 'packet_list_header_fake',
+				scrollId: 'ws_packet_list_view_scroll',
 				contentId: 'packet_list_frames'
 			});
 
@@ -444,6 +456,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 					var columns_default = [ "%m", "%t", "%s", "%d", "%p", "%L", "%i" ];
 					var columns_title   = [ ];
+					var columns_width   = [ ];
 					var columns_pref    = [ ];
 
 					document.title = document.title.replace("${WEBSHARK_VER}", data['version']);
@@ -458,6 +471,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 
 						for (col_title in g_ws_pref.columns[col]) { col_format = g_ws_pref.columns[col][col_title]; }
 						columns_title.push(col_title);
+						columns_width.push(g_ws_pref.columns_width[col_format]);
 
 						if (col >= columns_default.length || columns_default[col] != col_format)
 						{
@@ -480,7 +494,7 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 							columns_pref.push(col_format);
 					}
 
-					g_webshark_packet_list.setColumns(columns_title);
+					g_webshark_packet_list.setColumns(columns_title, columns_width);
 					run();
 				});
 		}
@@ -584,15 +598,22 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 		<div id="ws_tap_details" style="display: none; max-height: 500px; overflow-y: auto;"></div>
 	</div>
 
-	<div id="ws_packet_list_view" style='height: 350px; overflow: auto; border: 2px solid grey;'>
-		<table id="packet_list" style="width: 100%;">
-			<thead id="packet_list_header">
-				<!-- <tr><th>No.</th></tr> -->
-			</thead>
-			<tbody id="packet_list_frames">
-				<!--- <tr><td>1</td><td>2h</td></tr> -->
-			</tbody>
-		</table>
+	<div id="ws_packet_list_view" style='border: 2px solid grey;'>
+		<div id="ws_packet_list_view_scrollbar_fixer" style="margin-right: 13px;">
+			<table class="packet_list" style="width: 100%; table-layout: fixed;">
+				<thead id="packet_list_header">
+					<!-- <tr><th>No.</th></tr> -->
+				</thead>
+			</table>
+		</div>
+		<div id="ws_packet_list_view_scroll" style="height: 330px; overflow-y: auto; overflow-x: hidden;">
+			<table class="packet_list" style="width: 100%; table-layout: fixed;">
+				<thead id="packet_list_header_fake"></thead>
+				<tbody id="packet_list_frames">
+					<!--- <tr><td>1</td><td>2h</td></tr> -->
+				</tbody>
+			</table>
+		</div>
 	</div>
 
 	<div id="toolbar_frame" style="display: none;">

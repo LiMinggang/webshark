@@ -42,8 +42,6 @@ function webshark_create_frame_row_html(frame, row_no)
 	{
 		var td = document.createElement("td");
 
-td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
-
 		if (j == 0)
 		{
 			/* XXX, check if first column is equal to frame number, if so assume it's frame number column, and create link */
@@ -112,6 +110,7 @@ td.width = Math.floor(1000 / cols.length) + "px"; // XXX, temporary
 function WSPacketList(opts)
 {
 	this.headerElem = document.getElementById(opts['headerId']);
+	this.headerFakeElem = document.getElementById(opts['headerFakeId']);
 
 	this.cluster = new m_webshark_clusterize_module.Clusterize({
 		rows: [],
@@ -124,21 +123,37 @@ function WSPacketList(opts)
 	this.cluster.options.callbacks.createHTML = webshark_create_frame_row_html;
 }
 
-WSPacketList.prototype.setColumns = function(cols)
+WSPacketList.prototype.setColumns = function(cols, widths)
 {
+	/* real header */
 	var tr = document.createElement("tr");
 
 	for (var i = 0; i < cols.length; i++)
 	{
 		var th = document.createElement("th");
 
-th.width = Math.floor(1000 / cols.length) +"px"; // XXX, temporary
+		if (widths && widths[i])
+			th.style.width = widths[i] + 'px';
 
 		th.appendChild(document.createTextNode(cols[i]));
 		tr.appendChild(th);
 	}
 
 	this.headerElem.innerHTML = tr.outerHTML;
+
+	/* fake header */
+	var tr = document.createElement("tr");
+	for (var i = 0; i < cols.length; i++)
+	{
+		var th = document.createElement("th");
+
+		if (widths && widths[i])
+			th.style.width = widths[i] + 'px';
+
+		tr.appendChild(th);
+	}
+
+	this.headerFakeElem.innerHTML = tr.outerHTML;
 };
 
 WSPacketList.prototype.setPackets = function(packets)
