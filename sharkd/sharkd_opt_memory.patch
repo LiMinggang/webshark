@@ -57,6 +57,18 @@ index 4d95c07c8c..4a7c978ac4 100644
    fdata->frame_ref_num = 0;
    fdata->prev_dis_num = 0;
  }
+diff --git a/ui/CMakeLists.txt b/ui/CMakeLists.txt
+index 6c4d2c6944..32b2432e36 100644
+--- a/ui/CMakeLists.txt
++++ b/ui/CMakeLists.txt
+@@ -59,7 +59,6 @@ set(NONGENERATED_UI_SRC
+ 	tap-rlc-graph.c
+ 	tap-tcp-stream.c
+ 	text_import.c
+-	time_shift.c
+ 	traffic_table_ui.c
+ 	util.c
+ 	voip_calls.c
 diff --git a/ui/Makefile.am b/ui/Makefile.am
 index 7b52e815c0..ba6ff4ad70 100644
 --- a/ui/Makefile.am

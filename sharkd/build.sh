@@ -11,18 +11,21 @@ patch -p1 < ../sharkd/sharkd.patch
 patch -p1 < ../sharkd/sharkd_opt_memory.patch ## optional
 cp ../sharkd/*.[ch] ./
 
+mkdir build
+cd build
+
 # Compile sharkd static, and without optional libraries
-./autogen.sh
-export CFLAGS="-O3 -pipe"
-./configure \
-	--disable-shared --enable-static --disable-plugins --disable-warnings-as-errors \
-	--disable-wireshark --disable-tshark --disable-sharkd --disable-dumpcap --disable-capinfos \
-	--disable-captype --disable-randpkt --disable-dftest --disable-editcap --disable-mergecap \
-	--disable-reordercap --disable-text2pcap --disable-fuzzshark \
-	--without-extcap --without-pcap --without-gnutls --without-geoip
+cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-O3 -pipe" \
+	-DENABLE_STATIC=ON -DENABLE_PLUGINS=OFF -DDISABLE_WERROR=ON \
+	-DBUILD_wireshark=OFF -DBUILD_tshark=OFF -DBUILD_sharkd=ON -DBUILD_dumpcap=OFF -DBUILD_capinfos=OFF \
+	-DBUILD_captype=OFF -DBUILD_randpkt=OFF -DBUILD_dftest=OFF -DBUILD_editcap=OFF -DBUILD_mergecap=OFF \
+	-DBUILD_reordercap=OFF -DBUILD_text2pcap=OFF -DBUILD_fuzzshark=OFF \
+	-DBUILD_androiddump=OFF -DBUILD_randpktdump=OFF -DBUILD_udpdump=OFF \
+	-DENABLE_PCAP=OFF -DENABLE_GNUTLS=OFF \
+	../
 
 make -j8
-make sharkd
+cd run
 
 # Generate tarball in /out directory
 strip sharkd

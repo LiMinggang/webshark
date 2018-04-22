@@ -1,7 +1,7 @@
 FROM ubuntu:17.10
 MAINTAINER Jakub Zawadzki <darkjames-ws@darkjames.pl>
 RUN apt-get update && apt-get install -y \
-	git make python autoconf automake libtool-bin flex bison libglib2.0-dev libgcrypt20-dev \
+	git make python cmake flex bison libglib2.0-dev libgcrypt20-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://code.wireshark.org/review/wireshark
