@@ -434,7 +434,7 @@ function webshark_create_tap_action_common(data)
 		var down_a = document.createElement('a');
 
 		down_a.setAttribute("target", "_blank");
-		down_a.setAttribute("href", window.websharl.webshark_create_api_url(
+		down_a.setAttribute("href", window.webshark.webshark_create_api_url(
 			{
 				req: 'download',
 				capture: g_webshark_file,
