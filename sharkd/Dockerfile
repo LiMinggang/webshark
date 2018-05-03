@@ -1,4 +1,4 @@
-FROM ubuntu:17.10
+FROM ubuntu:18.04
 MAINTAINER Jakub Zawadzki <darkjames-ws@darkjames.pl>
 RUN apt-get update && apt-get install -y \
 	git make python cmake flex bison libglib2.0-dev libgcrypt20-dev \
