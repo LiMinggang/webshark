@@ -11,7 +11,7 @@ index b6fe4e7831..dbee463d43 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index 03afaff858..074700d8aa 100644
+index 8a61a5a323..fb0fba6d66 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
 @@ -47,7 +47,6 @@ static int proto_pkt_comment = -1;
@@ -32,7 +32,7 @@ index 03afaff858..074700d8aa 100644
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -776,11 +772,6 @@ proto_register_frame(void)
+@@ -775,11 +771,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
@@ -58,26 +58,14 @@ index 4d95c07c8c..4a7c978ac4 100644
    fdata->prev_dis_num = 0;
  }
 diff --git a/ui/CMakeLists.txt b/ui/CMakeLists.txt
-index 6c4d2c6944..32b2432e36 100644
+index f258d62f04..f6d45811a6 100644
 --- a/ui/CMakeLists.txt
 +++ b/ui/CMakeLists.txt
-@@ -59,7 +59,6 @@ set(NONGENERATED_UI_SRC
+@@ -47,7 +47,6 @@ set(NONGENERATED_UI_SRC
  	tap-rlc-graph.c
  	tap-tcp-stream.c
  	text_import.c
 -	time_shift.c
  	traffic_table_ui.c
  	util.c
- 	voip_calls.c
-diff --git a/ui/Makefile.am b/ui/Makefile.am
-index 7b52e815c0..ba6ff4ad70 100644
---- a/ui/Makefile.am
-+++ b/ui/Makefile.am
-@@ -85,7 +85,6 @@ WIRESHARK_UI_SRC = \
- 	tap-sctp-analysis.c	\
- 	tap-tcp-stream.c	\
- 	text_import.c		\
--	time_shift.c		\
- 	traffic_table_ui.c	\
- 	util.c			\
  	voip_calls.c

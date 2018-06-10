@@ -2,9 +2,12 @@
 
 set -x
 
+## GeoIP
+# apt-get update && apt-get install -y libmaxminddb-dev
+
 # Update wireshark sources
 git pull
-git reset --hard b2d3680558d19998c55b48e9807a26e145756eba   ## tested with this hash
+git reset --hard 3c9c2c65341bae5a7b983af2a572b8a9a99b543c   ## tested with this hash
 
 # Integrate sharkd
 patch -p1 < ../sharkd/sharkd.patch
@@ -31,5 +34,6 @@ cd run
 strip sharkd
 mkdir -p ./usr/local/bin/ ./usr/local/share/wireshark/
 cp sharkd ./usr/local/bin/
+# cp mmdbresolve ./usr/local/bin/
 cp colorfilters ./usr/local/share/wireshark/
 tar -vczf /out/sharkd.tar.gz ./usr

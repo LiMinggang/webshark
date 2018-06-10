@@ -63,7 +63,7 @@ def sharkd_instance(cap_file):
             for s in settings:
                 shark.send_req(dict(req='setconf', name=s.var, value=s.value))
 
-            # shark.send_req(dict(req='setconf', name='uat:geoip_db_paths', value='"/usr/share/GeoIP"'))
+            # shark.send_req(dict(req='setconf', name='uat:maxmind_db_paths', value='"/var/lib/GeoIP"'))
             cap = cap_dir + cap_file
             shark.send_req(dict(req='load', file=cap))
 

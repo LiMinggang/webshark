@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y \
 	python3-django libglib2.0-0 \
 	&& rm -rf /var/lib/apt/lists/*
 
+## GeoIP in /var/lib/GeoIP/GeoLite2-City.mmdb
+# RUN apt-get update && apt-get install -y libmaxminddb0 geoipupdate && geoipupdate -v
+
 RUN mkdir -p /caps
 VOLUME /caps
 

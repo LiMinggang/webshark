@@ -1,8 +1,8 @@
 diff --git a/epan/proto.c b/epan/proto.c
-index 876e8cb5ab..378c38c4cb 100644
+index fa83e710fd..d70f99d9f0 100644
 --- a/epan/proto.c
 +++ b/epan/proto.c
-@@ -7366,7 +7366,7 @@ static void
+@@ -7312,7 +7312,7 @@ static void
  tmp_fld_check_assert(header_field_info *hfinfo)
  {
  	gchar* tmp_str;
@@ -11,17 +11,17 @@ index 876e8cb5ab..378c38c4cb 100644
  	/* The field must have a name (with length > 0) */
  	if (!hfinfo->name || !hfinfo->name[0]) {
  		if (hfinfo->abbrev)
-@@ -7923,7 +7923,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
+@@ -7869,7 +7869,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
  
  		/* Check that the filter name (abbreviation) is legal;
  		 * it must contain only alphanumerics, '-', "_", and ".". */
--		c = check_charset(fld_abbrev_chars, hfinfo->abbrev);
+-		c = proto_check_field_name(hfinfo->abbrev);
 +		c = 0;
  		if (c) {
- 			if (g_ascii_isprint(c))
- 				fprintf(stderr, "Invalid character '%c' in filter name '%s'\n", c, hfinfo->abbrev);
+ 			if (c == '.') {
+ 				fprintf(stderr, "Invalid leading, duplicated or trailing '.' found in filter name '%s'\n", hfinfo->abbrev);
 diff --git a/epan/uat_load.l b/epan/uat_load.l
-index 3c62f4d77e..6777c80ee2 100644
+index 981a362139..e455d348ef 100644
 --- a/epan/uat_load.l
 +++ b/epan/uat_load.l
 @@ -373,6 +373,7 @@ uat_load(uat_t *uat, char **errx)
@@ -32,29 +32,3 @@ index 3c62f4d77e..6777c80ee2 100644
  
  	if (!(in = ws_fopen(fname,"r"))) {
  		*errx = g_strdup(g_strerror(errno));
-diff --git a/epan/geoip_db.c b/epan/geoip_db.c
-index 923a4fb2ae..cf84ab475f 100644
---- a/epan/geoip_db.c
-+++ b/epan/geoip_db.c
-@@ -120,7 +120,7 @@ geoip_dat_scan_dir(const char *dirname) {
-             name = ws_dir_get_name(file);
-             if (g_str_has_prefix(file, "Geo") && g_str_has_suffix(file, ".dat")) {
-                 datname = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dirname, name);
--                gi = GeoIP_open(datname, GEOIP_MEMORY_CACHE);
-+                gi = GeoIP_open(datname, GEOIP_STANDARD);
-                 if (gi) {
-                     g_array_append_val(geoip_dat_arr, gi);
-                 }
-diff --git a/epan/sequence_analysis.c b/epan/sequence_analysis.c
-index 7978637427..54d8f60d8b 100644
---- a/epan/sequence_analysis.c
-+++ b/epan/sequence_analysis.c
-@@ -240,7 +240,7 @@ sequence_analysis_list_free(seq_analysis_info_t *sainfo)
- 
-     /* free the graph data items */
- 
--#if GLIB_CHECK_VERSION (2, 32, 0)
-+#if 0
-        if (sainfo->items != NULL)
-             g_queue_free_full(sainfo->items, sequence_analysis_item_free);
-        sainfo->items = g_queue_new();
