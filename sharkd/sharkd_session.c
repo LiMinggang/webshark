@@ -52,6 +52,7 @@
 #include <ui/voip_calls.h>
 #include <ui/rtp_stream.h>
 #include <ui/tap-rtp-common.h>
+#include <ui/tap-rtp-analysis.h>
 #include <epan/to_str.h>
 
 #include <epan/addr_resolv.h>
@@ -74,7 +75,7 @@
 
 struct sharkd_filter_item
 {
-	guint8 *filtered;
+	guint8 *filtered; /* can be NULL if all frames are matching for given filter. */
 };
 
 static GHashTable *filter_table = NULL;
@@ -185,7 +186,7 @@ sharkd_session_filter_free(gpointer data)
 	g_free(l);
 }
 
-static const guint8 *
+static const struct sharkd_filter_item *
 sharkd_session_filter_data(const char *filter)
 {
 	struct sharkd_filter_item *l;
@@ -206,68 +207,49 @@ sharkd_session_filter_data(const char *filter)
 		g_hash_table_insert(filter_table, g_strdup(filter), l);
 	}
 
-	return l->filtered;
+	return l;
 }
 
-struct sharkd_rtp_match
-{
-	guint32 addr_src, addr_dst; // XXX, remove.
-
-	address src_addr;
-	address dst_addr;
-	guint16 src_port;
-	guint16 dst_port;
-	guint32 ssrc;
-};
-
 static gboolean
-sharkd_rtp_match_init(struct sharkd_rtp_match *req, const char *init_str)
+sharkd_rtp_match_init(rtpstream_id_t *id, const char *init_str)
 {
 	gboolean ret = FALSE;
 	char **arr;
+	guint32 tmp_addr_src, tmp_addr_dst;
+	address tmp_src_addr, tmp_dst_addr;
+
+	memset(id, 0, sizeof(*id));
 
 	arr = g_strsplit(init_str, "_", 7); /* pass larger value, so we'll catch incorrect input :) */
 	if (g_strv_length(arr) != 5)
 		goto fail;
 
 	/* TODO, for now only IPv4 */
-	if (!get_host_ipaddr(arr[0], &req->addr_src))
+	if (!get_host_ipaddr(arr[0], &tmp_addr_src))
 		goto fail;
 
-	if (!ws_strtou16(arr[1], NULL, &req->src_port))
+	if (!ws_strtou16(arr[1], NULL, &id->src_port))
 		goto fail;
 
-	if (!get_host_ipaddr(arr[2], &req->addr_dst))
+	if (!get_host_ipaddr(arr[2], &tmp_addr_dst))
 		goto fail;
 
-	if (!ws_strtou16(arr[3], NULL, &req->dst_port))
+	if (!ws_strtou16(arr[3], NULL, &id->dst_port))
 		goto fail;
 
-	if (!ws_hexstrtou32(arr[4], NULL, &req->ssrc))
+	if (!ws_hexstrtou32(arr[4], NULL, &id->ssrc))
 		goto fail;
 
-	set_address(&req->src_addr, AT_IPv4, 4, &req->addr_src);
-	set_address(&req->dst_addr, AT_IPv4, 4, &req->addr_dst);
+	set_address(&tmp_src_addr, AT_IPv4, 4, &tmp_addr_src);
+	copy_address(&id->src_addr, &tmp_src_addr);
+	set_address(&tmp_dst_addr, AT_IPv4, 4, &tmp_addr_dst);
+	copy_address(&id->dst_addr, &tmp_dst_addr);
+
 	ret = TRUE;
 
 fail:
 	g_strfreev(arr);
 	return ret;
-}
-
-static gboolean
-sharkd_rtp_match_check(const struct sharkd_rtp_match *req, const packet_info *pinfo, const struct _rtp_info *rtp_info)
-{
-	if (rtp_info->info_sync_src == req->ssrc &&
-		pinfo->srcport == req->src_port &&
-		pinfo->destport == req->dst_port &&
-		addresses_equal(&pinfo->src, &req->src_addr) &&
-		addresses_equal(&pinfo->dst, &req->dst_addr))
-	{
-		return TRUE;
-	}
-
-	return FALSE;
 }
 
 static gboolean
@@ -699,7 +681,7 @@ sharkd_session_process_analyse(void)
 
 	printf(",\"protocols\":[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
-		sharkd_dissect_request(framenum, (framenum != 1) ? 1 : 0, framenum - 1, &sharkd_session_process_analyse_cb, 0, 0, 0, &analyser);
+		sharkd_dissect_request(framenum, (framenum != 1) ? 1 : 0, framenum - 1, &sharkd_session_process_analyse_cb, SHARKD_DISSECT_FLAG_NULL, &analyser);
 	printf("]");
 
 	if (analyser.first_time)
@@ -841,9 +823,12 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 	if (tok_filter)
 	{
-		filter_data = sharkd_session_filter_data(tok_filter);
-		if (!filter_data)
+		const struct sharkd_filter_item *filter_item;
+
+		filter_item = sharkd_session_filter_data(tok_filter);
+		if (!filter_item)
 			return;
+		filter_data = filter_item->filtered;
 	}
 
 	skip = 0;
@@ -1709,7 +1694,7 @@ struct sharkd_analyse_rtp_items
 struct sharkd_analyse_rtp
 {
 	const char *tap_name;
-	struct sharkd_rtp_match rtp;
+	rtpstream_id_t id;
 
 	GSList *packets;
 	double start_time;
@@ -1729,14 +1714,14 @@ static gboolean
 sharkd_session_packet_tap_rtp_analyse_cb(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *pointer)
 {
 	struct sharkd_analyse_rtp *rtp_req = (struct sharkd_analyse_rtp *) tapdata;
-	const struct _rtp_info *rtpinfo = (const struct _rtp_info *) pointer;
+	const struct _rtp_info *rtp_info = (const struct _rtp_info *) pointer;
 
-	if (sharkd_rtp_match_check(&rtp_req->rtp, pinfo, rtpinfo))
+	if (rtpstream_id_equal_pinfo_rtp_info(&rtp_req->id, pinfo, rtp_info))
 	{
 		tap_rtp_stat_t *statinfo = &(rtp_req->statinfo);
 		struct sharkd_analyse_rtp_items *item;
 
-		rtp_packet_analyse(statinfo, pinfo, rtpinfo);
+		rtppacket_analyse(statinfo, pinfo, rtp_info);
 
 		item = (struct sharkd_analyse_rtp_items *) g_malloc(sizeof(struct sharkd_analyse_rtp_items));
 
@@ -1744,12 +1729,12 @@ sharkd_session_packet_tap_rtp_analyse_cb(void *tapdata, packet_info *pinfo, epan
 			rtp_req->start_time = nstime_to_sec(&pinfo->abs_ts);
 
 		item->frame_num    = pinfo->num;
-		item->sequence_num = rtpinfo->info_seq_num;
+		item->sequence_num = rtp_info->info_seq_num;
 		item->delta        = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->delta;
 		item->jitter       = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->jitter;
 		item->skew         = (statinfo->flags & STAT_FLAG_FIRST) ? 0.0 : statinfo->skew;
 		item->bandwidth    = statinfo->bandwidth;
-		item->marker       = rtpinfo->info_marker_set ? TRUE : FALSE;
+		item->marker       = rtp_info->info_marker_set ? TRUE : FALSE;
 		item->arrive_offset= nstime_to_sec(&pinfo->abs_ts) - rtp_req->start_time;
 
 		item->flags = statinfo->flags;
@@ -1805,7 +1790,7 @@ sharkd_session_process_tap_rtp_analyse_cb(void *tapdata)
 
 	printf("{\"tap\":\"%s\",\"type\":\"rtp-analyse\"", rtp_req->tap_name);
 
-	printf(",\"ssrc\":%u", rtp_req->rtp.ssrc);
+	printf(",\"ssrc\":%u", rtp_req->id.ssrc);
 
 	printf(",\"max_delta\":%f", statinfo->max_delta);
 	printf(",\"max_delta_nr\":%u", statinfo->max_nr);
@@ -2496,47 +2481,35 @@ sharkd_session_process_tap_rtp_cb(void *arg)
 	printf(",\"streams\":[");
 	for (listx = g_list_first(rtp_tapinfo->strinfo_list); listx; listx = listx->next)
 	{
-		rtp_stream_info_t *streaminfo = (rtp_stream_info_t *) listx->data;
+		rtpstream_info_t *streaminfo = (rtpstream_info_t *) listx->data;
+		rtpstream_info_calc_t calc;
 
-		char *src_addr, *dst_addr;
-		char *payload;
-		guint32 expected;
+		rtpstream_info_calculate(streaminfo, &calc);
 
-		src_addr = address_to_display(NULL, &(streaminfo->src_addr));
-		dst_addr = address_to_display(NULL, &(streaminfo->dest_addr));
+		printf("%s{\"ssrc\":%u", sepa, calc.ssrc);
+		printf(",\"payload\":\"%s\"", calc.all_payload_type_names);
 
-		if (streaminfo->payload_type_name != NULL)
-			payload = wmem_strdup(NULL, streaminfo->payload_type_name);
-		else
-			payload = val_to_str_ext_wmem(NULL, streaminfo->payload_type, &rtp_payload_type_short_vals_ext, "Unknown (%u)");
+		printf(",\"saddr\":\"%s\"", calc.src_addr_str);
+		printf(",\"sport\":%u", calc.src_port);
 
-		printf("%s{\"ssrc\":%u", sepa, streaminfo->ssrc);
-		printf(",\"payload\":\"%s\"", payload);
+		printf(",\"daddr\":\"%s\"", calc.dst_addr_str);
+		printf(",\"dport\":%u", calc.dst_port);
 
-		printf(",\"saddr\":\"%s\"", src_addr);
-		printf(",\"sport\":%u", streaminfo->src_port);
+		printf(",\"pkts\":%u", calc.packet_count);
 
-		printf(",\"daddr\":\"%s\"", dst_addr);
-		printf(",\"dport\":%u", streaminfo->dest_port);
+		printf(",\"max_delta\":%f",calc.max_delta);
+		printf(",\"max_jitter\":%f", calc.max_jitter);
+		printf(",\"mean_jitter\":%f", calc.mean_jitter);
 
-		printf(",\"pkts\":%u", streaminfo->packet_count);
+		printf(",\"expectednr\":%u", calc.packet_expected);
+		printf(",\"totalnr\":%u", calc.total_nr);
 
-		printf(",\"max_delta\":%f", streaminfo->rtp_stats.max_delta);
-		printf(",\"max_jitter\":%f", streaminfo->rtp_stats.max_jitter);
-		printf(",\"mean_jitter\":%f", streaminfo->rtp_stats.mean_jitter);
-
-		expected = (streaminfo->rtp_stats.stop_seq_nr + streaminfo->rtp_stats.cycles * 65536) - streaminfo->rtp_stats.start_seq_nr + 1;
-		printf(",\"expectednr\":%u", expected);
-		printf(",\"totalnr\":%u", streaminfo->rtp_stats.total_nr);
-
-		printf(",\"problem\":%s", streaminfo->problem ? "true" : "false");
+		printf(",\"problem\":%s", calc.problem? "true" : "false");
 
 		/* for filter */
-		printf(",\"ipver\":%d", (streaminfo->src_addr.type == AT_IPv6) ? 6 : 4);
+		printf(",\"ipver\":%d", (streaminfo->id.src_addr.type == AT_IPv6) ? 6 : 4);
 
-		wmem_free(NULL, src_addr);
-		wmem_free(NULL, dst_addr);
-		wmem_free(NULL, payload);
+		rtpstream_info_calc_free(&calc);
 
 		printf("}");
 		sepa = ",";
@@ -2773,7 +2746,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 			st = stats_tree_new(cfg, NULL, tap_filter);
 
-			tap_error = register_tap_listener(st->cfg->tapname, st, st->filter, st->cfg->flags, stats_tree_reset, stats_tree_packet, sharkd_session_process_tap_stats_cb);
+			tap_error = register_tap_listener(st->cfg->tapname, st, st->filter, st->cfg->flags, stats_tree_reset, stats_tree_packet, sharkd_session_process_tap_stats_cb, NULL);
 
 			if (!tap_error && cfg->init)
 				cfg->init(st);
@@ -2788,7 +2761,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			expert_tap = g_new0(struct sharkd_expert_tap, 1);
 			expert_tap->text = g_string_chunk_new(100);
 
-			tap_error = register_tap_listener("expert", expert_tap, NULL, 0, NULL, sharkd_session_packet_tap_expert_cb, sharkd_session_process_tap_expert_cb);
+			tap_error = register_tap_listener("expert", expert_tap, NULL, 0, NULL, sharkd_session_packet_tap_expert_cb, sharkd_session_process_tap_expert_cb, NULL);
 
 			tap_data = expert_tap;
 			tap_free = sharkd_session_free_tap_expert_cb;
@@ -2803,7 +2776,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			wlan_tap->resolve_names = TRUE;
 			wlan_tap->show_only_existing = FALSE;
 
-			tap_error = register_tap_listener("wlan", wlan_tap, tap_filter, 0, NULL, sharkd_session_packet_tap_wlan_cb, sharkd_session_process_tap_wlan_cb);
+			tap_error = register_tap_listener("wlan", wlan_tap, tap_filter, 0, NULL, sharkd_session_packet_tap_wlan_cb, sharkd_session_process_tap_wlan_cb, NULL);
 
 			tap_data = wlan_tap;
 			tap_free = sharkd_session_free_tap_wlan_cb;
@@ -2832,7 +2805,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			tap_flags = sequence_analysis_get_tap_flags(analysis);
 			tap_func  = sequence_analysis_get_packet_func(analysis);
 
-			tap_error = register_tap_listener(tap_name, graph_analysis, NULL, tap_flags, NULL, tap_func, sharkd_session_process_tap_flow_cb);
+			tap_error = register_tap_listener(tap_name, graph_analysis, NULL, tap_flags, NULL, tap_func, sharkd_session_process_tap_flow_cb, NULL);
 
 			tap_data = graph_analysis;
 			tap_free = sharkd_session_free_tap_flow_cb;
@@ -2880,7 +2853,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			ct_data->resolve_name = TRUE;
 			ct_data->resolve_port = TRUE;
 
-			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, tap_func, sharkd_session_process_tap_conv_cb);
+			tap_error = register_tap_listener(ct_tapname, &ct_data->hash, tap_filter, 0, NULL, tap_func, sharkd_session_process_tap_conv_cb, NULL);
 
 			tap_data = &ct_data->hash;
 			tap_free = sharkd_session_free_tap_conv_cb;
@@ -2902,7 +2875,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			stat_data->stat_tap_data = stat_tap;
 			stat_data->user_data = NULL;
 
-			tap_error = register_tap_listener(stat_tap->tap_name, stat_data, tap_filter, 0, NULL, stat_tap->packet_func, sharkd_session_process_tap_nstat_cb);
+			tap_error = register_tap_listener(stat_tap->tap_name, stat_data, tap_filter, 0, NULL, stat_tap->packet_func, sharkd_session_process_tap_nstat_cb, NULL);
 
 			tap_data = stat_data;
 			tap_free = sharkd_session_free_tap_nstat_cb;
@@ -2931,7 +2904,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			rtd_data->user_data = rtd;
 			rtd_table_dissector_init(rtd, &rtd_data->stat_table, NULL, NULL);
 
-			tap_error = register_tap_listener(get_rtd_tap_listener_name(rtd), rtd_data, tap_filter, 0, NULL, get_rtd_packet_func(rtd), sharkd_session_process_tap_rtd_cb);
+			tap_error = register_tap_listener(get_rtd_tap_listener_name(rtd), rtd_data, tap_filter, 0, NULL, get_rtd_packet_func(rtd), sharkd_session_process_tap_rtd_cb, NULL);
 
 			tap_data = rtd_data;
 			tap_free = sharkd_session_free_tap_rtd_cb;
@@ -2961,7 +2934,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			srt_data->user_data = srt;
 			srt_table_dissector_init(srt, srt_data->srt_array);
 
-			tap_error = register_tap_listener(get_srt_tap_listener_name(srt), srt_data, tap_filter, 0, NULL, get_srt_packet_func(srt), sharkd_session_process_tap_srt_cb);
+			tap_error = register_tap_listener(get_srt_tap_listener_name(srt), srt_data, tap_filter, 0, NULL, get_srt_packet_func(srt), sharkd_session_process_tap_srt_cb, NULL);
 
 			tap_data = srt_data;
 			tap_free = sharkd_session_free_tap_srt_cb;
@@ -3003,7 +2976,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			eo_object->get_entry = sharkd_eo_object_list_get_entry;
 			eo_object->gui_data = (void *) object_list;
 
-			tap_error = register_tap_listener(get_eo_tap_listener_name(eo), eo_object, NULL, 0, NULL, get_eo_packet_func(eo), sharkd_session_process_tap_eo_cb);
+			tap_error = register_tap_listener(get_eo_tap_listener_name(eo), eo_object, NULL, 0, NULL, get_eo_packet_func(eo), sharkd_session_process_tap_eo_cb, NULL);
 
 			tap_data = eo_object;
 			tap_free = g_free; /* need to free only eo_object, object_list need to be kept for potential download */
@@ -3035,7 +3008,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		}
 		else if (!strcmp(tok_tap, "rtp-streams"))
 		{
-			tap_error = register_tap_listener("rtp", &rtp_tapinfo, tap_filter, 0, rtpstream_reset_cb, rtpstream_packet, sharkd_session_process_tap_rtp_cb);
+			tap_error = register_tap_listener("rtp", &rtp_tapinfo, tap_filter, 0, rtpstream_reset_cb, rtpstream_packet_cb, sharkd_session_process_tap_rtp_cb, NULL);
 
 			tap_data = &rtp_tapinfo;
 			tap_free = rtpstream_reset_cb;
@@ -3045,8 +3018,9 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			struct sharkd_analyse_rtp *rtp_req;
 
 			rtp_req = (struct sharkd_analyse_rtp *) g_malloc0(sizeof(*rtp_req));
-			if (!sharkd_rtp_match_init(&rtp_req->rtp, tok_tap + 12))
+			if (!sharkd_rtp_match_init(&rtp_req->id, tok_tap + 12))
 			{
+				rtpstream_id_free(&rtp_req->id);
 				g_free(rtp_req);
 				continue;
 			}
@@ -3055,7 +3029,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			rtp_req->statinfo.first_packet = TRUE;
 			rtp_req->statinfo.reg_pt = PT_UNDEFINED;
 
-			tap_error = register_tap_listener("rtp", rtp_req, tap_filter, 0, NULL, sharkd_session_packet_tap_rtp_analyse_cb, sharkd_session_process_tap_rtp_analyse_cb);
+			tap_error = register_tap_listener("rtp", rtp_req, tap_filter, 0, NULL, sharkd_session_packet_tap_rtp_analyse_cb, sharkd_session_process_tap_rtp_analyse_cb, NULL);
 
 			tap_data = rtp_req;
 			tap_free = sharkd_session_process_tap_rtp_free_cb;
@@ -3158,7 +3132,7 @@ sharkd_session_process_follow(char *buf, const jsmntok_t *tokens, int count)
 	follow_info = g_new0(follow_info_t, 1);
 	/* gui_data, filter_out_filter not set, but not used by dissector */
 
-	tap_error = register_tap_listener(get_follow_tap_string(follower), follow_info, tok_filter, 0, NULL, get_follow_tap_handler(follower), NULL);
+	tap_error = register_tap_listener(get_follow_tap_string(follower), follow_info, tok_filter, 0, NULL, get_follow_tap_handler(follower), NULL, NULL);
 	if (tap_error)
 	{
 		fprintf(stderr, "sharkd_session_process_follow() name=%s error=%s", tok_follow, tap_error->str);
@@ -3205,7 +3179,7 @@ sharkd_session_process_follow(char *buf, const jsmntok_t *tokens, int count)
 
 		printf(",\"payloads\":[");
 
-		for (cur = follow_info->payload; cur; cur = g_list_next(cur))
+		for (cur = g_list_last(follow_info->payload); cur; cur = g_list_previous(cur))
 		{
 			follow_record = (follow_record_t *) cur->data;
 
@@ -3233,7 +3207,7 @@ sharkd_session_process_follow(char *buf, const jsmntok_t *tokens, int count)
 }
 
 static void
-sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbuff_t **tvbs)
+sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbuff_t **tvbs, gboolean display_hidden)
 {
 	proto_node *node;
 	const char *sepa = "";
@@ -3246,8 +3220,7 @@ sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbu
 		if (!finfo)
 			continue;
 
-		/* XXX, for now always skip hidden */
-		if (FI_GET_FLAG(finfo, FI_HIDDEN))
+		if (!display_hidden && FI_GET_FLAG(finfo, FI_HIDDEN))
 			continue;
 
 		printf("%s{", sepa);
@@ -3317,6 +3290,12 @@ sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbu
 			}
 		}
 
+		if (FI_GET_FLAG(finfo, FI_GENERATED))
+			printf(",\"g\":true");
+
+		if (FI_GET_FLAG(finfo, FI_HIDDEN))
+			printf(",\"v\":true");
+
 		if (FI_GET_FLAG(finfo, PI_SEVERITY_MASK))
 		{
 			const char *severity = try_val_to_str(FI_GET_FLAG(finfo, PI_SEVERITY_MASK), expert_severity_vals);
@@ -3331,7 +3310,7 @@ sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbu
 			if (finfo->tree_type != -1)
 				printf(",\"e\":%d", finfo->tree_type);
 			printf(",\"n\":");
-			sharkd_session_process_frame_cb_tree(edt, (proto_tree *) node, tvbs);
+			sharkd_session_process_frame_cb_tree(edt, (proto_tree *) node, tvbs, display_hidden);
 		}
 
 		printf("}");
@@ -3367,6 +3346,11 @@ sharkd_follower_visit_layers_cb(const void *key _U_, void *value, void *user_dat
 	return FALSE;
 }
 
+struct sharkd_frame_request_data
+{
+	gboolean display_hidden;
+};
+
 static void
 sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct epan_column_info *cinfo, const GSList *data_src, void *data)
 {
@@ -3374,7 +3358,8 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 	frame_data *fdata = pi->fd;
 	const char *pkt_comment = NULL;
 
-	(void) data;
+	const struct sharkd_frame_request_data * const req_data = (const struct sharkd_frame_request_data * const) data;
+	const gboolean display_hidden = (req_data) ? req_data->display_hidden : FALSE;
 
 	printf("{");
 
@@ -3415,7 +3400,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 			tvbs[count] = NULL;
 		}
 
-		sharkd_session_process_frame_cb_tree(edt, tree, tvbs);
+		sharkd_session_process_frame_cb_tree(edt, tree, tvbs, display_hidden);
 
 		g_free(tvbs);
 	}
@@ -3432,6 +3417,18 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 			printf("%s\"%s\"", (col) ? "," : "", col_item->col_data);
 		}
 		printf("]");
+	}
+
+	if (fdata->flags.ignored)
+		printf(",\"i\":true");
+
+	if (fdata->flags.marked)
+		printf(",\"m\":true");
+
+	if (fdata->color_filter)
+	{
+		printf(",\"bg\":\"%x\"", color_t_to_rgb(&fdata->color_filter->bg_color));
+		printf(",\"fg\":\"%x\"", color_t_to_rgb(&fdata->color_filter->fg_color));
 	}
 
 	if (data_src)
@@ -3654,7 +3651,7 @@ sharkd_session_process_iograph(char *buf, const jsmntok_t *tokens, int count)
 		graph->items = NULL;
 
 		if (!graph->error)
-			graph->error = register_tap_listener("frame", graph, tok_filter, TL_REQUIRES_PROTO_TREE, NULL, sharkd_iograph_packet, NULL);
+			graph->error = register_tap_listener("frame", graph, tok_filter, TL_REQUIRES_PROTO_TREE, NULL, sharkd_iograph_packet, NULL, NULL);
 
 		graph_count++;
 
@@ -3775,9 +3772,12 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	if (tok_filter)
 	{
-		filter_data = sharkd_session_filter_data(tok_filter);
-		if (!filter_data)
+		const struct sharkd_filter_item *filter_item;
+
+		filter_item = sharkd_session_filter_data(tok_filter);
+		if (!filter_item)
 			return;
+		filter_data = filter_item->filtered;
 	}
 
 	st_total.frames = 0;
@@ -3849,7 +3849,9 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *   (o) prev_frame - previously displayed frame number
  *   (o) proto - set if output frame tree
  *   (o) columns - set if output frame columns
+ *   (o) color - set if output color-filter bg/fg
  *   (o) bytes - set if output frame bytes
+ *   (o) hidden - set if output hidden tree fields
  *
  * Output object with attributes:
  *   (m) err   - 0 if succeed
@@ -3866,6 +3868,8 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *                  ds- data src index
  *                  url  - only for t:'url', url
  *                  fnum - only for t:'framenum', frame number
+ *                  g - if field is generated by Wireshark
+ *                  v - if field is hidden
  *
  *   (o) col   - array of column data
  *   (o) bytes - base64 of frame bytes
@@ -3874,6 +3878,10 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *   (o) fol   - array of follow filters:
  *                  [0] - protocol
  *                  [1] - filter string
+ *   (o) i   - if frame is ignored
+ *   (o) m   - if frame is marked
+ *   (o) bg  - color filter - background color in hex
+ *   (o) fg  - color filter - foreground color in hex
  */
 static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
@@ -3881,11 +3889,10 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	const char *tok_frame = json_find_attr(buf, tokens, count, "frame");
 	const char *tok_ref_frame = json_find_attr(buf, tokens, count, "ref_frame");
 	const char *tok_prev_frame = json_find_attr(buf, tokens, count, "prev_frame");
-	int tok_proto   = (json_find_attr(buf, tokens, count, "proto") != NULL);
-	int tok_bytes   = (json_find_attr(buf, tokens, count, "bytes") != NULL);
-	int tok_columns = (json_find_attr(buf, tokens, count, "columns") != NULL);
 
 	guint32 framenum, ref_frame_num, prev_dis_num;
+	guint32 dissect_flags = SHARKD_DISSECT_FLAG_NULL;
+	struct sharkd_frame_request_data req_data;
 
 	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
 		return;
@@ -3898,7 +3905,18 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 	if (tok_prev_frame && (!ws_strtou32(tok_prev_frame, NULL, &prev_dis_num) || prev_dis_num >= framenum))
 		return;
 
-	sharkd_dissect_request(framenum, ref_frame_num, prev_dis_num, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto, NULL);
+	if (json_find_attr(buf, tokens, count, "proto") != NULL)
+		dissect_flags |= SHARKD_DISSECT_FLAG_PROTO_TREE;
+	if (json_find_attr(buf, tokens, count, "bytes") != NULL)
+		dissect_flags |= SHARKD_DISSECT_FLAG_BYTES;
+	if (json_find_attr(buf, tokens, count, "columns") != NULL)
+		dissect_flags |= SHARKD_DISSECT_FLAG_COLUMNS;
+	if (json_find_attr(buf, tokens, count, "color") != NULL)
+		dissect_flags |= SHARKD_DISSECT_FLAG_COLOR;
+
+	req_data.display_hidden = (json_find_attr(buf, tokens, count, "v") != NULL);
+
+	sharkd_dissect_request(framenum, ref_frame_num, prev_dis_num, &sharkd_session_process_frame_cb, dissect_flags, &req_data);
 }
 
 /**
@@ -3908,17 +3926,21 @@ sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
  *
  * Input:
  *   (o) filter - filter to be checked
+ *   (o) field - field to be checked
  *
  * Output object with attributes:
  *   (m) err - always 0
  *   (o) filter - 'ok', 'warn' or error message
+ *   (o) field - 'ok', or 'notfound'
  */
 static int
 sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_filter = json_find_attr(buf, tokens, count, "filter");
+	const char *tok_field = json_find_attr(buf, tokens, count, "field");
 
 	printf("{\"err\":0");
+
 	if (tok_filter != NULL)
 	{
 		char *err_msg = NULL;
@@ -3928,7 +3950,7 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 		{
 			const char *s = "ok";
 
-			if (dfilter_deprecated_tokens(dfp))
+			if (dfp && dfilter_deprecated_tokens(dfp))
 				s = "warn";
 
 			printf(",\"filter\":\"%s\"", s);
@@ -3940,6 +3962,13 @@ sharkd_session_process_check(char *buf, const jsmntok_t *tokens, int count)
 			json_puts_string(err_msg);
 			g_free(err_msg);
 		}
+	}
+
+	if (tok_field != NULL)
+	{
+		header_field_info *hfi = proto_registrar_get_byname(tok_field);
+
+		printf(",\"field\":\"%s\"", (hfi) ? "ok" : "notfound");
 	}
 
 	printf("}\n");
@@ -4399,7 +4428,7 @@ sharkd_session_process_dumpconf(char *buf, const jsmntok_t *tokens, int count)
 
 struct sharkd_download_rtp
 {
-	struct sharkd_rtp_match rtp;
+	rtpstream_id_t id;
 	GSList *packets;
 	double start_time;
 };
@@ -4568,7 +4597,7 @@ sharkd_session_packet_download_tap_rtp_cb(void *tapdata, packet_info *pinfo, epa
 	if (rtp_info->info_setup_frame_num == 0)
 		return FALSE;
 
-	if (sharkd_rtp_match_check(&req_rtp->rtp, pinfo, rtp_info))
+	if (rtpstream_id_equal_pinfo_rtp_info(&req_rtp->id, pinfo, rtp_info))
 	{
 		rtp_packet_t *rtp_packet;
 
@@ -4676,13 +4705,13 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 		GString *tap_error;
 
 		memset(&rtp_req, 0, sizeof(rtp_req));
-		if (!sharkd_rtp_match_init(&rtp_req.rtp, tok_token + 4))
+		if (!sharkd_rtp_match_init(&rtp_req.id, tok_token + 4))
 		{
 			fprintf(stderr, "sharkd_session_process_download() rtp tokenizing error %s\n", tok_token);
 			return;
 		}
 
-		tap_error = register_tap_listener("rtp", &rtp_req, NULL, 0, NULL, sharkd_session_packet_download_tap_rtp_cb, NULL);
+		tap_error = register_tap_listener("rtp", &rtp_req, NULL, 0, NULL, sharkd_session_packet_download_tap_rtp_cb, NULL, NULL);
 		if (tap_error)
 		{
 			fprintf(stderr, "sharkd_session_process_download() rtp error=%s", tap_error->str);

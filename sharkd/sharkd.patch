@@ -13,10 +13,10 @@ index 89af1ebcb5..3d543532f7 100644
  #endif
  
 diff --git a/ui/voip_calls.c b/ui/voip_calls.c
-index 9be42b6e38..49e2eddb46 100644
+index 2d3d41f4c7..1b25780d9e 100644
 --- a/ui/voip_calls.c
 +++ b/ui/voip_calls.c
-@@ -53,8 +53,10 @@
+@@ -54,8 +54,10 @@
  #include "ui/ws_ui_util.h"
  #include "ui/voip_calls.h"
  
