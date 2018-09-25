@@ -595,15 +595,25 @@ sharkd_session_process_info(void)
 		sharkd_json_value_string(TRUE, "tap", "rtp-streams");
 		sharkd_json_object_close();
 
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP calls", "voip-calls");
+		sharkd_json_object_open(TRUE);
+		sharkd_json_value_string(FALSE, "name", "VoIP calls");
+		sharkd_json_value_string(TRUE, "tap", "voip-calls");
+		sharkd_json_object_close();
 
 		sharkd_json_object_open(TRUE);
 		sharkd_json_value_string(FALSE, "name", "Expert Information");
 		sharkd_json_value_string(TRUE, "tap", "expert");
 		sharkd_json_object_close();
 
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "VoIP Flow Graph", "voip-flow-graph");
-		printf(",{\"name\":\"%s\",\"tap\":\"%s\"}", "Wireless LAN Statistics", "wlan");
+		sharkd_json_object_open(TRUE);
+		sharkd_json_value_string(FALSE, "name", "VoIP Flow Graph");
+		sharkd_json_value_string(TRUE, "tap", "voip-flow-graph");
+		sharkd_json_object_close();
+
+		sharkd_json_object_open(TRUE);
+		sharkd_json_value_string(FALSE, "name", "Wireless LAN Statistics");
+		sharkd_json_value_string(TRUE, "tap", "wlan");
+		sharkd_json_object_close();
 	}
 	sharkd_json_array_close();
 
@@ -1513,59 +1523,55 @@ sharkd_session_process_tap_wlan_cb(void *tapdata)
 {
 	struct sharkd_wlan_tap *wtd = (struct sharkd_wlan_tap *) tapdata;
 	wlan_ep_t *l;
-	const char *sepa = "";
+	gboolean sepa = FALSE;
 
-	printf("{\"tap\":\"%s\",\"type\":\"%s\"", "wlan", "wlan");
+	sharkd_json_object_open(FALSE);
+	sharkd_json_value_string(FALSE, "tap", "wlan");
+	sharkd_json_value_string(TRUE, "type", "wlan");
 
-	printf(",\"packets\":%u", wtd->number_of_packets);
+	sharkd_json_value_anyf(TRUE, "packets", "%u", wtd->number_of_packets);
 
-	printf(",\"list\":[");
+	sharkd_json_array_open(TRUE, "list");
 	for (l = wtd->ep_list; l; l = l->next)
 	{
 		guint32 data, other;
 		char *tmp;
 
-		const char *item_sepa = "";
+		gboolean item_sepa = FALSE;
 		wlan_details_ep_t *d;
 
 		if (wtd->show_only_existing && l->is_broadcast)
 			continue;
 
-		printf("%s{", sepa);
+		sharkd_json_object_open(sepa);
 
 		/* BSSID */
 		tmp = get_conversation_address(NULL, &l->bssid, FALSE);
-		printf("\"braw\":");
-		json_puts_string(tmp);
+		sharkd_json_value_string(FALSE, "braw", tmp);
 		wmem_free(NULL, tmp);
 		if (wtd->resolve_names == TRUE)
 		{
 			tmp = get_conversation_address(NULL, &l->bssid, TRUE);
-			printf(",\"bname\":");
-			json_puts_string(tmp);
+			sharkd_json_value_string(TRUE, "bname", tmp);
 			wmem_free(NULL, tmp);
 		}
 
 		/* channel */
 		if (l->stats.channel)
-			printf(",\"chan\":%u", l->stats.channel);
+			sharkd_json_value_anyf(TRUE, "chan", "%u", l->stats.channel);
 
 		if (l->stats.protection[0])
-		{
-			printf(",\"protection\":");
-			json_puts_string(l->stats.protection);
-		}
+			sharkd_json_value_string(TRUE, "protection", l->stats.protection);
 
 		/* SSID */
-		printf(",\"ssid\":");
 		if (l->stats.ssid_len == 0)
-			json_puts_string("<Broadcast>");
+			sharkd_json_value_string(TRUE, "ssid", "<Broadcast>");
 		else if (l->stats.ssid_len == 1 && l->stats.ssid[0] == 0)
-			json_puts_string("<Hidden>");
+			sharkd_json_value_string(TRUE, "ssid", "<Hidden>");
 		else
 		{
 			tmp = format_text(NULL, l->stats.ssid, l->stats.ssid_len);
-			json_puts_string(tmp);
+			sharkd_json_value_string(TRUE, "ssid", tmp);
 			wmem_free(NULL, tmp);
 		}
 
@@ -1574,47 +1580,46 @@ sharkd_session_process_tap_wlan_cb(void *tapdata)
 
 		other = l->number_of_packets - data - l->type[MGT_BEACON] - l->type[MGT_PROBE_REQ] - l->type[MGT_PROBE_RESP] - l->type[MGT_AUTHENTICATION] - l->type[MGT_DEAUTHENTICATION];
 
-		printf(",\"packets\":%u", l->number_of_packets);
-		printf(",\"t_beacon\":%u", l->type[MGT_BEACON]);
-		printf(",\"t_probe_req\":%u", l->type[MGT_PROBE_REQ]);
-		printf(",\"t_probe_resp\":%u", l->type[MGT_PROBE_RESP]);
-		printf(",\"t_auth\":%u", l->type[MGT_AUTHENTICATION]);
-		printf(",\"t_deauth\":%u", l->type[MGT_DEAUTHENTICATION]);
-		printf(",\"t_data\":%u", data);
-		printf(",\"t_other\":%u", other);
+		sharkd_json_value_anyf(TRUE, "packets", "%u", l->number_of_packets);
+		sharkd_json_value_anyf(TRUE, "t_beacon", "%u", l->type[MGT_BEACON]);
+		sharkd_json_value_anyf(TRUE, "t_probe_req", "%u", l->type[MGT_PROBE_REQ]);
+		sharkd_json_value_anyf(TRUE, "t_probe_resp", "%u", l->type[MGT_PROBE_RESP]);
+		sharkd_json_value_anyf(TRUE, "t_auth", "%u", l->type[MGT_AUTHENTICATION]);
+		sharkd_json_value_anyf(TRUE, "t_deauth", "%u", l->type[MGT_DEAUTHENTICATION]);
+		sharkd_json_value_anyf(TRUE, "t_data", "%u", data);
+		sharkd_json_value_anyf(TRUE, "t_other", "%u", other);
 
-		printf(",\"details\":[");
-
+		sharkd_json_array_open(TRUE, "details");
 		for (d = l->details; d; d = d->next)
 		{
-			printf("%s{", item_sepa);
+			sharkd_json_object_open(item_sepa);
 
 			/* addr */
 			tmp = get_conversation_address(NULL, &d->addr, FALSE);
-			printf("\"araw\":");
-			json_puts_string(tmp);
+			sharkd_json_value_string(FALSE, "araw", tmp);
 			wmem_free(NULL, tmp);
 
-			printf(",\"packets\":%u", d->number_of_packets);
-			printf(",\"t_probe_req\":%u", d->probe_req);
-			printf(",\"t_probe_rsp\":%u", d->probe_rsp);
-			printf(",\"t_auth\":%u", d->auth);
-			printf(",\"t_deauth\":%u", d->deauth);
-			printf(",\"t_data_sent\":%u", d->data_sent);
-			printf(",\"t_data_recv\":%u", d->data_received);
-			printf(",\"t_other\":%u", d->other);
+			sharkd_json_value_anyf(TRUE, "packets", "%u", d->number_of_packets);
+			sharkd_json_value_anyf(TRUE, "t_probe_req", "%u", d->probe_req);
+			sharkd_json_value_anyf(TRUE, "t_probe_rsp", "%u", d->probe_rsp);
+			sharkd_json_value_anyf(TRUE, "t_auth", "%u", d->auth);
+			sharkd_json_value_anyf(TRUE, "t_deauth", "%u", d->deauth);
+			sharkd_json_value_anyf(TRUE, "t_data_sent", "%u", d->data_sent);
+			sharkd_json_value_anyf(TRUE, "t_data_recv", "%u", d->data_received);
+			sharkd_json_value_anyf(TRUE, "t_other", "%u", d->other);
 
-			printf("}");
-			item_sepa = ",";
+			sharkd_json_object_close();
+			item_sepa = TRUE;
 		}
-		printf("]");
+		sharkd_json_array_close();
 
-		printf("}");
-		sepa = ",";
+		sharkd_json_object_close();
+		sepa = TRUE;
 	}
-	printf("]");
+	sharkd_json_array_close();
 
-	printf("},");
+	sharkd_json_object_close();
+	putchar(',');
 }
 
 /**
@@ -1680,7 +1685,7 @@ sharkd_session_process_tap_flow_cb(void *tapdata)
 
 #if 0
 		if (sai->conv_num)
-			printf(",\"c\":%u", sai->conv_num);
+			sharkd_json_value_anyf(TRUE, "c", "%u", sai->conv_num);
 #endif
 
 		if (sai->comment)
@@ -2683,17 +2688,20 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 {
 	voip_calls_tapinfo_t *voip_tapinfo = (voip_calls_tapinfo_t *) arg;
 	GList *listx;
-	const char *sepa = "";
+	gboolean sepa = FALSE;
 
 	if (!voip_tapinfo->redraw)
 		return;
 
-	printf("{\"tap\":\"%s\",\"type\":\"%s\"", "voip-calls", "voip-calls");
-	printf(",\"completed\":%u", voip_tapinfo->completed_calls);
-	printf(",\"rejected\":%u", voip_tapinfo->rejected_calls);
-	printf(",\"startpkts\":%u", voip_tapinfo->start_packets);
+	sharkd_json_object_open(FALSE);
+	sharkd_json_value_string(FALSE, "tap", "voip-calls");
+	sharkd_json_value_string(TRUE, "type", "voip-calls");
 
-	printf(",\"calls\":[");
+	sharkd_json_value_anyf(TRUE, "completed", "%u", voip_tapinfo->completed_calls);
+	sharkd_json_value_anyf(TRUE, "rejected", "%u", voip_tapinfo->rejected_calls);
+	sharkd_json_value_anyf(TRUE, "startpkts", "%u", voip_tapinfo->start_packets);
+
+	sharkd_json_array_open(TRUE, "calls");
 	for (listx = g_queue_peek_nth_link(voip_tapinfo->callsinfos, 0); listx; listx = listx->next)
 	{
 		voip_calls_info_t *callinfo = (voip_calls_info_t *) listx->data;
@@ -2701,27 +2709,22 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 
 		addr_str = address_to_display(NULL, &(callinfo->initial_speaker));
 
-		printf("%s{\"initial\":", sepa);
-		json_puts_string(addr_str);
+		sharkd_json_object_open(sepa);
 
-		printf(",\"start\":%.9f", nstime_to_sec(&callinfo->start_rel_ts));
-		printf(",\"stop\":%.9f", nstime_to_sec(&callinfo->stop_rel_ts));
-		printf(",\"pkts\":%u", callinfo->npackets);
+		sharkd_json_value_string(FALSE, "initial", addr_str);
 
-		printf(",\"state\":");
-		json_puts_string(voip_call_state_name[callinfo->call_state]);
+		sharkd_json_value_anyf(TRUE, "start", "%.9f", nstime_to_sec(&callinfo->start_rel_ts));
+		sharkd_json_value_anyf(TRUE, "stop", "%.9f", nstime_to_sec(&callinfo->stop_rel_ts));
+		sharkd_json_value_anyf(TRUE, "pkts", "%u", callinfo->npackets);
 
-		printf(",\"from\":");
-		json_puts_string(callinfo->from_identity);
+		sharkd_json_value_string(TRUE, "state", voip_call_state_name[callinfo->call_state]);
+		sharkd_json_value_string(TRUE, "from", callinfo->from_identity);
+		sharkd_json_value_string(TRUE, "to", callinfo->to_identity);
 
-		printf(",\"to\":");
-		json_puts_string(callinfo->to_identity);
-
-		printf(",\"proto\":");
 		if (callinfo->protocol == VOIP_COMMON && callinfo->protocol_name)
-			json_puts_string(callinfo->protocol_name);
+			sharkd_json_value_string(TRUE, "proto", callinfo->protocol_name);
 		else
-			json_puts_string(voip_protocol_name[callinfo->protocol]);
+			sharkd_json_value_string(TRUE, "proto", voip_protocol_name[callinfo->protocol]);
 
 		switch (callinfo->protocol)
 		{
@@ -2729,9 +2732,9 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 			{
 				isup_calls_info_t *isupinfo = (isup_calls_info_t *) callinfo->prot_info;
 
-				printf(",\"isup_ni\":%d", isupinfo->ni);
-				printf(",\"isup_opc\":%d", isupinfo->opc);
-				printf(",\"isup_dpc\":%d", isupinfo->dpc);
+				sharkd_json_value_anyf(TRUE, "isup_ni", "%d", isupinfo->ni);
+				sharkd_json_value_anyf(TRUE, "isup_opc", "%d", isupinfo->opc);
+				sharkd_json_value_anyf(TRUE, "isup_dpc", "%d", isupinfo->dpc);
 				break;
 			}
 
@@ -2745,18 +2748,15 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 				else if (h323info->is_faststart_Setup == TRUE && h323info->is_faststart_Proc == TRUE)
 					fast_start = TRUE;
 
-				printf(",\"h323_tunneling\":%s", (h323info->is_h245Tunneling == TRUE) ? "true" : "false");
-				printf(",\"h323_fast_start\":%s", (fast_start == TRUE) ? "true" : "false");
+				sharkd_json_value_anyf(TRUE, "h323_tunneling", (h323info->is_h245Tunneling == TRUE) ? "true" : "false");
+				sharkd_json_value_anyf(TRUE, "h323_fast_start", (fast_start == TRUE) ? "true" : "false");
 				break;
 			}
 
 			case VOIP_COMMON:
 			default:
 				if (callinfo->call_comment)
-				{
-					printf(",\"comment\":");
-					json_puts_string(callinfo->call_comment);
-				}
+					sharkd_json_value_string(TRUE, "comment", callinfo->call_comment);
 				break;
 		}
 
@@ -2766,7 +2766,7 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 			case VOIP_SIP:
 			{
 				sip_calls_info_t *sipinfo = (sip_calls_info_t *) callinfo->prot_info;
-				printf(",\"filter\":\"sip.Call-ID == \\\"%s\\\"\"", sipinfo->call_identifier);
+				sharkd_json_value_stringf(TRUE, "filter", "sip.Call-ID == \\\"%s\\\"", sipinfo->call_identifier);
 				break;
 			}
 
@@ -2774,14 +2774,15 @@ sharkd_session_process_tap_voip_calls_cb(void *arg)
 				break;
 		}
 
-		printf("}");
-		sepa = ",";
+		sharkd_json_object_close();
+		sepa = TRUE;
 
 		wmem_free(NULL, addr_str);
 	}
-	printf("]");
+	sharkd_json_array_close();
 
-	printf("},");
+	sharkd_json_object_close();
+	putchar(',');
 
 	voip_tapinfo->redraw = 0; /* redrawn, XXX is it correct? it seems to, otherwise we will get this f. called multiple times (for example sccp, sua), but callsinfo didn't change  */
 }
