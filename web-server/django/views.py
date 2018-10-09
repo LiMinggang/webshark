@@ -46,6 +46,10 @@ def index(request):
     from django.shortcuts import redirect
     return redirect('/static/webshark/index.html')
 
+sharkd_json_sepa = (',', ':')
+def sharkd_json_dump(obj):
+    return json.dumps(obj, check_circular=False, separators=sharkd_json_sepa)
+
 def sharkd_instance(cap_file):
     shark = captures.get(cap_file, None)
 
@@ -150,7 +154,7 @@ def json_handle_request(request):
     req      = request.GET.get('req', '')
 
     if req == '':
-        return json.dumps(dict(err=1, errstr="No request"))
+        return sharkd_json_dump(dict(err=1, errstr="No request"))
 
     if req == 'refreshdb':
         return sharkd_file_list_refresh_db()
@@ -158,21 +162,21 @@ def json_handle_request(request):
     if req == 'files':
         directory = request.GET.get('dir', '')
         if '..' in directory:
-            return json.dumps(dict(err=1, errstr="Nope"))
-        return json.dumps(sharkd_file_list(directory))
+            return sharkd_json_dump(dict(err=1, errstr="Nope"))
+        return sharkd_json_dump(sharkd_file_list(directory))
 
     # internal requests
     if req == 'load':
-        return json.dumps(dict(err=1, errstr="Nope"))
+        return sharkd_json_dump(dict(err=1, errstr="Nope"))
     if req == 'setconf':
-        return json.dumps(dict(err=1, errstr="Nope"))
+        return sharkd_json_dump(dict(err=1, errstr="Nope"))
 
     if '..' in cap_file:
-        return json.dumps(dict(err=1, errstr="Nope"))
+        return sharkd_json_dump(dict(err=1, errstr="Nope"))
 
     if cap_file != '':
         if os.path.isfile(cap_dir + cap_file) == False:
-            return json.dumps(dict(err=1, errstr="No such capture file"))
+            return sharkd_json_dump(dict(err=1, errstr="No such capture file"))
         cap_file = os.path.relpath(cap_dir + cap_file, cap_dir)
 
     if req == 'setcomment':
@@ -217,7 +221,7 @@ def json_handle_request(request):
     if req == 'info' and request.user.is_authenticated():
         js = json.loads(ret)
         js['user'] = request.user.get_username()
-        ret = json.dumps(js)
+        ret = sharkd_json_dump(js)
 
     if req == 'download':
         ## FIXME
@@ -235,7 +239,7 @@ def json_handle_request(request):
     return ret
 
 def json_req(request):
-    # js = json.dumps(json_handle_request(request))
+    # js = sharkd_json_dump(json_handle_request(request))
     js = json_handle_request(request)
 
     ## FIXME
@@ -280,7 +284,7 @@ def handle_uploaded_file(f):
             js['err'] = 'frames 0'
             os.remove(tmp_name)
 
-        js = json.dumps(js)
+        js = sharkd_json_dump(js)
 
         return HttpResponse(js, content_type="application/json")
 
