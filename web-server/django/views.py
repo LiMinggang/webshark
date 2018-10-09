@@ -100,34 +100,46 @@ def sharkd_file_list_refresh_db():
 
     return ''
 
+def sharkd_file_list_chunk(result, filenames):
+    objs = dict( (item.filename, item) for item in Capture.objects.filter(filename__in=filenames) )
+
+    for filename in filenames:
+        full_filename = cap_dir + filename
+
+        cap = dict()
+        cap['name'] = os.path.basename(filename)
+        if os.path.isdir(full_filename):
+            cap['dir'] = True
+        else:
+            cap['size'] = os.stat(full_filename).st_size
+            if captures.get(filename, False):
+                cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
+
+            obj = objs.get(filename, None)
+            if obj:
+                cap['analysis'] = json.loads(obj.analysis)
+                cap['desc'] = obj.description
+
+        result.append(cap)
+
 def sharkd_file_list(directory):
     result = list()
+    filenames = list()
 
     thisdir = cap_dir + directory
     names = os.listdir(thisdir)
     if names:
         for name in names:
             full_filename = os.path.join(thisdir, name)
-
             filename = os.path.relpath(full_filename, cap_dir)
+            filenames.append(filename)
 
-            cap = dict()
-            cap['name'] = name
-            if os.path.isdir(full_filename):
-                cap['dir'] = True
-            else:
-                cap['size'] = os.stat(full_filename).st_size
-                if captures.get(filename, False):
-                    cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
+            if len(filenames) > 1000:
+                sharkd_file_list_chunk(result, filenames)
+                filenames = list()
 
-                try:
-                    obj = Capture.objects.get(filename=filename)
-                    cap['analysis'] = json.loads(obj.analysis)
-                    cap['desc'] = obj.description
-                except Capture.DoesNotExist:
-                    pass
-
-            result.append(cap)
+    if len(filenames) > 0:
+        sharkd_file_list_chunk(result, filenames)
 
     reldir = os.path.relpath(thisdir, cap_dir)
 
