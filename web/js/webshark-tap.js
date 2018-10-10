@@ -20,7 +20,6 @@
 var m_webshark_rtp_player_module = require("./webshark-rtp-player.js");
 var m_webshark_hexdump_module = require('./webshark-hexdump.js');
 var m_webshark_symbols_module = require("./webshark-symbols.js");
-var m_webshark_chart_module = require("./webshark-chart.js");
 
 var m_prev_tap_selected_on_click = null;
 
@@ -565,32 +564,84 @@ function webshark_render_tap(tap)
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label("Stats TAP: " + tap['name']));
 		document.getElementById('ws_tap_table').appendChild(table);
 
-		var svg = d3.select("body").append("svg").remove()
-				.attr("style", 'border: 1px solid black;');
-
 		var tg_stat = tap['stats'][0];
 
 //		TODO: generate more graphs tg_stat = tg_stat['sub'][0];
 
-		m_webshark_chart_module.webshark_d3_chart(svg, tg_stat['sub'],
+		var chart_width = Math.max(800, 50 * tg_stat['sub'].length);
+
+		var div = document.createElement('div');
+		document.getElementById('ws_tap_graph').appendChild(div);
+
+		var f_count = tg_stat['count'];
+		if (f_count > 0)
 		{
-			title: tg_stat['name'],
-			mwidth: 800, iwidth: 50, height: 400,
+			for (var i = 0; i < tg_stat['sub'].length; i++)
+			{
+				var item = tg_stat['sub'][i];
 
-			getX: function(d) { return d['name'] },
+				item['_perc'] = item['count'] / f_count;
+			}
+		}
 
-			unit1: '%',
-			scale1: [ tg_stat['count'] ],
+		var chart = c3.generate({
+			bindto: div,
+			size: { width: chart_width, height: 400 },
+			legend: { position: 'inset', hide: true },
 
-			series1:
-			[
-				function(d) { return d['count']; }
-			],
+			title: { text: tg_stat['name'] },
+			data: {
+				json: tg_stat['sub'],
 
-			color: [ 'steelblue' ]
+				keys: {
+					x: 'name',
+					value: [ '_perc', 'count' ]
+				},
+				names: {
+					_perc: 'Count',
+					count: 'Count'
+				},
+				colors: {
+					_perc: 'steelblue',
+					count: 'steelblue'
+				},
+				axes: {
+					_perc: 'y',
+					count: 'y2'
+				},
+				type: 'bar',
+				hide: [ 'count' ]
+			},
+			axis: {
+				x: {
+					type: 'category'
+				},
+				y: {
+					// XXX, it was so easy in d3: d3.axisLeft(y).ticks(10, '%')
+					// max: 1,
+					tick: {
+						format: d3.format('.0%'),
+						values: [0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00 ]
+						// count: 12
+					}
+				},
+				y2: {
+					show: true
+				}
+			},
+			tooltip: {
+				format: {
+					value: function (value, ratio, id) {
+						var format = d3.format('%');
+						var real_value = (value * f_count); // XXX, find a better way.
+						return real_value + " (" +  format(value) + ")";
+					}
+				}
+			}
 		});
 
-		document.getElementById('ws_tap_graph').appendChild(svg.node());
+		div.style.border = '1px solid black';
+		div.style.width = (chart_width + 10) + "px";
 	}
 	else if (tap['type'] == 'conv')
 	{
@@ -646,49 +697,90 @@ function webshark_render_tap(tap)
 		document.getElementById('ws_tap_table').appendChild(window.webshark.dom_create_label(tap['proto'] + ' Conversations (' + convs.length + ')'));
 		document.getElementById('ws_tap_table').appendChild(table);
 
-		var svg = d3.select("body").append("svg").remove()
-				.attr("style", 'border: 1px solid black;');
+		var divs = document.createElement('div');
+		document.getElementById('ws_tap_graph').appendChild(divs);
 
-		m_webshark_chart_module.webshark_d3_chart(svg, convs,
-		{
-			title: tap['proto'] + ' Conversations - Frames Count',
-			mwidth: 500, iwidth: 220, height: 400,
+		var div = document.createElement('div');
+		divs.appendChild(div);
 
-			getX: function(d) { return d['_name']; },
+		var charts_width = Math.max(500, 220 * convs.length);
 
-			series2:
-			[
-				function(d) { return d['rxf']; },
-				function(d) { return d['txf']; }
-			],
+		var chart = c3.generate({
+			bindto: div,
+			size: { width: charts_width, height: 400 },
+			legend: { position: 'inset', hide: true },
 
-			color: [ '#d62728', '#2ca02c' ],
-			// color: [ '#e377c2', '#bcbd22' ],
+			title: { text: tap['proto'] + ' Conversations - Frames Count' },
+			data: {
+				json: convs,
+				keys: {
+					x: '_name',
+					value: ['rxf', 'txf']
+				},
+				names: {
+					rxf: 'RX frames',
+					txf: 'TX frames'
+				},
+				colors: {
+					rxf: '#d62728',
+					txf: '#2ca02c'
+				},
+				axes: {
+					rxf: 'y2',
+					txf: 'y2'
+				},
+				type: 'bar'
+			},
+			axis: {
+				x: {
+					type: 'category'
+				},
+				y: {
+					show: false
+				},
+				y2: {
+					show: true
+				}
+			}
 		});
+		div.style.border = '1px solid black';
+		div.style.width = (charts_width + 10) + "px";
+		div.style.float = 'left';
 
-		document.getElementById('ws_tap_graph').appendChild(svg.node());
+		var div = document.createElement('div');
+		divs.appendChild(div);
 
-		var svg = d3.select("body").append("svg").remove()
-				.attr("style", 'border: 1px solid black;');
+		var chart = c3.generate({
+			bindto: div,
+			size: { width: charts_width, height: 400 },
+			legend: { position: 'inset', hide: true },
 
-		m_webshark_chart_module.webshark_d3_chart(svg, convs,
-		{
-			title: tap['proto'] + ' Conversations - Bytes Count',
-			mwidth: 500, iwidth: 220, height: 400,
-
-			getX: function(d) { return d['_name']; },
-
-			series1:
-			[
-				function(d) { return d['rxb']; },
-				function(d) { return d['txb']; }
-			],
-
-			color: [ '#d62728', '#2ca02c' ],
+			title: { text: tap['proto'] + ' Conversations - Bytes Count' },
+			data: {
+				json: convs,
+				keys: {
+					x: '_name',
+					value: ['rxb', 'txb']
+				},
+				names: {
+					rxb: 'RX bytes',
+					txb: 'TX bytes'
+				},
+				colors: {
+					rxb: '#d62728',
+					txb: '#2ca02c'
+				},
+				type: 'bar'
+			},
+			axis: {
+				x: {
+					type: 'category'
+				}
+			}
 		});
-
-		document.getElementById('ws_tap_graph').appendChild(svg.node());
-
+		div.style.border = '1px solid black';
+		div.style.width = (charts_width + 10) + "px";
+		div.style.float = 'left';
 	}
 	else if (tap['type'] == 'host')
 	{
@@ -734,48 +826,90 @@ function webshark_render_tap(tap)
 
 		document.getElementById('ws_tap_table').appendChild(table);
 
-		var svg = d3.select("body").append("svg").remove()
-				.attr("style", 'border: 1px solid black;');
+		var divs = document.createElement('div');
+		document.getElementById('ws_tap_graph').appendChild(divs);
 
-		m_webshark_chart_module.webshark_d3_chart(svg, hosts,
-		{
-			title: tap['proto'] + ' Endpoints - Frames Count',
-			mwidth: 400, iwidth: 110, height: 400,
+		var div = document.createElement('div');
+		divs.appendChild(div);
 
-			getX: function(d) { return d['_name']; },
+		var charts_width = Math.max(400, 110 * hosts.length);
 
-			series2:
-			[
-				function(d) { return d['rxf']; },
-				function(d) { return d['txf']; }
-			],
+		var chart = c3.generate({
+			bindto: div,
+			size: { width: charts_width, height: 400 },
+			legend: { position: 'inset', hide: true },
 
-			color: [ '#d62728', '#2ca02c' ],
-			// color: [ '#e377c2', '#bcbd22' ],
+			title: { text: tap['proto'] + ' Endpoints - Frames Count' },
+			data: {
+				json: hosts,
+				keys: {
+					x: '_name',
+					value: ['rxf', 'txf']
+				},
+				names: {
+					rxf: 'RX frames',
+					txf: 'TX frames'
+				},
+				colors: {
+					rxf: '#d62728',
+					txf: '#2ca02c'
+				},
+				axes: {
+					rxf: 'y2',
+					txf: 'y2'
+				},
+				type: 'bar'
+			},
+			axis: {
+				x: {
+					type: 'category'
+				},
+				y: {
+					show: false
+				},
+				y2: {
+					show: true
+				}
+			}
 		});
+		div.style.border = '1px solid black';
+		div.style.width = (charts_width + 10) + "px";
+		div.style.float = 'left';
 
-		document.getElementById('ws_tap_graph').appendChild(svg.node());
+		var div = document.createElement('div');
+		divs.appendChild(div);
 
-		var svg = d3.select("body").append("svg").remove()
-				.attr("style", 'border: 1px solid black;');
+		var chart = c3.generate({
+			bindto: div,
+			size: { width: charts_width, height: 400 },
+			legend: { position: 'inset', hide: true },
 
-		m_webshark_chart_module.webshark_d3_chart(svg, hosts,
-		{
-			title: tap['proto'] + ' Endpoints - Bytes Count',
-			mwidth: 400, iwidth: 110, height: 400,
-
-			getX: function(d) { return d['_name']; },
-
-			series1:
-			[
-				function(d) { return d['rxb']; },
-				function(d) { return d['txb']; }
-			],
-
-			color: [ '#d62728', '#2ca02c' ],
+			title: { text: tap['proto'] + ' Endpoints - Bytes Count' },
+			data: {
+				json: hosts,
+				keys: {
+					x: '_name',
+					value: ['rxb', 'txb']
+				},
+				names: {
+					rxb: 'RX bytes',
+					txb: 'TX bytes'
+				},
+				colors: {
+					rxb: '#d62728',
+					txb: '#2ca02c'
+				},
+				type: 'bar'
+			},
+			axis: {
+				x: {
+					type: 'category'
+				}
+			}
 		});
-
-		document.getElementById('ws_tap_graph').appendChild(svg.node());
+		div.style.border = '1px solid black';
+		div.style.width = (charts_width + 10) + "px";
+		div.style.float = 'left';
 	}
 	else if (tap['type'] == 'flow')
 	{

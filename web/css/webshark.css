@@ -207,3 +207,7 @@ line.seq_line
 {
 	stroke-width: 1.5px;
 }
+
+.c3-area {
+	opacity: 1 !important;
+}

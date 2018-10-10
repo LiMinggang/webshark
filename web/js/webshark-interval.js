@@ -17,8 +17,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-var m_webshark_chart_module = require("./webshark-chart.js");
-
 function WSInterval(opts)
 {
 	this.mode = opts['mode'];
@@ -70,7 +68,8 @@ WSInterval.prototype.render_interval = function()
 	var intervals_full = [ ];
 
 	var last_one  = this.interval ? this.interval['last'] : this.interval_filter['last'];
-	var color_arr = [ 'steelblue' ];
+	var color_dict = { whole: 'steelblue' };
+	var max_value_hack = 10; /* XXX, workaround, to not display mili's */
 
 	var count_idx =
 		(this.mode == "bps") ? 2 :
@@ -89,6 +88,7 @@ WSInterval.prototype.render_interval = function()
 		{
 			var idx = intervals_data[i][0];
 			intervals_full[idx][1] += intervals_data[i][count_idx];
+			if (intervals_full[idx][1] > 10) max_value_hack = undefined;
 		}
 	}
 
@@ -98,35 +98,56 @@ WSInterval.prototype.render_interval = function()
 		{
 			var idx = intervals_filter[i][0];
 			intervals_full[idx][2] += intervals_filter[i][count_idx];
+			if (intervals_full[idx][2] > 10) max_value_hack = undefined;
 		}
+	}
 
-		color_arr = [ '#ddd', 'steelblue' ]; /* grey out 'main interval', highlight 'filtered interval' */
+
+	if (intervals_filter)
+	{
+		/* grey out 'main interval', highlight 'filtered interval' */
+		color_dict['whole'] = '#ddd';
+		color_dict['filtered'] = 'steelblue';
+
+		intervals_full.unshift( [ 'x', 'whole', 'filtered' ] );
+	}
+	else
+	{
+		intervals_full.unshift( [ 'x', 'whole' ] );
 	}
 
 	/* TODO, put mark of current packet (m_webshark_current_frame) */
 
-	var svg = d3.select("body").append("svg").remove();
+	var chart = c3.generate({
+		bindto: this.elem,
+		size: { width: 620, height: 100 },
+		legend: { position: 'inset', hide: true },
 
-	m_webshark_chart_module.webshark_d3_chart(svg, intervals_full,
-	{
-		width: 620, height: 100,
-		margin: {top: 0, right: 10, bottom: 20, left: 40},
+		axis: {
+			x: {
+				tick: {
+					fit: false
+				}
+			},
+			y: {
+				max: max_value_hack,
+				tick: {
+					format: d3.format(".0s")
+				}
+			}
+		},
 
-		xrange: [ 0, (last_one * this.scale) ],
+		data: {
+			x: 'x',
+			rows: intervals_full,
+			colors: color_dict,
+			type: 'area-spline'
+		},
 
-		getX: function(d) { return d[0]; },
-
-		unit1: 'k',
-		series3:
-		[
-			function(d) { return d[1]; },
-			function(d) { return d[2]; }
-		],
-
-		color: color_arr
+		interaction: {
+			enabled: false
+		}
 	});
-
-	window.webshark.dom_set_child(this.elem, svg.node());
 
 	this.descr_elem.innerHTML = this.create_description();
 };
