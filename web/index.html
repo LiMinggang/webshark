@@ -26,6 +26,7 @@
 		var g_webshark = null;
 		var g_webshark_packet_list = null;
 		var g_webshark_interval = null;
+		var g_webshark_iograph = null;
 
 		var g_webshark_files = null;
 		var g_webshark_display_filter = null;
@@ -369,6 +370,33 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			document.getElementById('capture_interval_' + new_mode).classList.add('selected');
 		}
 
+		function show_hide_graph(id, id2)
+		{
+			var elem = document.getElementById(id);
+			var elem2 = document.getElementById(id2);
+
+			if (elem.style['display'] != 'block')
+			{
+				elem.style['display'] = 'block';
+				elem2.classList.add('selected');
+			}
+			else
+			{
+				elem.style['display'] = "none";
+				elem2.classList.remove('selected');
+			}
+		}
+
+		function add_graph()
+		{
+			g_webshark_iograph.addGraph();
+		}
+
+		function render_graph()
+		{
+			g_webshark_iograph.update();
+		}
+
 		function bytes_display_base(new_base)
 		{
 			g_webshark_hexdump.base = new_base;
@@ -418,6 +446,13 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 				mode: "bps",
 				width: 620 /* number of probes - currently size of svg */
 			});
+
+			g_webshark_iograph = new window.webshark.WSIOGraph({
+				contentId: 'capture_graph',
+				tableId: 'capture_graph_table'
+			});
+
+			g_webshark_iograph.addGraph();
 
 			g_webshark_packet_list = new window.webshark.WSPacketList({
 				headerId: 'packet_list_header',
@@ -588,9 +623,35 @@ TODO: Give user possible to generate multiple reports by selecting checkboxes
 			<div style="float: right;">
 				<button id="capture_interval_bps" class="wsbutton selected" onclick="render_interval('bps')">Bytes</button>
 				<button id="capture_interval_fps" class="wsbutton" onclick="render_interval('fps')">Frames</button>
+				<button id="capture_interval_adv" class="wsbutton" style="margin-left: 15px;" onclick="show_hide_graph('report_graph', 'capture_interval_adv')">Advanced Graph</button>
 			</div>
 		</div>
 		<div style="clear: both;"></div>
+
+		<div id="report_graph" style="border: 2px solid grey; display: none;">
+			<h3 style="text-align: center;">Advanced graph</h3>
+			<div id="capture_graph">
+				<svg width="620" height="300"></svg>
+			</div>
+			<div>
+				<button class="wsbutton" onclick="add_graph()">Add Graph</button>
+				<button class="wsbutton" style="width: 200px; margin-left: 10px; background-color: lightblue;" onclick="render_graph()">Render</button>
+			</div>
+			<table class="packet_list" style="width: 100%;">
+				<thead>
+					<tr>
+						<th width="20%">Name</th>
+						<th width="30%">Display filter</th>
+						<th width="5%">Color</th>
+						<th width="10%">Style</th>
+						<th width="10%">Y Axis</th>
+						<th width="25%">Y Field</th>
+					</tr>
+				</thead>
+				<tbody id="capture_graph_table">
+				</tbody>
+			</table>
+		</div>
 	</div>
 
 	<div id="toolbar_tap" style="display: none;">

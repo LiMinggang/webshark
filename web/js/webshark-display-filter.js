@@ -104,7 +104,13 @@ function WSDisplayFilter(opts)
 {
 	var that = this;
 
-	this.elem = document.getElementById(opts['contentId']);
+	this.elem = opts['contentObj'];
+	if (!this.elem)
+		this.elem = document.getElementById(opts['contentId']);
+
+	this.mode = 'filter';
+	if (opts['singleField'] == true)
+		this.mode = 'field';
 
 	this.complete = new m_webshark_awesomplete_module(this.elem,
 		{
@@ -183,16 +189,27 @@ WSDisplayFilter.prototype.checkfilter = function()
 		return;
 	}
 
-	window.webshark.webshark_json_get(
+	var check_req =
 		{
-			req: 'check',
-			filter: el.value
-		},
+			req: 'check'
+		};
+
+	if (this.mode == 'field')
+		check_req['field'] = el.value;
+	else
+		check_req['filter'] = el.value;
+
+	window.webshark.webshark_json_get(check_req,
 		function(data)
 		{
-			if (data['filter'] == 'ok')
+			var txt = data['filter'];
+
+			if (that.mode == 'field')
+				txt = data['field'];
+
+			if (txt == 'ok')
 				el.className = 'ws_gui_text_valid';
-			else if (data['filter'] == 'deprecated')
+			else if (txt == 'deprecated')
 				el.className = 'ws_gui_text_deprecated';
 			else
 				el.className = 'ws_gui_text_invalid';
