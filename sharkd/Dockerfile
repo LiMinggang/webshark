@@ -1,7 +1,7 @@
-FROM ubuntu:18.04
+FROM ubuntu:18.10
 MAINTAINER Jakub Zawadzki <darkjames-ws@darkjames.pl>
 RUN apt-get update && apt-get install -y \
-	git make python cmake flex bison libglib2.0-dev libgcrypt20-dev \
+	git make python3 cmake flex bison libglib2.0-dev libgcrypt20-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://code.wireshark.org/review/wireshark
