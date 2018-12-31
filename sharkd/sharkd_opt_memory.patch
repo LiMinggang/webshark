@@ -1,17 +1,17 @@
 diff --git a/epan/frame_data.h b/epan/frame_data.h
-index 4da31019f2..1b8b4444d1 100644
+index d4b429b596..ae992f9c91 100644
 --- a/epan/frame_data.h
 +++ b/epan/frame_data.h
-@@ -77,7 +77,6 @@ typedef struct _frame_data {
-   const struct _color_filter *color_filter;  /**< Per-packet matching color_filter_t object */
- 
+@@ -89,7 +89,6 @@ typedef struct _frame_data {
+   unsigned int need_colorize    : 1; /**< 1 = need to (re-)calculate packet color */
+   unsigned int tsprec           : 4; /**< Time stamp precision -2^tsprec gives up to femtoseconds */
    nstime_t     abs_ts;       /**< Absolute timestamp */
 -  nstime_t     shift_offset; /**< How much the abs_tm of the frame is shifted */
    guint32      frame_ref_num; /**< Previous reference frame (0 if this is one) */
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index 8a61a5a323..fb0fba6d66 100644
+index 55de4126bb..2c08090e0a 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
 @@ -47,7 +47,6 @@ static int proto_pkt_comment = -1;
@@ -22,7 +22,7 @@ index 8a61a5a323..fb0fba6d66 100644
  static int hf_frame_arrival_time_epoch = -1;
  static int hf_frame_time_delta = -1;
  static int hf_frame_time_delta_displayed = -1;
-@@ -456,9 +455,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
+@@ -457,9 +456,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
  								  " the valid range is 0-1000000000",
  								  (long) pinfo->abs_ts.nsecs);
  			}
@@ -32,7 +32,7 @@ index 8a61a5a323..fb0fba6d66 100644
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -775,11 +771,6 @@ proto_register_frame(void)
+@@ -776,11 +772,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
@@ -45,12 +45,12 @@ index 8a61a5a323..fb0fba6d66 100644
  		  { "Epoch Time", "frame.time_epoch",
  		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 diff --git a/epan/frame_data.c b/epan/frame_data.c
-index 4d95c07c8c..4a7c978ac4 100644
+index 4ccd318b9a..cf29e7a49c 100644
 --- a/epan/frame_data.c
 +++ b/epan/frame_data.c
-@@ -201,8 +201,6 @@ frame_data_init(frame_data *fdata, guint32 num, const wtap_rec *rec,
-   fdata->flags.has_user_comment = 0;
-   fdata->flags.need_colorize = 0;
+@@ -202,8 +202,6 @@ frame_data_init(frame_data *fdata, guint32 num, const wtap_rec *rec,
+   fdata->has_user_comment = 0;
+   fdata->need_colorize = 0;
    fdata->color_filter = NULL;
 -  fdata->shift_offset.secs = 0;
 -  fdata->shift_offset.nsecs = 0;

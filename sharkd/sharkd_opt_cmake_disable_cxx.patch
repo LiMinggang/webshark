@@ -1,17 +1,17 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9baa26538d..77f73cbd60 100644
+index e175bc6177..e82b352c46 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -7,7 +7,7 @@
- # SPDX-License-Identifier: GPL-2.0-or-later
- #
- 
+@@ -13,7 +13,7 @@ if(WIN32)
+ else()
+ 	cmake_minimum_required(VERSION 3.5)
+ endif()
 -project(Wireshark C CXX)
 +project(Wireshark C)
  
  # Updated by make-version.pl
  set(GIT_REVISION 0)
-@@ -678,9 +678,6 @@ foreach(THIS_FLAG ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_C_ONLY_FLAGS})
+@@ -743,9 +743,6 @@ foreach(THIS_FLAG ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_C_ONLY_FLAGS})
  endforeach()
  set(CMAKE_C_FLAGS "${ADDED_CMAKE_C_FLAGS} ${CMAKE_C_FLAGS}")
  

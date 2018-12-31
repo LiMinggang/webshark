@@ -81,12 +81,6 @@ struct sharkd_filter_item
 
 static GHashTable *filter_table = NULL;
 
-static gboolean
-json_unescape_str(char *input)
-{
-	return wsjson_unescape_json_string(input, input);
-}
-
 static const char *
 json_find_attr(const char *buf, const jsmntok_t *tokens, int count, const char *attr)
 {
@@ -487,6 +481,8 @@ sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
  * Process info request
  *
  * Output object with attributes:
+ *   (m) version - version number
+ *
  *   (m) columns - available column formats, array of object with attributes:
  *                  'name'   - column name
  *                  'format' - column format-name
@@ -515,15 +511,20 @@ sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
  *                  'name' - sequence analysis name
  *                  'tap'  - sharkd tap-name
  *
- *   (m) taps - available taps, array of object with attributes:
+ *   (m) taps    - available taps, array of object with attributes:
  *                  'name' - tap name
  *                  'tap'  - sharkd tap-name
  *
- *   (m) follow - available followers, array of object with attributes:
+ *   (m) follow  - available followers, array of object with attributes:
  *                  'name' - tap name
  *                  'tap'  - sharkd tap-name
  *
- *   (m) ftypes   - conversation table for FT_ number to string
+ *   (m) ftypes  - conversation table for FT_ number to string, array of FT_xxx strings.
+ *
+ *   (m) nstat   - available table-based taps, array of object with attributes:
+ *                  'name' - tap name
+ *                  'tap'  - sharkd tap-name
+ *
  */
 static void
 sharkd_session_process_info(void)
@@ -1028,16 +1029,16 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 		sharkd_json_value_anyf(TRUE, "num", "%u", framenum);
 
-		if (fdata->flags.has_user_comment || fdata->flags.has_phdr_comment)
+		if (fdata->has_user_comment || fdata->has_phdr_comment)
 		{
-			if (!fdata->flags.has_user_comment || sharkd_get_user_comment(fdata) != NULL)
+			if (!fdata->has_user_comment || sharkd_get_user_comment(fdata) != NULL)
 				sharkd_json_value_anyf(TRUE, "ct", "true");
 		}
 
-		if (fdata->flags.ignored)
+		if (fdata->ignored)
 			sharkd_json_value_anyf(TRUE, "i", "true");
 
-		if (fdata->flags.marked)
+		if (fdata->marked)
 			sharkd_json_value_anyf(TRUE, "m", "true");
 
 		if (fdata->color_filter)
@@ -1076,9 +1077,20 @@ sharkd_session_process_tap_stats_node_cb(const stat_node *n)
 		sharkd_json_value_anyf(TRUE, "count", "%d", node->counter);
 		if (node->counter && ((node->st_flags & ST_FLG_AVERAGE) || node->rng))
 		{
-			sharkd_json_value_anyf(TRUE, "avg", "%.2f", ((float)node->total) / node->counter);
-			sharkd_json_value_anyf(TRUE, "min", "%d", node->minvalue);
-			sharkd_json_value_anyf(TRUE, "max", "%d", node->maxvalue);
+			switch (node->datatype)
+			{
+			case STAT_DT_INT:
+				sharkd_json_value_anyf(TRUE, "avg", "%.2f", ((float)node->total.int_total) / node->counter);
+				sharkd_json_value_anyf(TRUE, "min", "%d", node->minvalue.int_min);
+				sharkd_json_value_anyf(TRUE, "max", "%d", node->maxvalue.int_max);
+				break;
+
+			case STAT_DT_FLOAT:
+				sharkd_json_value_anyf(TRUE, "avg", "%.2f", node->total.float_total / node->counter);
+				sharkd_json_value_anyf(TRUE, "min", "%f", node->minvalue.float_min);
+				sharkd_json_value_anyf(TRUE, "max", "%f", node->maxvalue.float_max);
+				break;
+			}
 		}
 
 		if (node->st->elapsed)
@@ -2008,6 +2020,7 @@ sharkd_session_process_tap_rtp_analyse_cb(void *tapdata)
  *   (m) type       - tap output type
  *   (m) proto      - protocol short name
  *   (o) filter     - filter string
+ *   (o) geoip      - whether GeoIP information is available, boolean
  *
  *   (o) convs      - array of object with attributes:
  *                  (m) saddr - source address
@@ -2020,6 +2033,7 @@ sharkd_session_process_tap_rtp_analyse_cb(void *tapdata)
  *                  (m) rxb   - RX bytes
  *                  (m) start - (relative) first packet time
  *                  (m) stop  - (relative) last packet time
+ *                  (o) filter - conversation filter
  *
  *   (o) hosts      - array of object with attributes:
  *                  (m) host - host address
@@ -3204,6 +3218,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 
 	sharkd_json_array_open(FALSE, "taps");
 	sharkd_retap();
+	/* This dummy value exists to permit unconditionally adding ',' in the taps callback. */
 	sharkd_json_value_anyf(FALSE, NULL, "null");
 	sharkd_json_array_close();
 
@@ -3509,9 +3524,9 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 	sharkd_json_value_anyf(FALSE, "err", "0");
 
-	if (fdata->flags.has_user_comment)
+	if (fdata->has_user_comment)
 		pkt_comment = sharkd_get_user_comment(fdata);
-	else if (fdata->flags.has_phdr_comment)
+	else if (fdata->has_phdr_comment)
 		pkt_comment = pi->rec->opt_comment;
 
 	if (pkt_comment)
@@ -3559,10 +3574,10 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 		sharkd_json_array_close();
 	}
 
-	if (fdata->flags.ignored)
+	if (fdata->ignored)
 		sharkd_json_value_anyf(TRUE, "i", "true");
 
-	if (fdata->flags.marked)
+	if (fdata->marked)
 		sharkd_json_value_anyf(TRUE, "m", "true");
 
 	if (fdata->color_filter)
@@ -3587,7 +3602,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 		{
 			const guchar *cp = tvb_get_ptr(tvb, 0, length);
 
-			/* XXX pi.fd->flags.encoding */
+			/* XXX pi.fd->encoding */
 			sharkd_json_value_base64(TRUE, "bytes", cp, length);
 		}
 		else
@@ -3622,7 +3637,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 			{
 				const guchar *cp = tvb_get_ptr(tvb, 0, length);
 
-				/* XXX pi.fd->flags.encoding */
+				/* XXX pi.fd->encoding */
 				sharkd_json_value_base64(TRUE, "bytes", cp, length);
 			}
 			else
@@ -3642,6 +3657,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 	}
 
 	sharkd_json_array_open(TRUE, "fol");
+	/* This dummy entry allows sharkd_follower_visit_layers_cb() to always insert ',' before dumping item. */
 	sharkd_json_value_anyf(FALSE, NULL, "0");
 	follow_iterate_followers(sharkd_follower_visit_layers_cb, pi);
 	sharkd_json_array_close();
@@ -4943,7 +4959,7 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 		buf[tokens[i + 1].end] = '\0';
 
 		/* unescape only value, as keys are simple strings */
-		if (tokens[i + 1].type == JSMN_STRING && !json_unescape_str(&buf[tokens[i + 1].start]))
+		if (tokens[i + 1].type == JSMN_STRING && !json_decode_string_inplace(&buf[tokens[i + 1].start]))
 		{
 			fprintf(stderr, "sanity check(3b): [%d] cannot unescape string\n", i + 1);
 			return;
@@ -5038,7 +5054,7 @@ sharkd_session_main(void)
 		/* every command is line seperated JSON */
 		int ret;
 
-		ret = wsjson_parse(buf, NULL, 0);
+		ret = json_parse(buf, NULL, 0);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON -> closing\n");
@@ -5056,7 +5072,7 @@ sharkd_session_main(void)
 
 		memset(tokens, 0, ret * sizeof(jsmntok_t));
 
-		ret = wsjson_parse(buf, tokens, ret);
+		ret = json_parse(buf, tokens, ret);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON(2) -> closing\n");
