@@ -20,6 +20,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import PermissionDenied
 
 import sys
 import os
@@ -50,20 +51,38 @@ sharkd_json_sepa = (',', ':')
 def sharkd_json_dump(obj):
     return json.dumps(obj, check_circular=False, separators=sharkd_json_sepa)
 
-def sharkd_instance(cap_file):
-    shark = captures.get(cap_file, None)
+def sharkd_check_permission(cap_obj, user):
+    if cap_obj.owner:
+        return (cap_obj.owner == user)
+    return True
 
-    if shark == None:
+def sharkd_check_permission_exception(cap_obj, user):
+    if not sharkd_check_permission(cap_obj, user):
+        raise PermissionDenied
+
+def sharkd_instance(cap_file, user):
+    capture = captures.get(cap_file, None)
+
+    if capture == None:
+        cap_obj = None
+
+        if cap_file != '':
+            try:
+                cap_obj = Capture.objects.filter(filename=cap_file).get()
+                sharkd_check_permission_exception(cap_obj, user)
+            except Capture.DoesNotExist:
+                pass
+
         try:
             shark = SharkdClient('@sharkd-socket')
         except ConnectionRefusedError:
             subprocess.call([ "sharkd", "unix:@sharkd-socket"])
             raise
 
-        captures[cap_file] = shark
         if cap_file != '':
-            settings = CaptureSettings.objects.filter(capture__filename=cap_file).all()
-            comments = CaptureComments.objects.filter(capture__filename=cap_file).all()
+            settings = CaptureSettings.objects.filter(capture=cap_obj).all()
+            comments = CaptureComments.objects.filter(capture=cap_obj).all()
+
             for s in settings:
                 shark.send_req(dict(req='setconf', name=s.var, value=s.value))
 
@@ -77,7 +96,13 @@ def sharkd_instance(cap_file):
                     commenter['comment'] = c.comment
                 shark.send_req(commenter)
 
-    return shark
+        capture = dict(sharkd=shark, obj=cap_obj)
+        captures[cap_file] = capture
+
+    elif capture['obj']:
+        sharkd_check_permission_exception(capture['obj'], user)
+
+    return capture['sharkd']
 
 def sharkd_capture_get_or_create(filename):
     try:
@@ -90,7 +115,7 @@ def sharkd_capture_get_or_create(filename):
         analysis = shark.send_req(dict(req='analyse'))
         shark.send_req(dict(req='bye'))
 
-        obj = Capture(filename=filename, description='', analysis=analysis)
+        obj = Capture(filename=filename, description='', analysis=analysis, owner=None)
         obj.save()
     return obj
 
@@ -104,13 +129,21 @@ def sharkd_file_list_refresh_db():
 
     return ''
 
-def sharkd_file_list_chunk(result, filenames):
+def sharkd_file_list_chunk(result, filenames, user):
     objs = dict( (item.filename, item) for item in Capture.objects.filter(filename__in=filenames) )
 
     for filename in filenames:
         full_filename = cap_dir + filename
 
         cap = dict()
+
+        obj = objs.get(filename, None)
+        if obj:
+            if not sharkd_check_permission(obj, user):
+                continue
+            cap['analysis'] = json.loads(obj.analysis)
+            cap['desc'] = obj.description
+
         cap['name'] = os.path.basename(filename)
         if os.path.isdir(full_filename):
             cap['dir'] = True
@@ -119,14 +152,9 @@ def sharkd_file_list_chunk(result, filenames):
             if captures.get(filename, False):
                 cap['status'] = dict(online=True) ## TODO: CPU time, memory usage, ...
 
-            obj = objs.get(filename, None)
-            if obj:
-                cap['analysis'] = json.loads(obj.analysis)
-                cap['desc'] = obj.description
-
         result.append(cap)
 
-def sharkd_file_list(directory):
+def sharkd_file_list(directory, user):
     result = list()
     filenames = list()
 
@@ -139,11 +167,11 @@ def sharkd_file_list(directory):
             filenames.append(filename)
 
             if len(filenames) > 1000:
-                sharkd_file_list_chunk(result, filenames)
+                sharkd_file_list_chunk(result, filenames, user)
                 filenames = list()
 
     if len(filenames) > 0:
-        sharkd_file_list_chunk(result, filenames)
+        sharkd_file_list_chunk(result, filenames, user)
 
     reldir = os.path.relpath(thisdir, cap_dir)
 
@@ -163,7 +191,7 @@ def json_handle_request(request):
         directory = request.GET.get('dir', '')
         if '..' in directory:
             return sharkd_json_dump(dict(err=1, errstr="Nope"))
-        return sharkd_json_dump(sharkd_file_list(directory))
+        return sharkd_json_dump(sharkd_file_list(directory, request.user))
 
     # internal requests
     if req == 'load':
@@ -180,14 +208,22 @@ def json_handle_request(request):
         cap_file = os.path.relpath(cap_dir + cap_file, cap_dir)
 
     if req == 'setcomment':
-        # TODO: check permissions, when ready...
+        cap_obj = sharkd_capture_get_or_create(cap_file)
+        sharkd_check_permission_exception(cap_obj, request.user)
+
         frame = request.GET.get("frame")
         comment = request.GET.get("comment", '')
 
-        cap_obj = sharkd_capture_get_or_create(cap_file)
         obj, created = CaptureComments.objects.update_or_create(capture=cap_obj, framenum=frame, defaults={'comment': comment})
         obj.save()
         # TODO, send notification to other clients, when ready...
+
+    # TODO, download request don't need sharkd instance, but sharkd_instance() also checks permissions.
+    try:
+        lock.acquire()
+        shark = sharkd_instance(cap_file, request.user)
+    finally:
+        lock.release()
 
     if req == 'download':
         ## FIXME
@@ -201,12 +237,6 @@ def json_handle_request(request):
 
             response.write(data)
             return response
-
-    try:
-        lock.acquire()
-        shark = sharkd_instance(cap_file)
-    finally:
-        lock.release()
 
     try:
         ret = shark.send_req(request.GET.dict())
@@ -248,7 +278,7 @@ def json_req(request):
 
     return HttpResponse(js, content_type="application/json")
 
-def handle_uploaded_file(f):
+def handle_uploaded_file(f, owner):
     if f.size > 10 * 1024 * 1024:
         return
 
@@ -277,7 +307,7 @@ def handle_uploaded_file(f):
             js['name'] = filename
             os.rename(tmp_name, cap_dir + filename)
 
-            obj = Capture(filename=filename, description=desc, analysis=analysis)
+            obj = Capture(filename=filename, description=desc, analysis=analysis, owner=owner)
             obj.save()
 
         else:
@@ -296,4 +326,8 @@ def upload_file(request):
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            return handle_uploaded_file(request.FILES['f'])
+            owner = None
+            if request.user.is_authenticated():
+                owner = request.user
+
+            return handle_uploaded_file(request.FILES['f'], owner)
