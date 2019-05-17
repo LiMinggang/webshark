@@ -1,8 +1,8 @@
 diff --git a/sharkd_daemon.c b/sharkd_daemon.c
-index 89af1ebcb5..3d543532f7 100644
+index f2397821bf..cdebc9e2e8 100644
 --- a/sharkd_daemon.c
 +++ b/sharkd_daemon.c
-@@ -45,7 +45,8 @@
+@@ -46,7 +46,8 @@
  /* for windows support TCP sockets */
  # define SHARKD_TCP_SUPPORT
  #else
@@ -13,7 +13,7 @@ index 89af1ebcb5..3d543532f7 100644
  #endif
  
 diff --git a/ui/voip_calls.c b/ui/voip_calls.c
-index 2d3d41f4c7..1b25780d9e 100644
+index 6942c8154e..3dcf5c2cf0 100644
 --- a/ui/voip_calls.c
 +++ b/ui/voip_calls.c
 @@ -54,8 +54,10 @@

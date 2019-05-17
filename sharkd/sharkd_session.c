@@ -62,7 +62,7 @@
 #ifdef HAVE_SPEEXDSP
 # include <speex/speex_resampler.h>
 #else
-# include <codecs/speex/speex_resampler.h>
+# include "speexdsp/speex_resampler.h"
 #endif /* HAVE_SPEEXDSP */
 
 #include <epan/maxmind_db.h>
@@ -1737,10 +1737,9 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 
 	if (addr->type == AT_IPv4)
 	{
-		guint32 ip;
+		const ws_in4_addr *ip4 = (const ws_in4_addr *) addr->data;
 
-		memcpy(&ip, addr->data, 4);
-		lookup = maxmind_db_lookup_ipv4(ip);
+		lookup = maxmind_db_lookup_ipv4(ip4);
 	}
 	else if (addr->type == AT_IPv6)
 	{

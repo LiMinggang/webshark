@@ -1,17 +1,17 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e175bc6177..e82b352c46 100644
+index 4750b28633..036809fd61 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -13,7 +13,7 @@ if(WIN32)
- else()
- 	cmake_minimum_required(VERSION 3.5)
+@@ -23,7 +23,7 @@ else()
+ 	set(_project_name wireshark)
  endif()
--project(Wireshark C CXX)
-+project(Wireshark C)
  
- # Updated by make-version.pl
+-project(${_project_name} C CXX)
++project(${_project_name} C)
+ 
+ # Updated by tools/make-version.pl
  set(GIT_REVISION 0)
-@@ -743,9 +743,6 @@ foreach(THIS_FLAG ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_C_ONLY_FLAGS})
+@@ -776,9 +776,6 @@ foreach(THIS_FLAG ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_C_ONLY_FLAGS})
  endforeach()
  set(CMAKE_C_FLAGS "${ADDED_CMAKE_C_FLAGS} ${CMAKE_C_FLAGS}")
  
@@ -20,4 +20,12 @@ index e175bc6177..e82b352c46 100644
 -endforeach()
  set(CMAKE_CXX_FLAGS "${ADDED_CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS}")
  
- include(CMakePushCheckState)
+ # Strips the source and build directory prefix from the __FILE__ macro to ensure
+@@ -791,7 +788,6 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+ 	string(REGEX REPLACE "/$" "" _relative_source_dir "${_relative_source_dir}")
+ 
+ 	check_c_compiler_flag(-fmacro-prefix-map=old=new C_fmacro_prefix_map_old_new_VALID)
+-	check_cxx_compiler_flag(-fmacro-prefix-map=old=new CXX_fmacro_prefix_map_old_new_VALID)
+ 	foreach(_lang C CXX)
+ 		if(${_lang}_fmacro_prefix_map_old_new_VALID)
+ 			set(_flags CMAKE_${_lang}_FLAGS)

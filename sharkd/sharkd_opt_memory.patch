@@ -11,7 +11,7 @@ index d4b429b596..ae992f9c91 100644
    guint32      prev_dis_num; /**< Previous displayed frame (0 if first one) */
  } frame_data;
 diff --git a/epan/dissectors/packet-frame.c b/epan/dissectors/packet-frame.c
-index 55de4126bb..2c08090e0a 100644
+index fdf2ea2ee2..526133dd75 100644
 --- a/epan/dissectors/packet-frame.c
 +++ b/epan/dissectors/packet-frame.c
 @@ -47,7 +47,6 @@ static int proto_pkt_comment = -1;
@@ -22,17 +22,17 @@ index 55de4126bb..2c08090e0a 100644
  static int hf_frame_arrival_time_epoch = -1;
  static int hf_frame_time_delta = -1;
  static int hf_frame_time_delta_displayed = -1;
-@@ -457,9 +456,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
+@@ -476,9 +475,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void*
  								  " the valid range is 0-1000000000",
  								  (long) pinfo->abs_ts.nsecs);
  			}
 -			item = proto_tree_add_time(fh_tree, hf_frame_shift_offset, tvb,
 -					    0, 0, &(pinfo->fd->shift_offset));
--			PROTO_ITEM_SET_GENERATED(item);
+-			proto_item_set_generated(item);
  
  			if (generate_epoch_time) {
  				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-@@ -776,11 +772,6 @@ proto_register_frame(void)
+@@ -829,11 +825,6 @@ proto_register_frame(void)
  		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
  		    "Absolute time when this frame was captured", HFILL }},
  
@@ -58,10 +58,10 @@ index 4ccd318b9a..cf29e7a49c 100644
    fdata->prev_dis_num = 0;
  }
 diff --git a/ui/CMakeLists.txt b/ui/CMakeLists.txt
-index b73e73c746..3338e10cbe 100644
+index f430bb079b..79891032d3 100644
 --- a/ui/CMakeLists.txt
 +++ b/ui/CMakeLists.txt
-@@ -49,7 +49,6 @@ set(NONGENERATED_UI_SRC
+@@ -51,7 +51,6 @@ set(NONGENERATED_UI_SRC
  	tap-rlc-graph.c
  	tap-tcp-stream.c
  	text_import.c
