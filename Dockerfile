@@ -1,5 +1,5 @@
 ## example: docker run -v ~/pcaps:/caps -p 8000:80 -it webshark/webshark:devel
-FROM ubuntu:18.10
+FROM ubuntu:19.04
 MAINTAINER Jakub Zawadzki <darkjames-ws@darkjames.pl>
 RUN apt-get update && apt-get install -y \
 	python3-django libglib2.0-0 \
@@ -32,7 +32,7 @@ RUN ./manage.py makemigrations
 RUN ./manage.py migrate
 
 ## See README.md for sharkd.tar.gz build instructions.
-ADD sharkd.tar.gz /
+ADD out/sharkd.tar.gz /
 
 EXPOSE 80
 CMD ["./manage.py", "runserver", "0.0.0.0:80"]
